@@ -1,0 +1,37 @@
+{
+  "name": "trustbot-system",
+  "version": "1.0.0",
+  "description": "Tier 5 TrustBot System - Holonic Swarm Intelligence with Fading HITL Governance",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "game": "tsx src/game/index.ts",
+    "api": "tsx src/api/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "web": "cd web && npm run dev",
+    "web:build": "cd web && npm run build"
+  },
+  "keywords": [
+    "ai-agents",
+    "swarm-intelligence",
+    "holonic-systems",
+    "trustbot",
+    "orchestration"
+  ],
+  "author": "TrustBot System",
+  "license": "MIT",
+  "dependencies": {
+    "uuid": "^9.0.0",
+    "yaml": "^2.3.4",
+    "eventemitter3": "^5.0.1",
+    "date-fns": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/uuid": "^9.0.7",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}

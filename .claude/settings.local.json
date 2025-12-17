@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(npx bmad-method@alpha install:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(printf:*)",
+      "Bash(git clone:*)",
+      "Bash(git ls-remote:*)",
+      "Bash(npm install:*)",
+      "WebFetch(domain:web-626.vercel.app)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npx vercel:*)",
+      "WebFetch(domain:claude.ai)",
+      "Bash(unzip:*)",
+      "Bash(ls -la \"C:\\Users\\racas\\.gemini\\antigravity\\playground\\scarlet-armstrong\\web\\api\"\" 2>/dev/null || dir \"C:Usersracas.geminiantigravityplaygroundscarlet-armstrongwebapi\"\")",
+      "Bash(dir /b \"C:\\Users\\racas\\.gemini\\antigravity\\playground\\scarlet-armstrong\\web\\api\")",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit - TrustBot Unified System\n\nComplete infrastructure for autonomous AI agent orchestration with:\n- Trust tier system (6 levels: UNTRUSTED to ELITE)\n- Anti-delegation rules preventing infinite task passing\n- Agent-guided Genesis Protocol onboarding\n- Mission Control (shared intelligence hub)\n- MCP server integration (10 tools)\n- Real-time SSE streaming\n- Vercel KV persistence\n- Claude API executor for real LLM reasoning\n\nFeatures:\n- 5 T5 founding agents (Architect, Overseer, Head of Ops, Recruiter, Evolver)\n- Task delegation with max 2 delegations enforced\n- Trust rewards/penalties system\n- Interactive dashboard with building visualization\n- Help panel with searchable documentation\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")"
+    ]
+  }
+}
