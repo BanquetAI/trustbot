@@ -15,6 +15,24 @@ import { EventEmitter } from 'eventemitter3';
 import { TrustEngine } from '../core/TrustEngine.js';
 import { Blackboard } from '../core/Blackboard.js';
 import { SecurityLayer, type AuthToken, type AuditAction, type AuditEntry, type Permission } from '../core/SecurityLayer.js';
+// Security middleware imports
+import {
+    corsMiddleware,
+    rateLimitMiddleware,
+    securityHeadersMiddleware,
+    requestIdMiddleware,
+    type CORSConfig,
+    type RateLimitConfig,
+} from './middleware/security.js';
+import {
+    validate,
+    validateCreateTask,
+    validateSpawnAgent,
+    validateDelegationRequest,
+    validateVote,
+    validateAuth,
+    validateAggressiveness,
+} from './middleware/validation.js';
 import { PersistenceLayer, type PersistedState } from '../core/PersistenceLayer.js';
 import { SupabasePersistence, hasSupabaseConfig, getSupabasePersistence, type Agent as SupabaseAgent } from '../core/SupabasePersistence.js';
 // Epic 5: Import new core services
@@ -563,8 +581,26 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
 export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: SupabasePersistence | null = null): Hono {
     const app = new Hono();
 
-    // CORS
-    app.use('*', cors());
+    // Security middleware stack
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://localhost:3002',
+        'http://localhost:3003',
+        'http://localhost:3005',
+        'http://localhost:5173',
+        'http://localhost:5174',
+        '*.vercel.app',
+    ];
+
+    app.use('*', requestIdMiddleware());
+    app.use('*', corsMiddleware({ allowedOrigins }));
+    app.use('*', securityHeadersMiddleware());
+    app.use('*', rateLimitMiddleware({
+        windowMs: 60000,     // 1 minute
+        maxRequests: 100,    // 100 requests per minute
+        skipPaths: ['/health', '/api/health'],
+    }));
 
     // Health check
     app.get('/health', (c) => c.json({

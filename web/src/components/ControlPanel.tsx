@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api';
+import { FormField, SelectField, useToast } from './ui';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface ControlPanelProps {
     hitlLevel: number;
     onSetHITL: (level: number) => void;
     onSpawn: (name: string, type: string, tier: number) => void;
     onClose: () => void;
-    onAdvanceDay: () => void;
 }
 
-export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvanceDay }: ControlPanelProps) {
+export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose }: ControlPanelProps) {
+    const toast = useToast();
+    const { containerRef } = useFocusTrap({ enabled: true, onEscape: onClose });
+
     const [spawnName, setSpawnName] = useState('');
     const [spawnType, setSpawnType] = useState('WORKER');
     const [spawnTier, setSpawnTier] = useState(1);
@@ -27,11 +31,11 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
     // Task creation state
     const [taskDescription, setTaskDescription] = useState('');
     const [taskLoading, setTaskLoading] = useState(false);
-    const [taskMessage, setTaskMessage] = useState('');
 
     const handleSpawn = () => {
         if (spawnName.trim()) {
             onSpawn(spawnName, spawnType, spawnTier);
+            toast.success(`Agent "${spawnName}" spawned as ${spawnType}`, { title: 'Agent Created' });
             setSpawnName('');
         }
     };
@@ -47,8 +51,10 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
                 completed: result.completed,
                 events: result.events || [],
             });
+            toast.success(`Processed ${result.processed} tasks, ${result.completed} completed`, { title: 'Tick Complete' });
         } catch (e) {
             console.error('Tick failed:', e);
+            toast.error('Failed to run agent tick', { title: 'Tick Error' });
         }
         setTickLoading(false);
     };
@@ -56,23 +62,30 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
     const handleCreateTask = async () => {
         if (!taskDescription.trim()) return;
         setTaskLoading(true);
-        setTaskMessage('');
         try {
             const result = await api.createTask(taskDescription, 'Founder', 'NORMAL');
-            setTaskMessage(result.message || 'Task created!');
+            toast.success(result.message || 'Task created and queued for processing', { title: 'Task Created' });
             setTaskDescription('');
         } catch (e) {
-            setTaskMessage('Failed to create task');
+            toast.error('Failed to create task', { title: 'Task Error' });
         }
         setTaskLoading(false);
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal control-panel" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
+            <div
+                ref={containerRef}
+                className="modal control-panel"
+                onClick={e => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="control-panel-title"
+                tabIndex={-1}
+            >
                 <div className="modal-header">
-                    <h2>🎛️ Control Panel</h2>
-                    <button className="close-btn" onClick={onClose}>✕</button>
+                    <h2 id="control-panel-title">🎛️ Control Panel</h2>
+                    <button className="close-btn" onClick={onClose} aria-label="Close control panel">✕</button>
                 </div>
 
                 <div className="modal-content">
@@ -139,11 +152,6 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
                                 {taskLoading ? '...' : 'Create'}
                             </button>
                         </div>
-                        {taskMessage && (
-                            <div style={{ fontSize: '0.8rem', color: 'var(--accent-green)', marginTop: '8px' }}>
-                                {taskMessage}
-                            </div>
-                        )}
                     </div>
 
                     {/* HITL Level Control */}
@@ -173,36 +181,51 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
                     {/* Spawn Agent */}
                     <div className="control-section">
                         <h3>🏭 Spawn New Agent</h3>
-                        <div className="spawn-form">
-                            <input
-                                type="text"
-                                placeholder="Agent name..."
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <FormField
+                                label="Agent Name"
                                 value={spawnName}
-                                onChange={e => setSpawnName(e.target.value)}
-                                className="spawn-input"
+                                onChange={setSpawnName}
+                                placeholder="Enter agent name..."
+                                required
+                                minLength={2}
+                                maxLength={30}
+                                helperText="2-30 characters, unique identifier"
+                                onSubmit={handleSpawn}
                             />
-                            <select
-                                value={spawnType}
-                                onChange={e => setSpawnType(e.target.value)}
-                                className="spawn-select"
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                                <SelectField
+                                    label="Agent Type"
+                                    value={spawnType}
+                                    onChange={setSpawnType}
+                                    options={[
+                                        { value: 'LISTENER', label: 'Listener (T0)', icon: '👂' },
+                                        { value: 'WORKER', label: 'Worker (T1)', icon: '🤖' },
+                                        { value: 'SPECIALIST', label: 'Specialist (T2)', icon: '🔧' },
+                                        { value: 'ORCHESTRATOR', label: 'Orchestrator (T3)', icon: '📋' },
+                                    ]}
+                                    helperText="Role determines capabilities"
+                                />
+                                <SelectField
+                                    label="Trust Tier"
+                                    value={spawnTier}
+                                    onChange={(v) => setSpawnTier(Number(v))}
+                                    options={[
+                                        { value: 0, label: 'Tier 0 - Untrusted' },
+                                        { value: 1, label: 'Tier 1 - Probationary' },
+                                        { value: 2, label: 'Tier 2 - Trusted' },
+                                        { value: 3, label: 'Tier 3 - Verified' },
+                                    ]}
+                                    helperText="Starting trust level"
+                                />
+                            </div>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleSpawn}
+                                disabled={!spawnName.trim() || spawnName.length < 2}
+                                style={{ marginTop: '8px' }}
                             >
-                                <option value="LISTENER">👂 Listener (T0)</option>
-                                <option value="WORKER">🤖 Worker (T1)</option>
-                                <option value="SPECIALIST">🔧 Specialist (T2)</option>
-                                <option value="ORCHESTRATOR">📋 Orchestrator (T3)</option>
-                            </select>
-                            <select
-                                value={spawnTier}
-                                onChange={e => setSpawnTier(Number(e.target.value))}
-                                className="spawn-select"
-                            >
-                                <option value={0}>Tier 0</option>
-                                <option value={1}>Tier 1</option>
-                                <option value={2}>Tier 2</option>
-                                <option value={3}>Tier 3</option>
-                            </select>
-                            <button className="btn btn-primary" onClick={handleSpawn}>
-                                Spawn
+                                🚀 Spawn Agent
                             </button>
                         </div>
                     </div>
@@ -277,13 +300,6 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onAdvance
                         </p>
                     </div>
 
-                    {/* Time Control */}
-                    <div className="control-section">
-                        <h3>⏰ Time Control</h3>
-                        <button className="btn btn-secondary" onClick={onAdvanceDay}>
-                            ⏭️ Advance to Next Day
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>

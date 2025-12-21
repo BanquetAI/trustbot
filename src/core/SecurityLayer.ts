@@ -112,7 +112,7 @@ export class SecurityLayer extends EventEmitter<SecurityEvents> {
     private auditLog: AuditEntry[] = [];
     private revokedTokens: Set<string> = new Set();
 
-    // Human master key (in production, this would be env-based)
+    // Human master key (from env or generated)
     private humanMasterKey: string;
 
     // TRUST-2.6: Cryptographic audit logger
@@ -120,8 +120,14 @@ export class SecurityLayer extends EventEmitter<SecurityEvents> {
 
     constructor(masterKey?: string, cryptoLogger?: CryptographicAuditLogger) {
         super();
-        this.humanMasterKey = masterKey ?? this.generateMasterKey();
+        // Priority: constructor arg > env var > generated
+        this.humanMasterKey = masterKey ?? process.env.MASTER_KEY ?? this.generateMasterKey();
         this.cryptoAuditLogger = cryptoLogger ?? new CryptographicAuditLogger();
+
+        // Warn if using generated key in production
+        if (!masterKey && !process.env.MASTER_KEY && process.env.NODE_ENV === 'production') {
+            console.warn('⚠️  MASTER_KEY not set - generating random key. Set MASTER_KEY env var for persistence.');
+        }
     }
 
     // -------------------------------------------------------------------------

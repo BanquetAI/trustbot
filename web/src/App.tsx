@@ -1,81 +1,66 @@
-// TrustBot HQ - Main Application
+// TrustBot HQ - Main Application with Aria Console
 import { useState, useEffect } from 'react';
 import { LoginScreen } from './components/LoginScreen';
-import { Building } from './components/Building';
-import { Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
+import { Console } from './components/Console';
 import { ControlPanel } from './components/ControlPanel';
-import { BlackboardModal } from './components/BlackboardModal';
-import { RoomModal } from './components/RoomModal';
 import { BlueprintSelector } from './components/BlueprintSelector';
 import { IntegrationConfig } from './components/IntegrationConfig';
 import { HITLExplanation } from './components/HITLExplanation';
 import { AgentListModal } from './components/AgentListModal';
 import { TrustBreakdownModal } from './components/TrustBreakdownModal';
-import { BlackboardFilterModal } from './components/BlackboardFilterModal';
 import { MetricsDashboard } from './components/MetricsDashboard';
 import { ConnectionStatusModal } from './components/ConnectionStatusModal';
 import { AgentProfilePage } from './components/AgentProfilePage';
 import { TaskBoard } from './components/TaskBoard';
-import { SmartBlackboard } from './components/SmartBlackboard';
 import { SkillsManagementModal } from './components/SkillsManagementModal';
 import { CommsDashboard } from './components/CommsDashboard';
-import { MobileNav } from './components/MobileNav';
 import { GenesisProtocol, isGenesisComplete, resetGenesis } from './components/GenesisProtocol';
 import { HelpPanel } from './components/HelpPanel';
-import { useSystemState, useApprovals, api, type Agent as APIAgent } from './api';
-import type { SystemState, Agent } from './types';
+import { LoadingOverlay } from './components/LoadingOverlay';
+import { ErrorBanner } from './components/ErrorBanner';
+import { ThoughtLogPanel } from './components/ThoughtLogPanel';
+import { GameUXProvider, AchievementToast, type Achievement } from './components/GameUX';
+import { SkillLibrary } from './components/SkillLibrary';
+import { AutonomyQuery } from './components/AutonomyQuery';
+import { RequestGrantPanel } from './components/RequestGrantPanel';
+import { CodeGovernance } from './components/CodeGovernance';
+import { GuidedOnboarding } from './components/GuidedOnboarding';
+import { ToastProvider, useToast } from './components/ui';
+import { useTrustBot } from './hooks';
+import { api } from './api';
 
-// Fallback state when API is not available
-const fallbackState: SystemState = {
-    agents: [
-        { id: 'exec-1', name: 'T5-EXECUTOR', type: 'EXECUTOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'EXECUTOR_OFFICE' }, trustScore: 1000, capabilities: ['execution'], skills: [], parentId: null },
-        { id: 'plan-1', name: 'T5-PLANNER', type: 'PLANNER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'PLANNER_OFFICE' }, trustScore: 980, capabilities: ['strategy'], skills: [], parentId: null },
-        { id: 'valid-1', name: 'T5-VALIDATOR', type: 'VALIDATOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'VALIDATOR_OFFICE' }, trustScore: 990, capabilities: ['audit'], skills: [], parentId: null },
-        { id: 'evolve-1', name: 'T5-EVOLVER', type: 'EVOLVER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'EVOLVER_OFFICE' }, trustScore: 970, capabilities: ['optimize'], skills: [], parentId: null },
-        { id: 'spawn-1', name: 'T5-SPAWNER', type: 'SPAWNER', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'SPAWNER_OFFICE' }, trustScore: 985, capabilities: ['spawn'], skills: [], parentId: null },
-        { id: 'listen-1', name: 'DecisionListener', type: 'LISTENER', tier: 0, status: 'WORKING', location: { floor: 'OPERATIONS', room: 'LISTENER_STATION' }, trustScore: 40, capabilities: ['listen'], skills: [], parentId: null },
-        { id: 'listen-2', name: 'CommunicationListener', type: 'LISTENER', tier: 0, status: 'IDLE', location: { floor: 'OPERATIONS', room: 'LISTENER_STATION' }, trustScore: 45, capabilities: ['listen'], skills: [], parentId: null },
-        { id: 'asst-1', name: 'ResearchAssistant', type: 'WORKER', tier: 1, status: 'IDLE', location: { floor: 'OPERATIONS', room: 'ASSISTANT_DESK_A' }, trustScore: 80, capabilities: ['research'], skills: [], parentId: null },
-    ],
-    blackboardEntries: [
-        { id: 'bb-1', type: 'OBSERVATION', title: 'T5-EXECUTOR Online', content: 'System initialized successfully.', author: 'exec-1', priority: 'HIGH', status: 'OPEN', timestamp: new Date() },
-        { id: 'bb-2', type: 'DECISION', title: 'Morning check-in initiated', content: 'Routine diagnostics started.', author: 'plan-1', priority: 'MEDIUM', status: 'RESOLVED', timestamp: new Date() },
-        { id: 'bb-3', type: 'TASK', title: 'Daily strategic review', content: 'Analyzing previous day metrics.', author: 'plan-1', priority: 'HIGH', status: 'IN_PROGRESS', timestamp: new Date() },
-        { id: 'bb-4', type: 'PATTERN', title: 'Efficiency improvement detected', content: 'Optimization algorithm updated.', author: 'evolve-1', priority: 'LOW', status: 'OPEN', timestamp: new Date() },
-    ],
-    meetings: [],
-    hitlLevel: 100,
-    avgTrust: 847,
-    totalAgents: 8,
-    uptime: 0,
-};
+// Modal state types - simplified for Console-first architecture
+type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms' | 'thoughtLog' | 'skillLibrary' | 'autonomyQuery' | 'requestGrant' | 'codeGovernance' | 'guidedOnboarding';
 
-// Modal state types
-type ModalType = 'none' | 'agent' | 'blackboard' | 'room' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'blackboardFilter' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms';
+// Inner app component that can use game context
+function AppContent() {
+    // Unified TrustBot hook - single source of truth
+    const {
+        agents,
+        blackboardEntries,
+        approvals,
+        hitlLevel,
+        avgTrust,
+        uptime,
+        loading,
+        error,
+        persistenceMode,
+        spawnAgent,
+        setHITL,
+        approve,
+        refresh,
+    } = useTrustBot();
 
-interface RoomInfo {
-    id: string;
-    name: string;
-    icon: string;
-}
+    // Game UX state (for achievements)
+    const [showAchievement, setShowAchievement] = useState<Achievement | null>(null);
 
-function App() {
-    // Try to use API, fallback to local state
-    const { state: apiState, loading, error } = useSystemState();
-    const approvals = useApprovals();
-
-    const [localState, setLocalState] = useState<SystemState>(fallbackState);
     const [activeModal, setActiveModal] = useState<ModalType>('none');
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-    const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-    const [selectedRoom, setSelectedRoom] = useState<RoomInfo | null>(null);
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth <= 768); // Only collapsed on mobile
-    const [selectedBlackboardType, setSelectedBlackboardType] = useState<string | null>(null);
 
     // User assistance state
     const [showGenesis, setShowGenesis] = useState(() => !isGenesisComplete());
     const [showHelpPanel, setShowHelpPanel] = useState(false);
+    const [errorDismissed, setErrorDismissed] = useState(false);
 
     // Initial Load: Sync Settings
     useEffect(() => {
@@ -96,78 +81,12 @@ function App() {
         sessionStorage.setItem('trustbot_auth', 'true');
     };
 
-    // Calculate uptime or use local
-    // If API state is present, we still want the UI to tick.
-    // We'll use localState.uptime as the visual counter, initialized from API if possible?
-    // Actually, simple session timer is best for this view.
-
-    // Merge API state with local state format
-    const state: SystemState = apiState ? {
-        agents: apiState.agents.map((a: APIAgent) => ({
-            id: a.id,
-            name: a.name,
-            type: a.type as Agent['type'],
-            tier: a.tier as Agent['tier'],
-            status: a.status,
-            location: { floor: a.location.floor as 'EXECUTIVE' | 'OPERATIONS' | 'WORKSPACE', room: a.location.room },
-            trustScore: a.trustScore,
-            capabilities: a.capabilities,
-            skills: a.skills || [], // Default to empty if missing
-            parentId: a.parentId,
-            childIds: a.childIds,
-        })),
-        blackboardEntries: apiState.blackboard.map(b => ({
-            id: b.id,
-            type: b.type as any,
-            title: b.title,
-            content: b.content as string,
-            author: b.author,
-            priority: b.priority as any,
-            status: b.status as any,
-            timestamp: new Date(b.createdAt),
-            comments: b.comments?.map((c: any) => ({
-                author: c.author,
-                text: c.text,
-                timestamp: new Date(c.timestamp)
-            })),
-        })),
-        meetings: [],
-        hitlLevel: apiState.hitlLevel,
-        avgTrust: apiState.avgTrust,
-        totalAgents: apiState.agents.length,
-        uptime: localState.uptime,
-        persistenceMode: apiState.persistenceMode,
-    } : localState;
-
-    // Fetch persistent uptime from API, then tick locally
-    useEffect(() => {
-        // Initial fetch from API
-        api.getUptime()
-            .then(data => {
-                if (data?.uptime) {
-                    setLocalState(s => ({ ...s, uptime: data.uptime }));
-                }
-            })
-            .catch(() => {
-                // Fallback: keep local uptime
-            });
-
-        // Tick every second
-        const interval = setInterval(() => {
-            setLocalState(s => ({ ...s, uptime: s.uptime + 1 }));
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
-
     // Keyboard accessibility - Escape to close modals
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape' && activeModal !== 'none') {
                 setActiveModal('none');
                 setSelectedAgentId(null);
-                setSelectedEntryId(null);
-                setSelectedRoom(null);
             }
         };
         window.addEventListener('keydown', handleKeyDown);
@@ -175,11 +94,7 @@ function App() {
     }, [activeModal]);
 
     // Get selected data
-    const selectedAgent = state.agents.find(a => a.id === selectedAgentId);
-    const selectedEntry = state.blackboardEntries.find(e => e.id === selectedEntryId);
-    const roomAgents = selectedRoom
-        ? state.agents.filter(a => a.location.room === selectedRoom.id)
-        : [];
+    const selectedAgent = agents.find(a => a.id === selectedAgentId);
 
     if (!authenticated) {
         return <LoginScreen onLogin={handleLogin} />;
@@ -191,51 +106,17 @@ function App() {
         setActiveModal('agent');
     };
 
-    const openEntry = (entryId: string) => {
-        setSelectedEntryId(entryId);
-        setActiveModal('blackboard');
-    };
-
-    const openRoom = (room: RoomInfo) => {
-        setSelectedRoom(room);
-        setActiveModal('room');
-    };
-
     const closeModal = () => {
         setActiveModal('none');
     };
 
-    // API handlers
+    // API handlers - delegate to hook
     const handleSpawnAgent = async (name: string, type: string, tier: number) => {
-        try {
-            await api.spawnAgent({ name, type, tier });
-        } catch {
-            const newAgent: Agent = {
-                id: `local-${Date.now()}`,
-                name,
-                type: type as Agent['type'],
-                tier: tier as Agent['tier'],
-                status: 'IDLE',
-                location: { floor: 'OPERATIONS', room: 'SPAWN_BAY' },
-                trustScore: tier * 50 + 50,
-                capabilities: ['work'],
-                skills: [],
-                parentId: null,
-            };
-            setLocalState(s => ({
-                ...s,
-                agents: [...s.agents, newAgent],
-                totalAgents: s.totalAgents + 1,
-            }));
-        }
+        await spawnAgent(name, type, tier);
     };
 
     const handleSetHITL = async (level: number) => {
-        try {
-            await api.setHITL(level);
-        } catch {
-            setLocalState(s => ({ ...s, hitlLevel: level }));
-        }
+        await setHITL(level);
     };
 
     const handleSendCommand = async (command: string) => {
@@ -264,89 +145,53 @@ function App() {
         return null;
     };
 
+    // Show loading overlay on initial load (before any data)
+    const showInitialLoading = loading && agents.length === 0;
+
+    // Reset error dismissed when error changes
+    const handleRetry = async () => {
+        setErrorDismissed(false);
+        await refresh();
+    };
+
     return (
-        <div className="app-container">
-            <Header
-                state={state}
+        <div className="app-container" style={{ height: '100vh', overflow: 'hidden' }}>
+            {/* Initial loading state */}
+            {showInitialLoading && <LoadingOverlay />}
+
+            {/* API error banner (dismissible) */}
+            {error && !errorDismissed && (
+                <ErrorBanner
+                    error={error}
+                    onRetry={handleRetry}
+                    onDismiss={() => setErrorDismissed(true)}
+                />
+            )}
+
+            {/* Aria Console - Primary Interface */}
+            <Console
+                agents={agents}
+                blackboardEntries={blackboardEntries}
+                hitlLevel={hitlLevel}
+                approvals={approvals}
+                onSpawn={handleSpawnAgent}
+                onSetHITL={handleSetHITL}
+                onApprove={approve}
+                onSelectAgent={openAgent}
                 onOpenControls={() => setActiveModal('controls')}
-                onOpenBlueprints={() => setActiveModal('blueprints')}
-                onOpenTasks={() => setActiveModal('tasks')}
-                onOpenBlackboard={() => setActiveModal('blackboard')}
-                onOpenIntegrations={() => setActiveModal('integrations')}
-                onOpenHITLExplanation={() => setActiveModal('hitl')}
                 onOpenAgentList={() => setActiveModal('agentList')}
-                onOpenTrustBreakdown={() => setActiveModal('trustBreakdown')}
                 onOpenMetrics={() => setActiveModal('metrics')}
-                onOpenConnectionStatus={() => setActiveModal('connectionStatus')}
-                onOpenAdminSkills={() => setActiveModal('adminSkills')}
-                onOpenComms={() => setActiveModal('comms')}
-                apiConnected={!error && !loading}
+                onOpenTasks={() => setActiveModal('tasks')}
+                onOpenHelp={() => setShowHelpPanel(true)}
             />
-            <div className="main-content">
-                <Building
-                    agents={state.agents}
-                    selectedAgent={selectedAgentId}
-                    onSelectAgent={openAgent}
-                    onSelectRoom={openRoom}
-                    blackboardEntries={state.blackboardEntries}
-                    onSelectBlackboardType={(type) => {
-                        setSelectedBlackboardType(type);
-                        setActiveModal('blackboardFilter');
-                    }}
-                />
-
-                {/* Sidebar Overlay (mobile) */}
-                <div
-                    className={`sidebar-overlay ${sidebarCollapsed ? 'hidden' : ''}`}
-                    onClick={() => setSidebarCollapsed(true)}
-                />
-
-                <Sidebar
-                    entries={state.blackboardEntries}
-                    selectedAgent={selectedAgent}
-                    hitlLevel={state.hitlLevel}
-                    approvals={approvals}
-                    onApprove={async (id, approved) => {
-                        try {
-                            await api.approve(id, approved);
-                        } catch {
-                            // Ignore
-                        }
-                    }}
-                    onSelectEntry={openEntry}
-                    onSelectAgent={openAgent}
-                    onOpenHITLExplanation={() => setActiveModal('hitl')}
-                    onOpenMissionControl={() => setActiveModal('blackboard')}
-                    collapsed={sidebarCollapsed}
-                    onClose={() => setSidebarCollapsed(true)}
-                />
-            </div>
-
-            {/* Mobile Sidebar Toggle */}
-            <button
-                className="sidebar-toggle"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                title={sidebarCollapsed ? 'Open Panel' : 'Close Panel'}
-                aria-label={sidebarCollapsed ? 'Open sidebar panel' : 'Close sidebar panel'}
-                aria-expanded={!sidebarCollapsed}
-            >
-                {sidebarCollapsed ? '📋' : '✕'}
-            </button>
 
             {/* Control Panel Modal */}
             {activeModal === 'controls' && (
                 <ControlPanel
-                    hitlLevel={state.hitlLevel}
+                    hitlLevel={hitlLevel}
                     onSetHITL={handleSetHITL}
                     onSpawn={handleSpawnAgent}
                     onClose={closeModal}
-                    onAdvanceDay={async () => {
-                        try {
-                            await api.advanceDay();
-                        } catch {
-                            // Ignore
-                        }
-                    }}
                 />
             )}
 
@@ -354,38 +199,16 @@ function App() {
             {activeModal === 'agent' && selectedAgent && (
                 <AgentProfilePage
                     agent={selectedAgent}
-                    allAgents={state.agents}
-                    blackboardEntries={state.blackboardEntries}
+                    allAgents={agents}
+                    blackboardEntries={blackboardEntries}
                     onClose={closeModal}
                     onViewAgent={(id) => {
                         setSelectedAgentId(id);
                         // Modal stays open, just updates the agent
                     }}
                     onSendCommand={handleSendCommand}
-                />
-            )}
-
-            {/* Blackboard Entry Modal */}
-            {activeModal === 'blackboard' && selectedEntry && (
-                <BlackboardModal
-                    entry={selectedEntry}
-                    onClose={closeModal}
-                    onViewAuthor={(authorId) => {
-                        closeModal();
-                        setTimeout(() => openAgent(authorId), 100);
-                    }}
-                />
-            )}
-
-            {/* Room Modal */}
-            {activeModal === 'room' && selectedRoom && (
-                <RoomModal
-                    room={selectedRoom}
-                    agents={roomAgents}
-                    onClose={closeModal}
-                    onViewAgent={(agentId) => {
-                        closeModal();
-                        setTimeout(() => openAgent(agentId), 100);
+                    onEvaluateAutonomy={() => {
+                        setActiveModal('autonomyQuery');
                     }}
                 />
             )}
@@ -407,48 +230,32 @@ function App() {
 
             {/* HITL Explanation */}
             {activeModal === 'hitl' && (
-                <HITLExplanation currentLevel={state.hitlLevel} onClose={closeModal} />
+                <HITLExplanation currentLevel={hitlLevel} onClose={closeModal} />
             )}
 
             {/* Agent List */}
             {activeModal === 'agentList' && (
-                <AgentListModal agents={state.agents} onClose={closeModal} onSelectAgent={(id) => {
+                <AgentListModal agents={agents} onClose={closeModal} onSelectAgent={(id) => {
                     closeModal();
                     setTimeout(() => openAgent(id), 100);
                 }} />
             )}
 
-            {/* Smart Blackboard */}
-            {activeModal === 'blackboard' && (
-                <SmartBlackboard entries={state.blackboardEntries} agents={state.agents} onClose={closeModal} />
-            )}
-
             {/* Trust Breakdown */}
             {activeModal === 'trustBreakdown' && (
-                <TrustBreakdownModal agents={state.agents} avgTrust={state.avgTrust} onClose={closeModal} />
+                <TrustBreakdownModal agents={agents} avgTrust={avgTrust} onClose={closeModal} />
             )}
 
-            {/* Blackboard Filter */}
-            {activeModal === 'blackboardFilter' && selectedBlackboardType && (
-                <BlackboardFilterModal
-                    entries={state.blackboardEntries}
-                    filterType={selectedBlackboardType}
-                    onClose={closeModal}
-                    onSelectEntry={(id) => {
-                        closeModal();
-                        setTimeout(() => openEntry(id), 100);
-                    }}
-                />
-            )}
+            {/* Blackboard Filter - now integrated into Sidebar with embedded={true} */}
 
             {/* Metrics Dashboard */}
             {activeModal === 'metrics' && (
                 <MetricsDashboard
-                    agents={state.agents}
-                    blackboardEntries={state.blackboardEntries}
-                    hitlLevel={state.hitlLevel}
-                    avgTrust={state.avgTrust}
-                    uptime={state.uptime}
+                    agents={agents}
+                    blackboardEntries={blackboardEntries}
+                    hitlLevel={hitlLevel}
+                    avgTrust={avgTrust}
+                    uptime={uptime}
                     onClose={closeModal}
                     onViewAgent={(id) => {
                         closeModal();
@@ -459,8 +266,8 @@ function App() {
 
             {activeModal === 'connectionStatus' && (
                 <ConnectionStatusModal
-                    isConnected={!!((apiState as any)?.uptime && (apiState as any).uptime > 0) || !loading}
-                    persistenceMode={state.persistenceMode}
+                    isConnected={!error && !loading}
+                    persistenceMode={persistenceMode}
                     onClose={closeModal}
                 />
             )}
@@ -479,47 +286,204 @@ function App() {
                 <CommsDashboard onClose={closeModal} />
             )}
 
-            {/* Mobile Bottom Navigation */}
-            <MobileNav
-                onOpenControls={() => setActiveModal('controls')}
-                onOpenTasks={() => setActiveModal('tasks')}
-                onOpenComms={() => setActiveModal('comms')}
-                onOpenMetrics={() => setActiveModal('metrics')}
-                onOpenBlackboard={() => setActiveModal('blackboard')}
-                onOpenIntegrations={() => setActiveModal('integrations')}
-                onOpenBlueprints={() => setActiveModal('blueprints')}
-                onOpenAdminSkills={() => setActiveModal('adminSkills')}
-            />
+            {/* Thought Log Panel */}
+            {activeModal === 'thoughtLog' && (
+                <ThoughtLogPanel
+                    entries={[
+                        {
+                            id: 'log-1',
+                            agentId: 'exec-1',
+                            agentName: 'T5-EXECUTOR',
+                            timestamp: new Date().toISOString(),
+                            observation: {
+                                context: 'System initialization sequence',
+                                trigger: 'Boot process completed',
+                                inputs: { systemState: 'ready', agentCount: 8 },
+                            },
+                            reasoning: [
+                                { step: 1, thought: 'All subsystems are operational', consideration: 'Health check status', conclusion: 'Proceed with initialization' },
+                                { step: 2, thought: 'Agent network is stable', consideration: 'Heartbeat signals received', conclusion: 'Network ready for operations' },
+                            ],
+                            intent: {
+                                goal: 'Initialize morning operations',
+                                expectedOutcome: 'All agents receive task assignments',
+                                confidence: 0.88,
+                            },
+                            action: {
+                                type: 'BROADCAST',
+                                description: 'Sent initialization message to all T5 agents',
+                                parameters: { recipients: ['plan-1', 'valid-1', 'evolve-1', 'spawn-1'] },
+                            },
+                            result: {
+                                status: 'success',
+                                output: 'Morning briefing completed successfully',
+                            },
+                            delta: {
+                                intentMatched: true,
+                                trustImpact: 2,
+                                lessonsLearned: 'Early initialization improves throughput',
+                            },
+                        },
+                        {
+                            id: 'log-2',
+                            agentId: 'plan-1',
+                            agentName: 'T5-PLANNER',
+                            timestamp: new Date(Date.now() - 300000).toISOString(),
+                            observation: {
+                                context: 'Strategic planning session',
+                                trigger: 'Daily objectives review',
+                                inputs: { pendingTasks: 12, priority: 'HIGH' },
+                            },
+                            reasoning: [
+                                { step: 1, thought: 'Resource allocation needs optimization', consideration: 'Queue depth increasing', conclusion: 'Rebalancing required' },
+                                { step: 2, thought: 'Should delegate routine tasks to T2 agents', consideration: 'Trust scores support delegation', conclusion: 'Safe to delegate 5 tasks' },
+                            ],
+                            intent: {
+                                goal: 'Optimize task distribution',
+                                expectedOutcome: 'Reduced queue depth by 40%',
+                                confidence: 0.79,
+                            },
+                            action: {
+                                type: 'DELEGATE',
+                                description: 'Delegated 5 routine tasks to worker agents',
+                                parameters: { taskIds: ['t-101', 't-102', 't-103', 't-104', 't-105'] },
+                            },
+                            result: {
+                                status: 'success',
+                                output: 'Tasks successfully delegated',
+                                sideEffects: ['Worker load increased 15%'],
+                            },
+                            delta: {
+                                intentMatched: true,
+                                trustImpact: 3,
+                            },
+                        },
+                    ]}
+                    onClose={closeModal}
+                />
+            )}
 
-            {/* Help Button (fixed position) */}
-            <button
-                onClick={() => setShowHelpPanel(true)}
-                title="Help & Documentation"
-                aria-label="Open help panel"
-                style={{
-                    position: 'fixed',
-                    bottom: '80px',
-                    right: '20px',
-                    width: '48px',
-                    height: '48px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--accent-blue), var(--accent-purple))',
-                    border: 'none',
-                    color: 'white',
-                    fontSize: '1.25rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                    zIndex: 1000,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'transform 0.2s ease',
-                }}
-                onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
-                onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-                ?
-            </button>
+            {/* Skill Library */}
+            {activeModal === 'skillLibrary' && (
+                <SkillLibrary
+                    onClose={closeModal}
+                    selectedAgentId={selectedAgentId || undefined}
+                    selectedAgentTier={selectedAgent?.tier || 0}
+                    selectedAgentTrustScore={selectedAgent?.trustScore || 0}
+                    selectedAgentSkills={selectedAgent?.skills || []}
+                    onAssignSkill={(skillId, agentId) => {
+                        console.log('Assigned skill:', skillId, 'to agent:', agentId);
+                        setShowAchievement({
+                            id: 'skill-master',
+                            title: 'Skill Assigned',
+                            description: 'Assigned a new skill to an agent',
+                            icon: '🎮',
+                            rarity: 'rare',
+                            xpReward: 50,
+                        });
+                    }}
+                />
+            )}
+
+            {/* Autonomy Query */}
+            {activeModal === 'autonomyQuery' && selectedAgent && (
+                <AutonomyQuery
+                    agent={selectedAgent}
+                    onClose={closeModal}
+                    onApprovePromotion={(agentId, newTier) => {
+                        console.log('Approved promotion:', agentId, 'to tier', newTier);
+                        setShowAchievement({
+                            id: 'trust-granted',
+                            title: 'Trust Granted',
+                            description: `Promoted agent to Tier ${newTier}`,
+                            icon: '⬆️',
+                            rarity: 'epic',
+                            xpReward: 150,
+                        });
+                    }}
+                    onDenyPromotion={(agentId, reason) => {
+                        console.log('Denied promotion:', agentId, 'reason:', reason);
+                    }}
+                />
+            )}
+
+            {/* Request/Grant Panel */}
+            {activeModal === 'requestGrant' && selectedAgent && (
+                <RequestGrantPanel
+                    currentAgent={selectedAgent}
+                    allAgents={agents}
+                    onClose={closeModal}
+                    onSubmitRequest={(request) => {
+                        console.log('Request submitted:', request);
+                        setShowAchievement({
+                            id: 'help-requested',
+                            title: 'Help Requested',
+                            description: 'Submitted a request to upper tiers',
+                            icon: '🤝',
+                            rarity: 'common',
+                            xpReward: 25,
+                        });
+                    }}
+                    onGrantRequest={(requestId, capabilities) => {
+                        console.log('Request granted:', requestId, capabilities);
+                        setShowAchievement({
+                            id: 'trust-extended',
+                            title: 'Trust Extended',
+                            description: 'Granted capabilities to a lower-tier agent',
+                            icon: '🎁',
+                            rarity: 'rare',
+                            xpReward: 75,
+                        });
+                    }}
+                />
+            )}
+
+            {/* Code Governance Panel */}
+            {activeModal === 'codeGovernance' && (
+                <CodeGovernance
+                    onClose={closeModal}
+                    onApproveChange={(changeId) => {
+                        console.log('Approved code change:', changeId);
+                        setShowAchievement({
+                            id: 'code-approved',
+                            title: 'Code Approved',
+                            description: 'Approved a code modification request',
+                            icon: '✅',
+                            rarity: 'rare',
+                            xpReward: 50,
+                        });
+                    }}
+                    onRejectChange={(changeId, reason) => {
+                        console.log('Rejected code change:', changeId, 'reason:', reason);
+                    }}
+                />
+            )}
+
+            {/* Guided Onboarding Wizard */}
+            {activeModal === 'guidedOnboarding' && (
+                <GuidedOnboarding
+                    onClose={closeModal}
+                    onComplete={(config) => {
+                        console.log('Onboarding complete:', config);
+                        setShowAchievement({
+                            id: 'integrations-configured',
+                            title: 'Integrations Configured',
+                            description: 'Set up MCP, RAG, and API integrations',
+                            icon: '🔌',
+                            rarity: 'epic',
+                            xpReward: 200,
+                        });
+                    }}
+                />
+            )}
+
+            {/* Achievement Toast */}
+            {showAchievement && (
+                <AchievementToast
+                    achievement={showAchievement}
+                    onClose={() => setShowAchievement(null)}
+                />
+            )}
 
             {/* Genesis Protocol (agent-guided onboarding for first-time users) */}
             {showGenesis && (
@@ -538,6 +502,17 @@ function App() {
                 }}
             />
         </div>
+    );
+}
+
+// Main App wrapper with GameUXProvider and ToastProvider
+function App() {
+    return (
+        <ToastProvider maxToasts={5} defaultDuration={5000}>
+            <GameUXProvider>
+                <AppContent />
+            </GameUXProvider>
+        </ToastProvider>
     );
 }
 
