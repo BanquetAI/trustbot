@@ -274,6 +274,13 @@ export class Blackboard extends EventEmitter<BlackboardEvents> {
     // -------------------------------------------------------------------------
 
     /**
+     * Get all blackboard entries
+     */
+    getAllEntries(): BlackboardEntry[] {
+        return Array.from(this.entries.values());
+    }
+
+    /**
      * Get blackboard statistics
      */
     getStats(): {

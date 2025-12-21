@@ -1,9 +1,11 @@
 /**
  * Trust Engine
- * 
+ *
  * Central trust verification and scoring system. Manages trust inheritance,
- * trust budget allocation, and trust score calculations. Trust is the 
+ * trust budget allocation, and trust score calculations. Trust is the
  * fundamental currency of the TrustBot system.
+ *
+ * TRUST-1.8: Enhanced with FICO-style scoring via TrustScoreCalculator.
  */
 
 import { v4 as uuidv4 } from 'uuid';
@@ -16,6 +18,9 @@ import type {
     TrustPolicy,
     ValidationReport,
 } from '../types.js';
+import type { EnhancedTrustScore, TrustComponents } from './types/trust.js';
+import { TrustScoreCalculator } from './TrustScoreCalculator.js';
+import { FEATURES } from './config/features.js';
 
 // ============================================================================
 // Constants
@@ -43,6 +48,7 @@ interface TrustEngineEvents {
     'trust:violation': (agentId: AgentId, reason: string, penalty: number) => void;
     'trust:reward': (agentId: AgentId, reason: string, amount: number) => void;
     'trust:level-changed': (agentId: AgentId, oldLevel: TrustLevel, newLevel: TrustLevel) => void;
+    'trust:score-recalculated': (agentId: AgentId, score: EnhancedTrustScore, components: TrustComponents) => void;
 }
 
 // ============================================================================
@@ -51,11 +57,20 @@ interface TrustEngineEvents {
 
 export class TrustEngine extends EventEmitter<TrustEngineEvents> {
     private trustScores: Map<AgentId, TrustScore> = new Map();
+    private enhancedScores: Map<AgentId, EnhancedTrustScore> = new Map();
     private trustPolicies: Map<AgentId, TrustPolicy> = new Map();
     private lineageTree: Map<AgentId, AgentId[]> = new Map(); // parent -> children
 
     // Current HITL level (0-100, starts at 100)
     private hitlLevel: number = 100;
+
+    // TRUST-1.8: Enhanced scoring calculator
+    private calculator: TrustScoreCalculator;
+
+    constructor(calculator?: TrustScoreCalculator) {
+        super();
+        this.calculator = calculator ?? new TrustScoreCalculator();
+    }
 
     // -------------------------------------------------------------------------
     // Trust Score Management
@@ -86,9 +101,9 @@ export class TrustEngine extends EventEmitter<TrustEngineEvents> {
             siblings.push(agentId);
             this.lineageTree.set(params.parentId, siblings);
         } else {
-            // T5 agent - sovereign trust
-            inherited = 0;
-            numeric = params.initialTrust ?? 1000;
+            // T5 agent - sovereign trust (inherited IS their base trust)
+            inherited = params.initialTrust ?? 1000;
+            numeric = inherited;
         }
 
         const level = this.numericToLevel(numeric);
@@ -309,6 +324,103 @@ export class TrustEngine extends EventEmitter<TrustEngineEvents> {
             STRATEGY: 30,   // Require HITL above 30%
         };
         return this.hitlLevel >= thresholds[actionType];
+    }
+
+    // -------------------------------------------------------------------------
+    // TRUST-1.8: Enhanced FICO-Style Scoring
+    // -------------------------------------------------------------------------
+
+    /**
+     * Check if FICO-style scoring is enabled.
+     */
+    isFicoScoringEnabled(): boolean {
+        return FEATURES.isEnabled('USE_FICO_SCORING');
+    }
+
+    /**
+     * Get the enhanced trust score for an agent (if FICO scoring enabled).
+     * Returns undefined if FICO scoring is disabled or no enhanced score exists.
+     */
+    getEnhancedTrust(agentId: AgentId): EnhancedTrustScore | undefined {
+        if (!this.isFicoScoringEnabled()) {
+            return undefined;
+        }
+        return this.enhancedScores.get(agentId);
+    }
+
+    /**
+     * Recalculate trust score using the FICO-style calculator.
+     * This should be called periodically or after significant events.
+     *
+     * @param agentId The agent to recalculate
+     * @param data Historical data for component calculations
+     * @returns Enhanced trust score if FICO enabled, otherwise legacy score
+     */
+    recalculateScore(
+        agentId: AgentId,
+        data: {
+            decisionAccuracy: Array<{ approved: number; rejected: number; riskLevel: 'low' | 'medium' | 'high' | 'critical' }>;
+            ethicsCompliance: { violations: number; escalations: number };
+            taskSuccess: { completed: number; failed: number };
+            operationalStability: { errors: number; avgResponseTimeMs: number };
+            peerReviews: { endorsements: number; resolvedSolutions: number; totalContributions: number };
+        }
+    ): TrustScore | EnhancedTrustScore | null {
+        const existingScore = this.trustScores.get(agentId);
+        if (!existingScore) {
+            return null;
+        }
+
+        if (!this.isFicoScoringEnabled()) {
+            // Legacy mode - return existing score
+            return existingScore;
+        }
+
+        // Calculate enhanced score
+        const enhancedScore = this.calculator.calculateFullScore(
+            agentId,
+            data,
+            existingScore.inherited,
+            existingScore.penalties
+        );
+
+        // Update parentId from existing score
+        enhancedScore.parentId = existingScore.parentId;
+
+        // Store enhanced score
+        this.enhancedScores.set(agentId, enhancedScore);
+
+        // Also update the base score to keep them in sync
+        const oldScore = { ...existingScore };
+        existingScore.numeric = enhancedScore.ficoScore;
+        existingScore.level = enhancedScore.level;
+        existingScore.lastVerified = enhancedScore.lastCalculated;
+
+        // Emit events
+        this.emit('trust:score-recalculated', agentId, enhancedScore, enhancedScore.components);
+        this.emit('trust:updated', agentId, oldScore, existingScore);
+
+        // Check for level change
+        if (oldScore.level !== existingScore.level) {
+            this.emit('trust:level-changed', agentId, oldScore.level, existingScore.level);
+        }
+
+        return enhancedScore;
+    }
+
+    /**
+     * Get the trust score calculator instance.
+     * Useful for testing or advanced integrations.
+     */
+    getCalculator(): TrustScoreCalculator {
+        return this.calculator;
+    }
+
+    /**
+     * Set a custom calculator (for testing or custom implementations).
+     */
+    setCalculator(calculator: TrustScoreCalculator): void {
+        this.calculator = calculator;
     }
 
     // -------------------------------------------------------------------------

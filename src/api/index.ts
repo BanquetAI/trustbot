@@ -1,18 +1,25 @@
 /**
  * API Server Entry Point
- * 
- * Starts the REST API server for the TrustBot system.
+ *
+ * Starts both the legacy API server and the new Unified Workflow API.
  */
 
+import 'dotenv/config';
 import { apiServer } from './server.js';
+import { startUnifiedWorkflowServer } from './UnifiedWorkflowAPI.js';
 
-const PORT = 3001;
+// Check which mode to run
+const mode = process.argv[2] ?? 'unified';
 
-console.log('🌐 Starting TrustBot API Server...');
-apiServer.start(PORT);
+async function main() {
+    if (mode === 'legacy') {
+        // Legacy API Server
+        const PORT = 3001;
+        console.log('🌐 Starting Legacy TrustBot API Server...');
+        apiServer.start(PORT);
 
-console.log(`
-📡 API Endpoints:
+        console.log(`
+📡 Legacy API Endpoints:
    GET  /api/state      - Full system state
    GET  /api/agents     - All agents
    GET  /api/agent/:id  - Single agent
@@ -25,5 +32,47 @@ console.log(`
    POST /api/command    - Send command to agent
    POST /api/approve    - Approve/reject request
    POST /api/blackboard/post - Post to blackboard
-   POST /api/advance-day     - Advance simulation
 `);
+    } else {
+        // New Unified Workflow API (default)
+        console.log('🚀 Starting Unified Workflow API Server...\n');
+        const port = parseInt(process.env.PORT ?? '3003');
+        const { masterKey, supabase } = await startUnifiedWorkflowServer(port);
+
+        console.log(`
+═══════════════════════════════════════════════════════════════════
+                    TRUSTBOT UNIFIED WORKFLOW API
+═══════════════════════════════════════════════════════════════════
+
+📊 DASHBOARD ENDPOINTS:
+   GET  /dashboard/today          - "Completed Today" summary
+   GET  /dashboard/aggressiveness - Current autonomy settings
+   POST /dashboard/aggressiveness - Set aggressiveness slider (0-100)
+
+📋 TASK PIPELINE:
+   GET  /tasks                    - List all tasks
+   POST /tasks                    - Create new task
+   POST /tasks/:id/assign         - Assign task to agent
+   POST /tasks/:id/complete       - Mark task completed
+   POST /tasks/:id/fail           - Mark task failed
+
+✅ HITL APPROVALS:
+   GET  /approvals                - Pending human approvals
+   POST /approvals/:id            - Approve or reject task
+
+🔒 SECURITY:
+   POST /auth/human               - Get human operator token
+   GET  /security/audit           - View audit log
+   GET  /trust/stats              - Trust system statistics
+
+🔑 MASTER KEY: ${masterKey}
+   (Use this to authenticate as human operator)
+
+💾 DATABASE: ${supabase ? 'Supabase (Postgres)' : 'File-based'}
+
+═══════════════════════════════════════════════════════════════════
+`);
+    }
+}
+
+main().catch(console.error);

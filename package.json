@@ -11,7 +11,11 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "web": "cd web && npm run dev",
-    "web:build": "cd web && npm run build"
+    "web:build": "cd web && npm run build",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   },
   "keywords": [
     "ai-agents",
@@ -23,15 +27,22 @@
   "author": "TrustBot System",
   "license": "MIT",
   "dependencies": {
-    "uuid": "^9.0.0",
-    "yaml": "^2.3.4",
+    "@hono/node-server": "^1.19.7",
+    "@supabase/supabase-js": "^2.89.0",
+    "date-fns": "^3.0.0",
+    "dotenv": "^17.2.3",
     "eventemitter3": "^5.0.1",
-    "date-fns": "^3.0.0"
+    "hono": "^4.11.1",
+    "uuid": "^9.0.0",
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/uuid": "^9.0.7",
+    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/ui": "^4.0.16",
     "tsx": "^4.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.0.16"
   }
 }
