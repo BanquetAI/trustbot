@@ -48,26 +48,8 @@ const PRIORITY_COLORS = {
     low: '#6b7280',
 };
 
-const STATUS_COLORS = {
-    pending: '#f59e0b',
-    approved: '#10b981',
-    rejected: '#ef4444',
-    expired: '#6b7280',
-};
-
-function formatTimeAgo(dateString: string): string {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays}d ago`;
-}
+// Reserved for future use
+// const STATUS_COLORS = { pending: '#f59e0b', approved: '#10b981', rejected: '#ef4444', expired: '#6b7280' };
 
 function formatTimeRemaining(dateString: string): string {
     const date = new Date(dateString);

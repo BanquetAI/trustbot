@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { api } from '../api';
 import { FormField, SelectField, useToast } from './ui';
 import { useFocusTrap } from '../hooks/useFocusTrap';

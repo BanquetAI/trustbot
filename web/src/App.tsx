@@ -25,7 +25,7 @@ import { AutonomyQuery } from './components/AutonomyQuery';
 import { RequestGrantPanel } from './components/RequestGrantPanel';
 import { CodeGovernance } from './components/CodeGovernance';
 import { GuidedOnboarding } from './components/GuidedOnboarding';
-import { ToastProvider, useToast } from './components/ui';
+import { ToastProvider } from './components/ui';
 import { useTrustBot } from './hooks';
 import { api } from './api';
 

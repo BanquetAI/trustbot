@@ -69,7 +69,7 @@ function formatTimeRemaining(dateString: string): string {
 }
 
 export function DelegationModal({
-    agentId,
+    agentId: _agentId,
     agentTier,
     activeDelegations,
     onRequest,

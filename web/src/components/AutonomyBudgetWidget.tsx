@@ -9,7 +9,6 @@
  */
 
 import { useState, useEffect } from 'react';
-import { TrustTier, TIER_CONFIG, getTierFromScore } from '../types';
 
 export interface AutonomyBudgetData {
     tier: number;
