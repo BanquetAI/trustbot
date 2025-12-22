@@ -43,8 +43,25 @@ import { CouncilService } from '../core/council/CouncilService.js';
 import { CouncilMemberRegistry } from '../core/council/CouncilMemberRegistry.js';
 import { DelegationManager } from '../core/delegation/DelegationManager.js';
 import { AutonomyBudgetService } from '../core/autonomy/AutonomyBudget.js';
-import type { AgentId, AgentTier } from '../types.js';
+import type { AgentId, AgentTier, AgentType, TrustLevel } from '../types.js';
 import type { CryptographicAuditEntry } from '../core/types/audit.js';
+// Skills library integration
+import {
+    getAgentSkills,
+    canAgentUseSkill,
+    getSpawnSkillRequirements,
+    exportAgentSkillManifest,
+    getSkillsSummary,
+} from '../skills/integration.js';
+import {
+    SKILLS,
+    getSkillById,
+    searchSkills,
+    getSkillsByCategory,
+    validateSkillComposition,
+    getSkillStats,
+    SKILL_CATEGORIES,
+} from '../skills/index.js';
 
 // ============================================================================
 // Types
@@ -2405,6 +2422,212 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
                 error: (error as Error).message,
             });
         }
+    });
+
+    // ========================================================================
+    // Skills Library API
+    // ========================================================================
+
+    // GET /api/skills - Get all skills or filter by query
+    app.get('/api/skills', (c) => {
+        const query = c.req.query('query');
+        const category = c.req.query('category');
+        const trustLevel = c.req.query('trustLevel');
+
+        let skills = SKILLS;
+
+        if (query) {
+            skills = searchSkills(query);
+        }
+
+        if (category) {
+            skills = skills.filter(s => s.category === category);
+        }
+
+        if (trustLevel) {
+            const level = parseInt(trustLevel, 10);
+            if (level >= 1 && level <= 5) {
+                skills = skills.filter(s => s.trustLevelRequired <= level);
+            }
+        }
+
+        return c.json({
+            success: true,
+            count: skills.length,
+            skills: skills.map(s => ({
+                id: s.id,
+                name: s.name,
+                tier: s.tier,
+                category: s.category,
+                subcategory: s.subcategory,
+                trustLevelRequired: s.trustLevelRequired,
+                riskCategory: s.riskCategory,
+                requiresHumanApproval: s.requiresHumanApproval,
+                description: s.description,
+                tags: s.tags,
+            })),
+        });
+    });
+
+    // GET /api/skills/stats - Get skills statistics
+    // NOTE: Specific routes MUST be defined BEFORE parameterized routes
+    app.get('/api/skills/stats', (c) => {
+        const stats = getSkillStats();
+        const summary = getSkillsSummary();
+
+        return c.json({
+            success: true,
+            stats,
+            summary,
+        });
+    });
+
+    // GET /api/skills/categories - Get skill categories
+    app.get('/api/skills/categories', (c) => {
+        const categories = Object.entries(SKILL_CATEGORIES).map(([key, value]) => ({
+            key,
+            name: value,
+            count: SKILLS.filter(s => s.category === value).length,
+        })).filter(cat => cat.count > 0);
+
+        return c.json({
+            success: true,
+            categories,
+        });
+    });
+
+    // GET /api/skills/validate - Validate skill dependencies
+    app.get('/api/skills/validate', (c) => {
+        const result = validateSkillComposition();
+
+        return c.json({
+            success: true,
+            validation: result,
+        });
+    });
+
+    // GET /api/skills/:id - Get skill details
+    // NOTE: Parameterized route MUST come AFTER specific routes
+    app.get('/api/skills/:id', (c) => {
+        const id = c.req.param('id');
+        const skill = getSkillById(id);
+
+        if (!skill) {
+            return c.json({ success: false, error: `Skill "${id}" not found` }, 404);
+        }
+
+        return c.json({
+            success: true,
+            skill,
+        });
+    });
+
+    // GET /api/agent/:id/skills - Get skills available to a specific agent
+    app.get('/api/agent/:id/skills', async (c) => {
+        const agentId = c.req.param('id');
+        let agent: { type: string; tier: number } | undefined;
+
+        if (supabase) {
+            try {
+                const dbAgent = await supabase.getAgent(agentId);
+                if (dbAgent) {
+                    agent = { type: dbAgent.type, tier: dbAgent.tier };
+                }
+            } catch (e) {
+                console.error('Supabase getAgent error:', e);
+            }
+        }
+
+        if (!agent) {
+            const demoAgent = demoAgents.find(a => a.id === agentId);
+            if (demoAgent) {
+                agent = { type: demoAgent.type, tier: demoAgent.tier };
+            }
+        }
+
+        if (!agent) {
+            return c.json({ success: false, error: `Agent "${agentId}" not found` }, 404);
+        }
+
+        const trustLevelNames: TrustLevel[] = [
+            'PASSIVE', 'WORKER', 'OPERATIONAL', 'TACTICAL', 'EXECUTIVE', 'SOVEREIGN'
+        ];
+        const trustLevel = trustLevelNames[agent.tier] || 'WORKER';
+        const manifest = exportAgentSkillManifest(agent.type as AgentType, trustLevel);
+
+        return c.json({
+            success: true,
+            agentId,
+            agentType: agent.type,
+            trustLevel,
+            manifest,
+        });
+    });
+
+    // POST /api/agent/:id/skills/check - Check if agent can use a skill
+    app.post('/api/agent/:id/skills/check', async (c) => {
+        const agentId = c.req.param('id');
+        let agent: { type: string; tier: number } | undefined;
+
+        if (supabase) {
+            try {
+                const dbAgent = await supabase.getAgent(agentId);
+                if (dbAgent) {
+                    agent = { type: dbAgent.type, tier: dbAgent.tier };
+                }
+            } catch (e) {
+                console.error('Supabase getAgent error:', e);
+            }
+        }
+
+        if (!agent) {
+            const demoAgent = demoAgents.find(a => a.id === agentId);
+            if (demoAgent) {
+                agent = { type: demoAgent.type, tier: demoAgent.tier };
+            }
+        }
+
+        if (!agent) {
+            return c.json({ success: false, error: `Agent "${agentId}" not found` }, 404);
+        }
+
+        const body = await c.req.json<{ skillId: string }>();
+        const trustLevelNames: TrustLevel[] = [
+            'PASSIVE', 'WORKER', 'OPERATIONAL', 'TACTICAL', 'EXECUTIVE', 'SOVEREIGN'
+        ];
+        const trustLevel = trustLevelNames[agent.tier] || 'WORKER';
+        const result = canAgentUseSkill(agent.type as AgentType, trustLevel, body.skillId);
+
+        return c.json({
+            success: true,
+            agentId,
+            skillId: body.skillId,
+            ...result,
+        });
+    });
+
+    // GET /api/spawn/skill-requirements - Get skill requirements for spawning
+    app.get('/api/spawn/skill-requirements', (c) => {
+        const parentType = c.req.query('parentType') as AgentType;
+        const parentTrustLevel = c.req.query('parentTrustLevel') as TrustLevel;
+        const childType = c.req.query('childType') as AgentType;
+
+        if (!parentType || !parentTrustLevel || !childType) {
+            return c.json({
+                success: false,
+                error: 'Missing required parameters: parentType, parentTrustLevel, childType',
+            }, 400);
+        }
+
+        const requirements = getSpawnSkillRequirements(parentType, parentTrustLevel, childType);
+
+        return c.json({
+            success: true,
+            parentType,
+            parentTrustLevel,
+            childType,
+            ...requirements,
+        });
     });
 
     return app;
