@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { TrustTierBadge } from './TrustTierBadge';
+import { TrustScoreGauge } from './TrustScoreGauge';
 import type { Agent, BlackboardEntry } from '../types';
 
 /**
@@ -22,6 +23,7 @@ interface AgentProfilePageProps {
     onClose: () => void;
     onViewAgent?: (agentId: string) => void;
     onSendCommand?: (command: string) => Promise<CommandResponse | null>;
+    onEvaluateAutonomy?: (agentId: string) => void;
 }
 
 const AGENT_ICONS: Record<string, string> = {
@@ -48,6 +50,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     onClose,
     onViewAgent,
     onSendCommand,
+    onEvaluateAutonomy,
 }) => {
     const [commandHistory, setCommandHistory] = useState<CommandResponse[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -132,35 +135,108 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                 </div>
 
                 <div className="modal-content" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
-                    {/* Trust Score Section */}
+                    {/* Trust Score Section - Enhanced with Gauge */}
                     <div style={{
                         background: 'var(--bg-secondary)',
                         borderRadius: 'var(--radius-lg)',
-                        padding: '20px',
+                        padding: '24px',
                         marginBottom: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '24px',
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                            <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>🏆 Trust Score</span>
-                            <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent-gold)' }}>
-                                {agent.trustScore} <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>/ 1000</span>
-                            </span>
-                        </div>
-                        <div style={{
-                            height: '8px',
-                            background: 'rgba(255,255,255,0.1)',
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                        }}>
+                        {/* Animated Gauge */}
+                        <TrustScoreGauge
+                            score={agent.trustScore}
+                            trend={agent.trustScore >= 800 ? 'rising' : agent.trustScore < 400 ? 'falling' : 'stable'}
+                            size="large"
+                            showLabel={true}
+                            animated={true}
+                        />
+
+                        {/* Progress to Next Tier */}
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                Progress to Next Tier
+                            </div>
                             <div style={{
-                                width: `${Math.min(progress, 100)}%`,
-                                height: '100%',
-                                background: 'linear-gradient(90deg, var(--accent-blue), var(--accent-purple))',
-                                borderRadius: '4px',
-                                transition: 'width 0.3s ease',
-                            }} />
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '8px', textAlign: 'right' }}>
-                            {agent.tier < 5 ? `${Math.round(progress)}% to Tier ${agent.tier + 1}` : '✨ Maximum Tier'}
+                                height: '10px',
+                                background: 'rgba(255,255,255,0.1)',
+                                borderRadius: '5px',
+                                overflow: 'hidden',
+                                marginBottom: '8px',
+                            }}>
+                                <div style={{
+                                    width: `${Math.min(progress, 100)}%`,
+                                    height: '100%',
+                                    background: 'linear-gradient(90deg, var(--accent-blue), var(--accent-purple))',
+                                    borderRadius: '5px',
+                                    transition: 'width 0.5s ease',
+                                    boxShadow: '0 0 10px rgba(139, 92, 246, 0.4)',
+                                }} />
+                            </div>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                fontSize: '0.75rem',
+                            }}>
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                    {agent.tier < 5 ? `${Math.round(progress)}% complete` : '✨ Max Tier'}
+                                </span>
+                                <span style={{ color: 'var(--accent-purple)', fontWeight: 600 }}>
+                                    {agent.tier < 5 ? `+${nextTierMin - agent.trustScore} to T${agent.tier + 1}` : 'ELITE'}
+                                </span>
+                            </div>
+
+                            {/* Quick Stats */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '12px',
+                                marginTop: '16px',
+                            }}>
+                                <div style={{
+                                    padding: '8px 12px',
+                                    background: 'rgba(16, 185, 129, 0.15)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.75rem',
+                                }}>
+                                    <span style={{ color: 'var(--accent-green)' }}>✓</span> Can Delegate: {agent.tier >= 3 ? 'Yes' : 'No'}
+                                </div>
+                                <div style={{
+                                    padding: '8px 12px',
+                                    background: 'rgba(139, 92, 246, 0.15)',
+                                    borderRadius: 'var(--radius-sm)',
+                                    fontSize: '0.75rem',
+                                }}>
+                                    <span style={{ color: 'var(--accent-purple)' }}>⚡</span> Can Spawn: {agent.tier >= 4 ? 'Yes' : 'No'}
+                                </div>
+                            </div>
+
+                            {/* Evaluate Autonomy Button */}
+                            {onEvaluateAutonomy && (
+                                <button
+                                    onClick={() => onEvaluateAutonomy(agent.id)}
+                                    style={{
+                                        marginTop: '16px',
+                                        padding: '10px 16px',
+                                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                                        border: 'none',
+                                        borderRadius: 'var(--radius-md)',
+                                        color: 'white',
+                                        fontSize: '0.85rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        transition: 'transform 0.2s ease',
+                                    }}
+                                    onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
+                                    onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                                >
+                                    🔮 Evaluate Autonomy
+                                </button>
+                            )}
                         </div>
                     </div>
 

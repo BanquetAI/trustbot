@@ -46,15 +46,18 @@ export const TaskBoard: React.FC<TaskBoardProps> = ({ onClose }) => {
     };
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
             <div
                 className="modal"
                 onClick={e => e.stopPropagation()}
                 style={{ maxWidth: '1100px', height: '80vh', display: 'flex', flexDirection: 'column' }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="task-board-title"
             >
                 <div className="modal-header">
-                    <h2>📋 Active Task Board</h2>
-                    <button className="close-btn" onClick={onClose}>✕</button>
+                    <h2 id="task-board-title">📋 Active Task Board</h2>
+                    <button className="close-btn" onClick={onClose} aria-label="Close task board">✕</button>
                 </div>
 
                 <div className="modal-content" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 0 }}>

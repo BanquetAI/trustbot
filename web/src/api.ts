@@ -1,14 +1,22 @@
 /**
  * API Hooks for React
- * 
+ *
  * Provides data fetching and mutation hooks for the TrustBot API.
- * Auto-detects Vercel (production) vs local development.
+ * Supports both legacy API (port 3001) and Unified Workflow API (port 3003).
  */
 
-// Use relative path for Vercel, absolute for local dev
+// Fly.io API Server URL (auto-starts on request, scales to 0 when idle)
+const FLY_API_URL = 'https://trustbot-api.fly.dev';
+
+// Unified API Server - Hono (serves both legacy /api/* and workflow endpoints)
 const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '/api'  // Vercel - uses serverless functions
-    : 'http://localhost:3001/api';  // Local dev - uses Express server
+    ? `${FLY_API_URL}/api`  // Production - Fly.io hosted API
+    : 'http://127.0.0.1:3010/api';  // Local dev - Unified Hono server (IPv4)
+
+// Unified Workflow API - Same server, different path
+const WORKFLOW_API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? FLY_API_URL  // Production - Fly.io hosted API
+    : 'http://127.0.0.1:3010';  // Local dev - Unified Hono server (IPv4)
 
 // ============================================================================
 // Types
@@ -204,6 +212,269 @@ export const api = {
 
     callMCPTool: (tool: string, params: Record<string, any> = {}) =>
         postAPI<{ success: boolean; result: any }>('/mcp', { tool, params }),
+
+    // Aria AI Interpretation - natural language understanding
+    interpretMessage: (message: string, context?: {
+        agents?: Array<{ id: string; name: string; type: string; tier: number; status: string }>;
+        pendingApprovals?: number;
+        hitlLevel?: number;
+        recentTasks?: Array<{ title: string; status: string }>;
+    }) => postAPI<{
+        success: boolean;
+        error?: string;
+        interpretation: {
+            action: 'SPAWN' | 'TASK' | 'STATUS' | 'AGENTS' | 'AGENT_DETAIL' | 'APPROVE' | 'DENY' | 'HITL' | 'TICK' | 'HELP' | 'CHAT';
+            params: Record<string, any>;
+            response: string;
+            confidence: number;
+        };
+        provider?: string;
+        model?: string;
+    }>('/ai/aria/interpret', { message, context }),
+
+    // Aria Multi-Provider - gather perspectives from all available AIs
+    gatherPerspectives: (question: string, context?: string, synthesize = true) =>
+        postAPI<{
+            success: boolean;
+            error?: string;
+            question: string;
+            perspectives: Array<{
+                provider: 'claude' | 'grok' | 'openai' | 'gemini';
+                perspective: string;
+                model: string;
+                success: boolean;
+                error?: string;
+            }>;
+            synthesis?: string;
+            providers: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+            providersQueried: number;
+            providersSucceeded: number;
+        }>('/ai/aria/gather', { question, context, synthesize }),
+
+    // Aria Consult - ask a specific AI provider
+    consultProvider: (question: string, provider: 'claude' | 'grok' | 'openai' | 'gemini', role?: string, context?: string) =>
+        postAPI<{
+            success: boolean;
+            error?: string;
+            provider: string;
+            model?: string;
+            response?: string;
+            availableProviders?: string[];
+        }>('/ai/aria/consult', { question, provider, role, context }),
+
+    // Get available AI providers
+    getAIProviders: () => fetchAPI<{
+        available: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+        default: string | null;
+        models: Record<string, string>;
+    }>('/ai/providers'),
+
+    // Aria Settings
+    getAriaSettings: () => fetchAPI<{
+        success: boolean;
+        settings: {
+            enabled: boolean;
+            mode: 'single' | 'all' | 'select';
+            defaultProvider?: 'claude' | 'grok' | 'openai' | 'gemini';
+            enabledProviders: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+            synthesize: boolean;
+            maxTokensPerQuery: number;
+            dailyQueryLimit: number;
+            queriesUsedToday: number;
+        };
+        availableProviders: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+        defaultProvider: string | null;
+    }>('/ai/aria/settings'),
+
+    setAriaSettings: (settings: Partial<{
+        enabled: boolean;
+        mode: 'single' | 'all' | 'select';
+        defaultProvider: 'claude' | 'grok' | 'openai' | 'gemini';
+        enabledProviders: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+        synthesize: boolean;
+        maxTokensPerQuery: number;
+        dailyQueryLimit: number;
+    }>) => postAPI<{
+        success: boolean;
+        settings: {
+            enabled: boolean;
+            mode: 'single' | 'all' | 'select';
+            defaultProvider?: 'claude' | 'grok' | 'openai' | 'gemini';
+            enabledProviders: Array<'claude' | 'grok' | 'openai' | 'gemini'>;
+            synthesize: boolean;
+            maxTokensPerQuery: number;
+            dailyQueryLimit: number;
+            queriesUsedToday: number;
+        };
+    }>('/ai/aria/settings', settings),
+
+    // Advisor Configuration
+    getAdvisors: () => fetchAPI<{
+        success: boolean;
+        advisors: Array<{
+            name: string;
+            provider: 'claude' | 'grok' | 'openai' | 'gemini';
+            aliases: string[];
+            personality?: string;
+            icon?: string;
+            enabled: boolean;
+            available?: boolean;
+        }>;
+        councilName: string;
+        councilAliases: string[];
+        availableProviders: string[];
+    }>('/ai/aria/advisors'),
+
+    addAdvisor: (advisor: {
+        name: string;
+        provider: 'claude' | 'grok' | 'openai' | 'gemini';
+        aliases?: string[];
+        personality?: string;
+        icon?: string;
+        enabled?: boolean;
+    }) => postAPI<{
+        success: boolean;
+        advisor: {
+            name: string;
+            provider: 'claude' | 'grok' | 'openai' | 'gemini';
+            aliases: string[];
+            personality?: string;
+            icon?: string;
+            enabled: boolean;
+        };
+        action: 'created' | 'updated';
+    }>('/ai/aria/advisors', advisor),
+
+    removeAdvisor: (name: string) => fetch(`${API_BASE}/ai/aria/advisors/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+    }).then(res => res.json()) as Promise<{
+        success: boolean;
+        removed?: { name: string };
+        error?: string;
+    }>,
+
+    setCouncilConfig: (config: {
+        name?: string;
+        aliases?: string[];
+    }) => postAPI<{
+        success: boolean;
+        councilName: string;
+        councilAliases: string[];
+    }>('/ai/aria/council', config),
+};
+
+// ============================================================================
+// Unified Workflow API
+// ============================================================================
+
+export interface CompletedTodaySummary {
+    date: string;
+    totalCompleted: number;
+    totalFailed: number;
+    totalPending: number;
+    byAgent: Record<string, number>;
+    byPriority: Record<string, number>;
+    avgCompletionTimeMs: number;
+    trustChanges: {
+        rewards: number;
+        penalties: number;
+        netChange: number;
+    };
+    autonomyMetrics: {
+        autoApproved: number;
+        humanApproved: number;
+        humanRejected: number;
+    };
+}
+
+export interface AggressivenessConfig {
+    level: number;
+    autoApproveUpToTier: number;
+    maxDelegationDepth: number;
+    trustRewardMultiplier: number;
+    trustPenaltyMultiplier: number;
+}
+
+export interface WorkflowTask {
+    id: string;
+    title: string;
+    description: string;
+    priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+    status: 'QUEUED' | 'PENDING_APPROVAL' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+    assignedTo?: string;
+    delegationCount: number;
+    requiredTier: number;
+    createdAt: string;
+    startedAt?: string;
+    completedAt?: string;
+    result?: unknown;
+    approvalRequired: boolean;
+    approvedBy?: string;
+}
+
+async function fetchWorkflowAPI<T>(path: string): Promise<T> {
+    const res = await fetch(`${WORKFLOW_API_BASE}${path}`);
+    if (!res.ok) throw new Error(`Workflow API error: ${res.status}`);
+    return res.json();
+}
+
+async function postWorkflowAPI<T>(path: string, data: unknown): Promise<T> {
+    const res = await fetch(`${WORKFLOW_API_BASE}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Workflow API error: ${res.status}`);
+    return res.json();
+}
+
+export const workflowApi = {
+    // Dashboard
+    getCompletedToday: () => fetchWorkflowAPI<CompletedTodaySummary>('/dashboard/today'),
+    getAggressiveness: () => fetchWorkflowAPI<AggressivenessConfig>('/dashboard/aggressiveness'),
+    setAggressiveness: (level: number, tokenId: string) =>
+        postWorkflowAPI<AggressivenessConfig>('/dashboard/aggressiveness', { level, tokenId }),
+
+    // Tasks
+    getTasks: () => fetchWorkflowAPI<WorkflowTask[]>('/tasks'),
+    getTask: (id: string) => fetchWorkflowAPI<WorkflowTask>(`/tasks/${id}`),
+    createTask: (title: string, description: string, priority?: string, requiredTier?: number) =>
+        postWorkflowAPI<WorkflowTask>('/tasks', { title, description, priority, requiredTier }),
+    assignTask: (taskId: string, agentId: string, tokenId: string) =>
+        postWorkflowAPI<WorkflowTask>(`/tasks/${taskId}/assign`, { agentId, tokenId }),
+    completeTask: (taskId: string, result: unknown, tokenId: string) =>
+        postWorkflowAPI<WorkflowTask>(`/tasks/${taskId}/complete`, { result, tokenId }),
+    failTask: (taskId: string, reason: string, tokenId: string) =>
+        postWorkflowAPI<WorkflowTask>(`/tasks/${taskId}/fail`, { reason, tokenId }),
+
+    // Approvals
+    getPendingApprovals: () => fetchWorkflowAPI<WorkflowTask[]>('/approvals'),
+    approveTask: (taskId: string, approve: boolean, tokenId: string) =>
+        postWorkflowAPI<WorkflowTask>(`/approvals/${taskId}`, { approve, tokenId }),
+
+    // Trust & Security
+    getTrustStats: () => fetchWorkflowAPI<{
+        totalAgents: number;
+        byLevel: Record<string, number>;
+        avgTrust: number;
+        hitlLevel: number;
+    }>('/trust/stats'),
+    getAuditLog: (limit?: number) =>
+        fetchWorkflowAPI<Array<{
+            id: string;
+            timestamp: string;
+            action: string;
+            actor: { type: string; id: string; tier?: number };
+            outcome: string;
+            details: Record<string, unknown>;
+        }>>(`/security/audit${limit ? `?limit=${limit}` : ''}`),
+
+    // Auth
+    getHumanToken: (masterKey: string) =>
+        postWorkflowAPI<{ tokenId: string; expiresAt: string }>('/auth/human', { masterKey }),
+
+    // Health
+    health: () => fetchWorkflowAPI<{ status: string; timestamp: string }>('/health'),
 };
 
 // ============================================================================
@@ -257,4 +528,114 @@ export function useApprovals(pollInterval = 3000) {
     }, [pollInterval]);
 
     return approvals;
+}
+
+// ============================================================================
+// Unified Workflow Hooks
+// ============================================================================
+
+export function useCompletedToday(pollInterval = 5000) {
+    const [summary, setSummary] = useState<CompletedTodaySummary | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = useCallback(async () => {
+        try {
+            const data = await workflowApi.getCompletedToday();
+            setSummary(data);
+            setError(null);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Workflow API unavailable');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refresh();
+        const interval = setInterval(refresh, pollInterval);
+        return () => clearInterval(interval);
+    }, [refresh, pollInterval]);
+
+    return { summary, error, loading, refresh };
+}
+
+export function useAggressiveness() {
+    const [config, setConfig] = useState<AggressivenessConfig | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = useCallback(async () => {
+        try {
+            const data = await workflowApi.getAggressiveness();
+            setConfig(data);
+        } catch {
+            // Workflow API might not be running
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refresh();
+    }, [refresh]);
+
+    const setLevel = useCallback(async (level: number, tokenId: string) => {
+        try {
+            const updated = await workflowApi.setAggressiveness(level, tokenId);
+            setConfig(updated);
+            return updated;
+        } catch (e) {
+            throw e;
+        }
+    }, []);
+
+    return { config, loading, refresh, setLevel };
+}
+
+export function useWorkflowTasks(pollInterval = 3000) {
+    const [tasks, setTasks] = useState<WorkflowTask[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = useCallback(async () => {
+        try {
+            const data = await workflowApi.getTasks();
+            setTasks(data);
+        } catch {
+            // Workflow API might not be running
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refresh();
+        const interval = setInterval(refresh, pollInterval);
+        return () => clearInterval(interval);
+    }, [refresh, pollInterval]);
+
+    return { tasks, loading, refresh };
+}
+
+export function useWorkflowApprovals(pollInterval = 2000) {
+    const [approvals, setApprovals] = useState<WorkflowTask[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const refresh = useCallback(async () => {
+        try {
+            const data = await workflowApi.getPendingApprovals();
+            setApprovals(data);
+        } catch {
+            // Workflow API might not be running
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refresh();
+        const interval = setInterval(refresh, pollInterval);
+        return () => clearInterval(interval);
+    }, [refresh, pollInterval]);
+
+    return { approvals, loading, refresh };
 }

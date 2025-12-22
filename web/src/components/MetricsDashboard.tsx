@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TrustTierBadge } from './TrustTierBadge';
+import { CompletedTodayCard } from './CompletedTodayCard';
+import { HumanAuthModal } from './HumanAuthModal';
 import type { Agent, BlackboardEntry } from '../types';
 
 /**
@@ -37,6 +39,10 @@ export const MetricsDashboard: React.FC<MetricsDashboardProps> = ({
     onClose,
     onViewAgent,
 }) => {
+    // Human auth state
+    const [humanToken, setHumanToken] = useState<string | null>(null);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+
     // Calculate metrics
     const totalAgents = agents.length;
     const activeAgents = agents.filter(a => a.status === 'WORKING').length;
@@ -84,11 +90,18 @@ export const MetricsDashboard: React.FC<MetricsDashboardProps> = ({
     const hitlInfo = getHITLDescription();
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '900px', maxHeight: '90vh' }}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
+            <div
+                className="modal"
+                onClick={e => e.stopPropagation()}
+                style={{ maxWidth: '900px', maxHeight: '90vh' }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="metrics-dashboard-title"
+            >
                 <div className="modal-header">
-                    <h2>📊 System Metrics & Governance</h2>
-                    <button className="close-btn" onClick={onClose}>✕</button>
+                    <h2 id="metrics-dashboard-title">📊 System Metrics & Governance</h2>
+                    <button className="close-btn" onClick={onClose} aria-label="Close metrics dashboard">✕</button>
                 </div>
 
                 <div className="modal-content" style={{ overflowY: 'auto', maxHeight: '75vh' }}>
@@ -296,8 +309,65 @@ export const MetricsDashboard: React.FC<MetricsDashboardProps> = ({
                             ))}
                         </div>
                     </div>
+
+                    {/* Unified Workflow - Completed Today */}
+                    <div style={{ marginTop: '24px' }}>
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '16px'
+                        }}>
+                            <h3 style={{ fontSize: '0.9rem', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                🔄 Unified Workflow API
+                            </h3>
+                            {humanToken ? (
+                                <span style={{
+                                    background: 'rgba(16, 185, 129, 0.2)',
+                                    color: 'var(--accent-green)',
+                                    padding: '4px 12px',
+                                    borderRadius: '12px',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 600
+                                }}>
+                                    ✓ Authenticated
+                                </span>
+                            ) : (
+                                <button
+                                    onClick={() => setShowAuthModal(true)}
+                                    style={{
+                                        background: 'linear-gradient(135deg, var(--accent-purple), var(--accent-blue))',
+                                        border: 'none',
+                                        color: 'white',
+                                        padding: '6px 12px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    🔐 Authenticate
+                                </button>
+                            )}
+                        </div>
+                        <CompletedTodayCard
+                            humanToken={humanToken ?? undefined}
+                            onTokenNeeded={() => setShowAuthModal(true)}
+                        />
+                    </div>
                 </div>
             </div>
+
+            {/* Human Auth Modal */}
+            {showAuthModal && (
+                <HumanAuthModal
+                    onAuthenticated={(token) => {
+                        setHumanToken(token);
+                        setShowAuthModal(false);
+                    }}
+                    onClose={() => setShowAuthModal(false)}
+                />
+            )}
         </div>
     );
 };

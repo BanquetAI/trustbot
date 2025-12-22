@@ -48,6 +48,7 @@ export interface SecurityHeadersConfig {
 
 const DEFAULT_CORS_CONFIG: CORSConfig = {
     allowedOrigins: [
+        // Local development
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
@@ -58,6 +59,12 @@ const DEFAULT_CORS_CONFIG: CORSConfig = {
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
         'http://127.0.0.1:5173',
+        // Production - Vercel frontend
+        'https://web-626.vercel.app',
+        'https://web-banquetai.vercel.app',
+        'https://*.vercel.app',
+        // Production - Fly.io API (for same-origin)
+        'https://trustbot-api.fly.dev',
     ],
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-API-Key'],
@@ -158,10 +165,14 @@ export function corsMiddleware(config: Partial<CORSConfig> = {}) {
         const isAllowed = cfg.allowedOrigins.some(allowed => {
             if (allowed === '*') return true;
             if (allowed === origin) return true;
-            // Support wildcard subdomains
-            if (allowed.startsWith('*.')) {
-                const domain = allowed.slice(2);
-                return origin.endsWith(domain);
+            // Support wildcard subdomains (e.g., "https://*.vercel.app" or "*.vercel.app")
+            if (allowed.includes('*')) {
+                // Convert wildcard pattern to regex
+                const pattern = allowed
+                    .replace(/[.+?^${}()|[\]\\]/g, '\\$&')  // Escape regex chars except *
+                    .replace(/\*/g, '.*');  // Replace * with .*
+                const regex = new RegExp(`^${pattern}$`);
+                return regex.test(origin);
             }
             return false;
         });
@@ -182,9 +193,21 @@ export function corsMiddleware(config: Partial<CORSConfig> = {}) {
             c.header('Access-Control-Allow-Credentials', 'true');
         }
 
-        // Handle preflight
+        // Handle preflight - must include CORS headers in response
         if (c.req.method === 'OPTIONS') {
-            return new Response(null, { status: 204 });
+            const headers: Record<string, string> = {
+                'Access-Control-Allow-Methods': cfg.allowedMethods.join(', '),
+                'Access-Control-Allow-Headers': cfg.allowedHeaders.join(', '),
+                'Access-Control-Expose-Headers': cfg.exposeHeaders.join(', '),
+                'Access-Control-Max-Age': cfg.maxAge.toString(),
+            };
+            if (origin && isAllowed) {
+                headers['Access-Control-Allow-Origin'] = origin;
+            }
+            if (cfg.credentials) {
+                headers['Access-Control-Allow-Credentials'] = 'true';
+            }
+            return new Response(null, { status: 204, headers });
         }
 
         await next();

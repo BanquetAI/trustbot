@@ -1,17 +1,20 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { TrustTierBadge } from './TrustTierBadge';
+import { FilterBar, EmptyStates, SkeletonAgentCard } from './ui';
 import type { Agent } from '../types';
 
 /**
  * Agent List Modal
- * 
+ *
  * Displays all agents with their trust tiers and links to profiles.
+ * Now with search and filtering capabilities.
  */
 
 interface AgentListModalProps {
     agents: Agent[];
     onClose: () => void;
     onSelectAgent: (id: string) => void;
+    loading?: boolean;
 }
 
 const AGENT_ICONS: Record<string, string> = {
@@ -34,9 +37,40 @@ const STATUS_COLORS: Record<string, string> = {
     SUSPENDED: 'var(--accent-red)',
 };
 
-export const AgentListModal: React.FC<AgentListModalProps> = ({ agents, onClose, onSelectAgent }) => {
-    // Group agents by tier
-    const agentsByTier = agents.reduce((acc, agent) => {
+export const AgentListModal: React.FC<AgentListModalProps> = ({ agents, onClose, onSelectAgent, loading = false }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+
+    // Filter agents based on search and status
+    const filteredAgents = useMemo(() => {
+        return agents.filter(agent => {
+            const matchesSearch = searchQuery === '' ||
+                agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                agent.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                agent.location.room.toLowerCase().includes(searchQuery.toLowerCase());
+
+            const matchesStatus = statusFilter === 'ALL' || agent.status === statusFilter;
+
+            return matchesSearch && matchesStatus;
+        });
+    }, [agents, searchQuery, statusFilter]);
+
+    // Build filter options with counts
+    const statusFilters = useMemo(() => {
+        const counts: Record<string, number> = { ALL: agents.length };
+        agents.forEach(a => {
+            counts[a.status] = (counts[a.status] || 0) + 1;
+        });
+        return [
+            { id: 'ALL', label: 'All', icon: '📋', count: counts.ALL },
+            { id: 'WORKING', label: 'Working', icon: '🟢', count: counts.WORKING || 0 },
+            { id: 'IDLE', label: 'Idle', icon: '⚪', count: counts.IDLE || 0 },
+            { id: 'WAITING', label: 'Waiting', icon: '🟡', count: counts.WAITING || 0 },
+        ].filter(f => f.id === 'ALL' || f.count > 0);
+    }, [agents]);
+
+    // Group filtered agents by tier
+    const agentsByTier = filteredAgents.reduce((acc, agent) => {
         const tier = agent.tier;
         if (!acc[tier]) acc[tier] = [];
         acc[tier].push(agent);
@@ -48,15 +82,54 @@ export const AgentListModal: React.FC<AgentListModalProps> = ({ agents, onClose,
         .sort((a, b) => b - a);
 
     return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', maxHeight: '80vh' }}>
+        <div className="modal-overlay" onClick={onClose} role="presentation">
+            <div
+                className="modal"
+                onClick={e => e.stopPropagation()}
+                style={{ maxWidth: '700px', maxHeight: '80vh' }}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="agent-list-title"
+            >
                 <div className="modal-header">
-                    <h2>🤖 Agent Directory ({agents.length} Agents)</h2>
-                    <button className="close-btn" onClick={onClose}>✕</button>
+                    <h2 id="agent-list-title">🤖 Agent Directory ({filteredAgents.length}/{agents.length})</h2>
+                    <button className="close-btn" onClick={onClose} aria-label="Close agent directory">✕</button>
                 </div>
 
                 <div className="modal-content" style={{ overflowY: 'auto', maxHeight: '60vh' }}>
-                    {sortedTiers.map(tier => (
+                    {/* Search and Filter Bar */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <FilterBar
+                            searchValue={searchQuery}
+                            onSearchChange={setSearchQuery}
+                            filters={statusFilters}
+                            activeFilter={statusFilter}
+                            onFilterChange={setStatusFilter}
+                            placeholder="Search agents by name, type, or location..."
+                        />
+                    </div>
+
+                    {/* Loading State */}
+                    {loading && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {[1, 2, 3].map(i => <SkeletonAgentCard key={i} />)}
+                        </div>
+                    )}
+
+                    {/* Empty States */}
+                    {!loading && agents.length === 0 && (
+                        EmptyStates.noAgents(() => onClose())
+                    )}
+
+                    {!loading && agents.length > 0 && filteredAgents.length === 0 && (
+                        EmptyStates.noSearchResults(searchQuery, () => {
+                            setSearchQuery('');
+                            setStatusFilter('ALL');
+                        })
+                    )}
+
+                    {/* Agent List */}
+                    {!loading && sortedTiers.map(tier => (
                         <div key={tier} style={{ marginBottom: '24px' }}>
                             <div style={{
                                 display: 'flex',

@@ -583,6 +583,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // Security middleware stack
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+        // Local development
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
@@ -590,7 +591,11 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         'http://localhost:3005',
         'http://localhost:5173',
         'http://localhost:5174',
-        '*.vercel.app',
+        // Production
+        'https://web-626.vercel.app',
+        'https://web-banquetai.vercel.app',
+        'https://*.vercel.app',
+        'https://trustbot-api.fly.dev',
     ];
 
     app.use('*', requestIdMiddleware());
@@ -692,6 +697,38 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
             day: 1,
             events: [],
             persistenceMode,
+        });
+    });
+
+    // GET /api/tick - Trigger agent work loop
+    app.get('/api/tick', async (c) => {
+        const timestamp = new Date().toISOString();
+        const tasks = engine.getTasks();
+        const pending = tasks.filter((t: { status: string }) => t.status === 'QUEUED').length;
+        const inProgress = tasks.filter((t: { status: string }) => t.status === 'IN_PROGRESS').length;
+        const completed = tasks.filter((t: { status: string }) => t.status === 'COMPLETED').length;
+
+        // Get trust stats
+        const trustStats = engine.getTrustEngine().getStats();
+
+        return c.json({
+            success: true,
+            tick: Date.now(),
+            timestamp,
+            processed: inProgress,
+            assigned: inProgress,
+            completed,
+            queue: {
+                pending,
+                inProgress,
+                totalTasks: tasks.length,
+            },
+            trustSystem: {
+                avgTrust: trustStats.avgTrust,
+                agentsByTier: trustStats.byLevel,
+            },
+            events: [],
+            newBlackboardEntries: 0,
         });
     });
 
@@ -1394,7 +1431,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     // -------------------------------------------------------------------------
 
     // GET /ai/providers - List available AI providers
-    app.get('/ai/providers', async (c) => {
+    app.get('/api/ai/providers', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1414,7 +1451,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/complete - Send completion request to AI
-    app.post('/ai/complete', async (c) => {
+    app.post('/api/ai/complete', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1440,7 +1477,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/ask - Simple question/answer
-    app.post('/ai/ask', async (c) => {
+    app.post('/api/ai/ask', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1457,7 +1494,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/agent-reason - Agent reasoning endpoint
-    app.post('/ai/agent-reason', async (c) => {
+    app.post('/api/ai/agent-reason', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1477,7 +1514,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/set-default - Set default AI provider
-    app.post('/ai/set-default', async (c) => {
+    app.post('/api/ai/set-default', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1491,7 +1528,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/configure - Configure a provider with API key
-    app.post('/ai/configure', async (c) => {
+    app.post('/api/ai/configure', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1524,7 +1561,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // POST /ai/test - Test a provider connection
-    app.post('/ai/test', async (c) => {
+    app.post('/api/ai/test', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1538,7 +1575,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // DELETE /ai/provider/:type - Remove a provider
-    app.delete('/ai/provider/:type', async (c) => {
+    app.delete('/api/ai/provider/:type', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1557,7 +1594,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     });
 
     // GET /ai/info - Get detailed provider info
-    app.get('/ai/info', async (c) => {
+    app.get('/api/ai/info', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1576,7 +1613,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     // -------------------------------------------------------------------------
 
     // POST /ai/aria/interpret - Interpret user message for agent routing
-    app.post('/ai/aria/interpret', async (c) => {
+    app.post('/api/ai/aria/interpret', async (c) => {
         try {
             // Check if Aria AI is enabled
             if (!ariaSettings.enabled) {
@@ -1719,7 +1756,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // POST /ai/aria/gather - Gather perspectives from all AI providers
-    app.post('/ai/aria/gather', async (c) => {
+    app.post('/api/ai/aria/gather', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1766,7 +1803,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // GET /ai/aria/settings - Get Aria AI settings
-    app.get('/ai/aria/settings', async (c) => {
+    app.get('/api/ai/aria/settings', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1787,7 +1824,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // POST /ai/aria/settings - Update Aria AI settings
-    app.post('/ai/aria/settings', async (c) => {
+    app.post('/api/ai/aria/settings', async (c) => {
         try {
             const body = await c.req.json<Partial<AriaSettings>>();
 
@@ -1812,7 +1849,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // GET /ai/aria/advisors - Get all configured advisors
-    app.get('/ai/aria/advisors', async (c) => {
+    app.get('/api/ai/aria/advisors', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
@@ -1841,7 +1878,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // POST /ai/aria/advisors - Add or update an advisor
-    app.post('/ai/aria/advisors', async (c) => {
+    app.post('/api/ai/aria/advisors', async (c) => {
         try {
             const body = await c.req.json<AdvisorConfig>();
 
@@ -1899,7 +1936,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // DELETE /ai/aria/advisors/:name - Remove an advisor
-    app.delete('/ai/aria/advisors/:name', async (c) => {
+    app.delete('/api/ai/aria/advisors/:name', async (c) => {
         try {
             const name = c.req.param('name');
 
@@ -1930,7 +1967,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // POST /ai/aria/council - Update council settings (name and aliases)
-    app.post('/ai/aria/council', async (c) => {
+    app.post('/api/ai/aria/council', async (c) => {
         try {
             const body = await c.req.json<{
                 name?: string;
@@ -1958,7 +1995,7 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     });
 
     // POST /ai/aria/consult - Ask a specific provider for targeted knowledge
-    app.post('/ai/aria/consult', async (c) => {
+    app.post('/api/ai/aria/consult', async (c) => {
         try {
             const { getAIClient } = await import('../core/AIProvider.js');
             const client = getAIClient();
