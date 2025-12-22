@@ -61,6 +61,33 @@
   --transition-slow: 400ms ease;
 }
 
+/* Performance optimizations */
+.glossary-modal,
+.login-container,
+.console-quick-actions {
+  contain: layout style;
+}
+
+.glossary-row,
+.glossary-pill,
+.quick-action-btn,
+.console-btn {
+  contain: layout;
+}
+
+/* Optimize buttons for faster interaction */
+button {
+  touch-action: manipulation;
+}
+
+.login-demo-btn,
+.console-btn,
+.glossary-pill,
+.quick-action-btn {
+  will-change: transform, background-color;
+  transform: translateZ(0);
+}
+
 /* Reset & Base */
 *,
 *::before,

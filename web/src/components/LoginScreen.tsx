@@ -1,5 +1,5 @@
 import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
-import { useState } from 'react';
+import { useState, useCallback, memo } from 'react';
 
 interface LoginScreenProps {
     onLogin: (user?: { email: string; name: string; picture?: string }) => void;
@@ -27,16 +27,23 @@ function decodeJwt(token: string): { email: string; name: string; picture?: stri
     }
 }
 
+// Static data - defined outside component to avoid recreation
 const features = [
     { icon: '🛡️', title: '6-Tier Trust', desc: 'Graduated autonomy levels' },
     { icon: '👁️', title: 'Real-Time', desc: 'Live agent monitoring' },
     { icon: '📋', title: 'Audit Trail', desc: 'Complete action history' },
-];
+] as const;
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
+const DEMO_USER = {
+    email: 'demo@trustbot.ai',
+    name: 'Demo User',
+    picture: undefined,
+} as const;
+
+export const LoginScreen = memo(function LoginScreen({ onLogin }: LoginScreenProps) {
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSuccess = (response: CredentialResponse) => {
+    const handleSuccess = useCallback((response: CredentialResponse) => {
         setIsLoading(true);
         if (response.credential) {
             const user = decodeJwt(response.credential);
@@ -49,23 +56,18 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             }
         }
         setIsLoading(false);
-    };
+    }, [onLogin]);
 
-    const handleError = () => {
+    const handleError = useCallback(() => {
         console.error('Google Sign-In failed');
         setIsLoading(false);
-    };
+    }, []);
 
-    const handleDemoMode = () => {
-        const demoUser = {
-            email: 'demo@trustbot.ai',
-            name: 'Demo User',
-            picture: undefined,
-        };
-        sessionStorage.setItem('trustbot_user', JSON.stringify(demoUser));
+    const handleDemoMode = useCallback(() => {
+        sessionStorage.setItem('trustbot_user', JSON.stringify(DEMO_USER));
         sessionStorage.setItem('trustbot_demo', 'true');
-        onLogin(demoUser);
-    };
+        onLogin(DEMO_USER);
+    }, [onLogin]);
 
     return (
         <div className="login-screen">
@@ -138,4 +140,4 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             </div>
         </div>
     );
-}
+});

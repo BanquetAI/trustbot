@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 
 interface GlossaryProps {
     onClose: () => void;
@@ -338,39 +338,75 @@ const CATEGORIES = [
     { id: 'Risk & Safety', label: 'Risk', icon: '🔒' },
 ];
 
-export function Glossary({ onClose }: GlossaryProps) {
+// Pre-calculate category counts once at module level
+const CATEGORY_COUNTS: Record<string, number> = { all: GLOSSARY_TERMS.length };
+GLOSSARY_TERMS.forEach(term => {
+    CATEGORY_COUNTS[term.category] = (CATEGORY_COUNTS[term.category] || 0) + 1;
+});
+
+// Limit initial render for performance
+const INITIAL_RENDER_LIMIT = 30;
+
+export const Glossary = memo(function Glossary({ onClose }: GlossaryProps) {
     const [search, setSearch] = useState('');
     const [showSearch, setShowSearch] = useState(false);
     const [selectedCategory, setSelectedCategory] = useState('all');
     const [expandedTerm, setExpandedTerm] = useState<string | null>(null);
+    const [showAll, setShowAll] = useState(false);
+
+    // Memoized search handler
+    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearch(e.target.value);
+        setShowAll(false); // Reset pagination on search
+    }, []);
+
+    // Memoized category click
+    const handleCategoryClick = useCallback((catId: string) => {
+        setSelectedCategory(catId);
+        setShowAll(false);
+    }, []);
+
+    // Memoized term toggle
+    const handleTermToggle = useCallback((termName: string) => {
+        setExpandedTerm(prev => prev === termName ? null : termName);
+    }, []);
+
+    // Memoized term click (for related terms)
+    const handleTermClick = useCallback((t: string) => {
+        setSearch(t);
+        setSelectedCategory('all');
+        setShowAll(false);
+    }, []);
 
     const filteredTerms = useMemo(() => {
+        const searchLower = search.toLowerCase();
         return GLOSSARY_TERMS.filter(term => {
             const matchesSearch = search === '' ||
-                term.term.toLowerCase().includes(search.toLowerCase()) ||
-                term.definition.toLowerCase().includes(search.toLowerCase());
+                term.term.toLowerCase().includes(searchLower) ||
+                term.definition.toLowerCase().includes(searchLower);
             const matchesCategory = selectedCategory === 'all' || term.category === selectedCategory;
             return matchesSearch && matchesCategory;
         });
     }, [search, selectedCategory]);
 
+    // Limit displayed terms for performance
+    const displayedTerms = useMemo(() => {
+        if (showAll || filteredTerms.length <= INITIAL_RENDER_LIMIT) {
+            return filteredTerms;
+        }
+        return filteredTerms.slice(0, INITIAL_RENDER_LIMIT);
+    }, [filteredTerms, showAll]);
+
     const termsByCategory = useMemo(() => {
         const grouped: Record<string, GlossaryTerm[]> = {};
-        filteredTerms.forEach(term => {
+        displayedTerms.forEach(term => {
             if (!grouped[term.category]) grouped[term.category] = [];
             grouped[term.category].push(term);
         });
         return grouped;
-    }, [filteredTerms]);
+    }, [displayedTerms]);
 
-    // Calculate category counts for badges
-    const categoryCounts = useMemo(() => {
-        const counts: Record<string, number> = { all: GLOSSARY_TERMS.length };
-        GLOSSARY_TERMS.forEach(term => {
-            counts[term.category] = (counts[term.category] || 0) + 1;
-        });
-        return counts;
-    }, []);
+    const hasMore = filteredTerms.length > INITIAL_RENDER_LIMIT && !showAll;
 
     return (
         <div className="glossary-overlay" onClick={onClose}>
@@ -380,7 +416,7 @@ export function Glossary({ onClose }: GlossaryProps) {
                     <div className="glossary-header-left">
                         <span className="glossary-icon-sm">📖</span>
                         <span className="glossary-title-sm">AI Glossary</span>
-                        <span className="glossary-count">{filteredTerms.length} / {GLOSSARY_TERMS.length}</span>
+                        <span className="glossary-count">{displayedTerms.length}{hasMore ? '+' : ''} / {filteredTerms.length}</span>
                     </div>
                     <div className="glossary-header-right">
                         {/* Search Toggle */}
@@ -390,7 +426,7 @@ export function Glossary({ onClose }: GlossaryProps) {
                                     type="text"
                                     placeholder="Search terms..."
                                     value={search}
-                                    onChange={e => setSearch(e.target.value)}
+                                    onChange={handleSearchChange}
                                     className="glossary-search-compact"
                                     autoFocus
                                     onBlur={() => !search && setShowSearch(false)}
@@ -416,8 +452,8 @@ export function Glossary({ onClose }: GlossaryProps) {
                         <button
                             key={cat.id}
                             className={`glossary-pill ${selectedCategory === cat.id ? 'active' : ''}`}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            title={`${cat.id === 'all' ? 'All' : cat.id} (${categoryCounts[cat.id] || 0})`}
+                            onClick={() => handleCategoryClick(cat.id)}
+                            title={`${cat.id === 'all' ? 'All' : cat.id} (${CATEGORY_COUNTS[cat.id] || 0})`}
                         >
                             {cat.icon} {cat.label}
                         </button>
@@ -444,28 +480,47 @@ export function Glossary({ onClose }: GlossaryProps) {
                                         key={term.term}
                                         term={term}
                                         isExpanded={expandedTerm === term.term}
-                                        onToggle={() => setExpandedTerm(expandedTerm === term.term ? null : term.term)}
-                                        onTermClick={(t) => { setSearch(t); setSelectedCategory('all'); }}
+                                        onToggle={() => handleTermToggle(term.term)}
+                                        onTermClick={handleTermClick}
                                     />
                                 ))}
                             </div>
                         ))
                     ) : (
-                        filteredTerms.map(term => (
+                        displayedTerms.map(term => (
                             <CompactTermRow
                                 key={term.term}
                                 term={term}
                                 isExpanded={expandedTerm === term.term}
-                                onToggle={() => setExpandedTerm(expandedTerm === term.term ? null : term.term)}
-                                onTermClick={(t) => { setSearch(t); setSelectedCategory('all'); }}
+                                onToggle={() => handleTermToggle(term.term)}
+                                onTermClick={handleTermClick}
                             />
                         ))
+                    )}
+                    {hasMore && (
+                        <button
+                            className="glossary-load-more"
+                            onClick={() => setShowAll(true)}
+                            style={{
+                                width: '100%',
+                                padding: '12px',
+                                margin: '8px 0',
+                                background: 'var(--accent-purple)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                fontWeight: 600,
+                            }}
+                        >
+                            Load {filteredTerms.length - INITIAL_RENDER_LIMIT} more terms
+                        </button>
                     )}
                 </div>
             </div>
         </div>
     );
-}
+});
 
 interface CompactTermRowProps {
     term: GlossaryTerm;
@@ -474,11 +529,19 @@ interface CompactTermRowProps {
     onTermClick: (term: string) => void;
 }
 
-function CompactTermRow({ term, isExpanded, onToggle, onTermClick }: CompactTermRowProps) {
-    // Truncate definition for collapsed view
-    const shortDef = term.definition.length > 80
-        ? term.definition.slice(0, 80) + '...'
-        : term.definition;
+const CompactTermRow = memo(function CompactTermRow({ term, isExpanded, onToggle, onTermClick }: CompactTermRowProps) {
+    // Truncate definition for collapsed view - memoize to avoid recalc
+    const shortDef = useMemo(() =>
+        term.definition.length > 80
+            ? term.definition.slice(0, 80) + '...'
+            : term.definition,
+        [term.definition]
+    );
+
+    const handleRelatedClick = useCallback((e: React.MouseEvent, r: string) => {
+        e.stopPropagation();
+        onTermClick(r);
+    }, [onTermClick]);
 
     return (
         <div className={`glossary-row ${isExpanded ? 'expanded' : ''}`}>
@@ -498,7 +561,7 @@ function CompactTermRow({ term, isExpanded, onToggle, onTermClick }: CompactTerm
                     {term.related && term.related.length > 0 && (
                         <div className="glossary-row-related">
                             {term.related.map(r => (
-                                <button key={r} className="glossary-tag" onClick={e => { e.stopPropagation(); onTermClick(r); }}>
+                                <button key={r} className="glossary-tag" onClick={e => handleRelatedClick(e, r)}>
                                     {r}
                                 </button>
                             ))}
@@ -508,4 +571,4 @@ function CompactTermRow({ term, isExpanded, onToggle, onTermClick }: CompactTerm
             )}
         </div>
     );
-}
+});
