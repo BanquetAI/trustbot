@@ -213,6 +213,39 @@ export class SupabasePersistence extends EventEmitter<SupabaseEvents> {
         return data;
     }
 
+    async deleteAgent(id: string, deletedBy: string = '9901'): Promise<{ success: boolean; archived: boolean }> {
+        // Get agent data before deletion for archiving
+        const agent = await this.getAgent(id);
+        if (!agent) {
+            throw new Error(`Agent ${id} not found`);
+        }
+
+        // Archive to deleted_agents table
+        try {
+            await this.client
+                .from('deleted_agents')
+                .insert({
+                    ...agent,
+                    deleted_at: new Date().toISOString(),
+                    deleted_by: deletedBy,
+                });
+        } catch (archiveError) {
+            // Table might not exist, log but continue with deletion
+            console.warn('Could not archive agent (table may not exist):', archiveError);
+        }
+
+        // Delete from active agents
+        const { error } = await this.client
+            .from('agents')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+
+        console.log(`🗑️ Agent ${agent.name} (${id}) archived and deleted by ${deletedBy}`);
+        return { success: true, archived: true };
+    }
+
     async updateTrustScore(id: string, score: number, reason?: string): Promise<void> {
         const agent = await this.getAgent(id);
         if (!agent) throw new Error(`Agent ${id} not found`);

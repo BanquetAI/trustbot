@@ -11,6 +11,7 @@
 
 import { Context, Next } from 'hono';
 import { createHash, timingSafeEqual } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 
 // ============================================================================
 // Types
@@ -416,5 +417,99 @@ export function createSecurityMiddleware(options: {
                 });
             });
         });
+    };
+}
+
+// ============================================================================
+// Google OAuth Token Verification
+// ============================================================================
+
+export interface GoogleUser {
+    email: string;
+    name: string;
+    picture?: string;
+    sub: string; // Google user ID
+}
+
+// Cache for verified tokens (5 minute TTL)
+const tokenCache = new Map<string, { user: GoogleUser; expiresAt: number }>();
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+export async function verifyGoogleToken(token: string): Promise<GoogleUser | null> {
+    // Check cache first
+    const cached = tokenCache.get(token);
+    if (cached && cached.expiresAt > Date.now()) {
+        return cached.user;
+    }
+
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        if (!payload) return null;
+
+        const user: GoogleUser = {
+            email: payload.email || '',
+            name: payload.name || '',
+            picture: payload.picture,
+            sub: payload.sub,
+        };
+
+        // Cache for 5 minutes
+        tokenCache.set(token, { user, expiresAt: Date.now() + 5 * 60 * 1000 });
+
+        return user;
+    } catch (error) {
+        console.error('Google token verification failed:', error);
+        return null;
+    }
+}
+
+export interface GoogleAuthConfig {
+    skipPaths?: string[]; // Paths that don't require auth
+    optional?: boolean;   // If true, continues without auth but sets user if present
+}
+
+export function googleAuthMiddleware(config: GoogleAuthConfig = {}) {
+    const skipPaths = config.skipPaths || ['/health', '/'];
+
+    return async (c: Context, next: Next): Promise<Response | void> => {
+        const path = c.req.path;
+
+        // Skip auth for specified paths
+        if (skipPaths.some(p => path === p || path.startsWith(p + '/'))) {
+            await next();
+            return;
+        }
+
+        // Get token from Authorization header
+        const authHeader = c.req.header('Authorization');
+        const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+        if (!token) {
+            if (config.optional) {
+                await next();
+                return;
+            }
+            return c.json({ error: 'Authorization required' }, 401);
+        }
+
+        const user = await verifyGoogleToken(token);
+
+        if (!user) {
+            if (config.optional) {
+                await next();
+                return;
+            }
+            return c.json({ error: 'Invalid or expired token' }, 401);
+        }
+
+        // Set user on context for route handlers
+        c.set('user', user);
+        await next();
     };
 }

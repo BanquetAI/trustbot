@@ -6,6 +6,7 @@ import {
     getAgentIcon, getEntryConfig,
 } from '../constants';
 import type { Agent, BlackboardEntry, ApprovalRequest } from '../types';
+import { Tooltip, TOOLTIP_CONTENT } from './Tooltip';
 
 /**
  * TrustBot Console
@@ -53,11 +54,18 @@ function stripMarkdown(text: string): string {
         .trim();
 }
 
+interface UserInfo {
+    email: string;
+    name: string;
+    picture?: string;
+}
+
 interface ConsoleProps {
     agents: Agent[];
     blackboardEntries: BlackboardEntry[];
     approvals: ApprovalRequest[];
     hitlLevel: number;
+    user?: UserInfo | null;
     onSpawn?: (name: string, type: string, tier: number) => void;
     onSetHITL?: (level: number) => void;
     onApprove?: (id: string, approved: boolean) => void;
@@ -67,6 +75,12 @@ interface ConsoleProps {
     onOpenMetrics?: () => void;
     onOpenTasks?: () => void;
     onOpenHelp?: () => void;
+    onOpenTutorial?: () => void;
+    onOpenGlossary?: () => void;
+    onOpenPending?: () => void;
+    onOpenSpawnWizard?: () => void;
+    onOpenInsights?: () => void;
+    onLogout?: () => void;
 }
 
 interface ConsoleMessage {
@@ -98,6 +112,7 @@ export function Console({
     blackboardEntries,
     approvals,
     hitlLevel,
+    user,
     onSpawn,
     onSetHITL,
     onApprove,
@@ -107,6 +122,12 @@ export function Console({
     onOpenMetrics,
     onOpenTasks,
     onOpenHelp,
+    onOpenTutorial,
+    onOpenGlossary,
+    onOpenPending,
+    onOpenSpawnWizard,
+    onOpenInsights,
+    onLogout,
 }: ConsoleProps) {
     // Alias for compatibility
     const entries = blackboardEntries;
@@ -347,6 +368,88 @@ export function Console({
                     await handleApprove(args[0], false, args.slice(1).join(' '));
                     break;
 
+                case 'tasks':
+                case 'pending':
+                case 'phases': {
+                    // Show tasks grouped by phase/status
+                    const phaseFilter = args[0]?.toUpperCase();
+                    const taskEntries = entries.filter(e => e.type === 'TASK');
+                    const problemEntries = entries.filter(e => e.type === 'PROBLEM' && e.status === 'OPEN');
+
+                    if (taskEntries.length === 0 && approvals.length === 0 && problemEntries.length === 0) {
+                        addMessage('aria', '✅ **All Clear!** No pending tasks, approvals, or problems.');
+                        break;
+                    }
+
+                    // Group tasks by status
+                    const byStatus: Record<string, typeof taskEntries> = {};
+                    taskEntries.forEach(t => {
+                        const status = t.status || 'OPEN';
+                        if (!byStatus[status]) byStatus[status] = [];
+                        byStatus[status].push(t);
+                    });
+
+                    // If filter provided, show only that phase
+                    if (phaseFilter && byStatus[phaseFilter]) {
+                        const filtered = byStatus[phaseFilter];
+                        const list = filtered.map(t => `  📋 **${t.title}** - ${t.author}`).join('\n');
+                        addMessage('aria', `**${phaseFilter} Tasks** (${filtered.length}):\n\n${list}`);
+                        break;
+                    }
+
+                    // Build summary
+                    let summary = '**📋 Task Phases Overview**\n\n';
+
+                    // Approvals first (highest priority)
+                    if (approvals.length > 0) {
+                        summary += `⏳ **AWAITING APPROVAL** (${approvals.length})\n`;
+                        approvals.slice(0, 3).forEach(a => {
+                            summary += `  • ${a.summary} — \`approve ${a.id.slice(0, 8)}\`\n`;
+                        });
+                        if (approvals.length > 3) summary += `  _(+${approvals.length - 3} more)_\n`;
+                        summary += '\n';
+                    }
+
+                    // Open tasks
+                    if (byStatus['OPEN']?.length) {
+                        summary += `📥 **OPEN** (${byStatus['OPEN'].length}) — Awaiting assignment\n`;
+                        byStatus['OPEN'].slice(0, 3).forEach(t => {
+                            summary += `  • ${t.title}\n`;
+                        });
+                        if (byStatus['OPEN'].length > 3) summary += `  _(+${byStatus['OPEN'].length - 3} more)_\n`;
+                        summary += '\n';
+                    }
+
+                    // In Progress
+                    if (byStatus['IN_PROGRESS']?.length) {
+                        summary += `🔄 **IN PROGRESS** (${byStatus['IN_PROGRESS'].length}) — Being worked on\n`;
+                        byStatus['IN_PROGRESS'].slice(0, 3).forEach(t => {
+                            summary += `  • ${t.title} — ${t.author}\n`;
+                        });
+                        if (byStatus['IN_PROGRESS'].length > 3) summary += `  _(+${byStatus['IN_PROGRESS'].length - 3} more)_\n`;
+                        summary += '\n';
+                    }
+
+                    // Problems
+                    if (problemEntries.length > 0) {
+                        summary += `⚠️ **PROBLEMS** (${problemEntries.length})\n`;
+                        problemEntries.slice(0, 3).forEach(p => {
+                            summary += `  • ${p.title}\n`;
+                        });
+                        if (problemEntries.length > 3) summary += `  _(+${problemEntries.length - 3} more)_\n`;
+                        summary += '\n';
+                    }
+
+                    // Resolved (recent)
+                    if (byStatus['RESOLVED']?.length) {
+                        summary += `✅ **RESOLVED** (${byStatus['RESOLVED'].length}) — Completed\n`;
+                    }
+
+                    summary += '\n💡 _Use_ `tasks OPEN` _or_ `tasks IN_PROGRESS` _to filter by phase._';
+                    addMessage('aria', summary);
+                    break;
+                }
+
                 case 'clear':
                     setMessages([]);
                     addMessage('aria', 'Console cleared. How can I help you?');
@@ -394,23 +497,73 @@ export function Console({
     const handleStatus = () => {
         const working = agents.filter(a => a.status === 'WORKING').length;
         const idle = agents.filter(a => a.status === 'IDLE').length;
+        const inMeeting = agents.filter(a => a.status === 'IN_MEETING').length;
         const level = getHITLLevel(hitlLevel);
-        const openProblems = entries.filter(e => e.type === 'PROBLEM' && e.status === 'OPEN').length;
-        const pendingTasks = entries.filter(e => e.type === 'TASK' && e.status !== 'RESOLVED').length;
+        const openProblems = entries.filter(e => e.type === 'PROBLEM' && e.status === 'OPEN');
+        const openTasks = entries.filter(e => e.type === 'TASK' && e.status === 'OPEN');
+        const inProgressTasks = entries.filter(e => e.type === 'TASK' && e.status === 'IN_PROGRESS');
         const avgTrust = agents.length > 0
             ? Math.round(agents.reduce((sum, a) => sum + a.trustScore, 0) / agents.length)
             : 0;
 
-        addMessage('aria', `**System Status**
+        let status = `**System Status**
 
-🤖 **Agents**: ${agents.length} total (${working} working, ${idle} idle)
+🤖 **Agents**: ${agents.length} total (${working} working, ${idle} idle${inMeeting > 0 ? `, ${inMeeting} in meeting` : ''})
 📊 **Avg Trust**: ${avgTrust}
 ${level.icon} **Governance**: ${hitlLevel}% - ${level.label}
-📋 **Tasks**: ${pendingTasks} pending
-⚠️ **Problems**: ${openProblems} open
-⏳ **Approvals**: ${approvals.length} pending
+`;
 
-${approvals.length > 0 ? `\nType \`approve <id>\` or \`deny <id>\` to handle pending requests.` : ''}`);
+        // Show pending items requiring attention
+        const hasPending = approvals.length > 0 || openTasks.length > 0 || openProblems.length > 0;
+
+        if (hasPending) {
+            status += `\n---\n**⏳ Pending Actions**\n`;
+
+            // Approvals awaiting human decision
+            if (approvals.length > 0) {
+                status += `\n🔐 **Awaiting Approval** (${approvals.length}) — _Requires your decision_\n`;
+                approvals.slice(0, 3).forEach(a => {
+                    const reason = a.type === 'SPAWN' ? 'Agent wants to spawn' :
+                                   a.type === 'DECISION' ? 'Decision requires approval' :
+                                   a.type === 'STRATEGY' ? 'Strategy needs review' : 'Needs approval';
+                    status += `  • ${a.summary}\n    _Reason: ${reason}_ — \`approve ${a.id.slice(0, 8)}\`\n`;
+                });
+                if (approvals.length > 3) status += `  _(+${approvals.length - 3} more)_\n`;
+            }
+
+            // Open tasks waiting for assignment
+            if (openTasks.length > 0) {
+                status += `\n📥 **Unassigned Tasks** (${openTasks.length}) — _Need agent assignment_\n`;
+                openTasks.slice(0, 3).forEach(t => {
+                    status += `  • ${t.title}\n    _Reason: No agent assigned yet. Run \`tick\` to assign._\n`;
+                });
+                if (openTasks.length > 3) status += `  _(+${openTasks.length - 3} more)_\n`;
+            }
+
+            // In-progress tasks
+            if (inProgressTasks.length > 0) {
+                status += `\n🔄 **In Progress** (${inProgressTasks.length}) — _Being worked on_\n`;
+                inProgressTasks.slice(0, 2).forEach(t => {
+                    status += `  • ${t.title} — ${t.author}\n`;
+                });
+                if (inProgressTasks.length > 2) status += `  _(+${inProgressTasks.length - 2} more)_\n`;
+            }
+
+            // Open problems
+            if (openProblems.length > 0) {
+                status += `\n⚠️ **Open Problems** (${openProblems.length}) — _Need investigation_\n`;
+                openProblems.slice(0, 2).forEach(p => {
+                    status += `  • ${p.title}\n`;
+                });
+                if (openProblems.length > 2) status += `  _(+${openProblems.length - 2} more)_\n`;
+            }
+
+            status += `\n---\n💡 _Use \`pending\` for detailed view or click **⏳ Pending** button._`;
+        } else {
+            status += `\n✅ **All Clear!** No pending actions. Agents are working autonomously.`;
+        }
+
+        addMessage('aria', status);
     };
 
     const handleAgents = (args: string[]) => {
@@ -565,14 +718,41 @@ ${recentEntries}${onSelectAgent ? '\n\n_Click "Open Profile" below to see full d
             const result = await api.tick();
             const events = result.events?.slice(0, 5).map(e => `  • ${e}`).join('\n') || '  (no events)';
 
-            addMessage('system', `✅ Tick completed!
+            // Check what's still pending after tick
+            const stillOpenTasks = entries.filter(e => e.type === 'TASK' && e.status === 'OPEN');
+            const stillInProgress = entries.filter(e => e.type === 'TASK' && e.status === 'IN_PROGRESS');
+            const stillPendingApprovals = approvals.length;
+
+            let tickResult = `✅ **Tick completed!**
 
 📊 **Processed**: ${result.processed}
 📋 **Assigned**: ${result.assigned}
 ✅ **Completed**: ${result.completed}
 
 **Events**:
-${events}`);
+${events}`;
+
+            // Show what's still pending
+            const hasPending = stillPendingApprovals > 0 || stillOpenTasks.length > 0;
+            if (hasPending) {
+                tickResult += `\n\n---\n**⏳ Still Pending:**`;
+
+                if (stillPendingApprovals > 0) {
+                    tickResult += `\n  🔐 ${stillPendingApprovals} approval(s) — _Waiting for your decision_`;
+                }
+                if (stillOpenTasks.length > 0) {
+                    tickResult += `\n  📥 ${stillOpenTasks.length} unassigned task(s) — _No available agents or needs higher tier_`;
+                }
+                if (stillInProgress.length > 0) {
+                    tickResult += `\n  🔄 ${stillInProgress.length} in-progress — _Agents working on these_`;
+                }
+
+                tickResult += `\n\n💡 _Run \`tick\` again or adjust HITL to process more._`;
+            } else if (result.completed === 0 && result.processed === 0) {
+                tickResult += `\n\n✅ **All caught up!** No pending work.`;
+            }
+
+            addMessage('system', tickResult);
         } catch (e) {
             addMessage('error', `Tick failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
         }
@@ -1616,131 +1796,167 @@ ${advisorList}
             border: '1px solid var(--border-color)',
         }}>
             {/* Header */}
-            <div style={{
-                padding: '16px 20px',
-                background: 'var(--bg-secondary)',
-                borderBottom: '1px solid var(--border-color)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '24px' }}>✨</span>
-                    <div>
-                        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700 }}>Aria Console</h2>
-                        <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                            {agents.length} agents • {approvals.length} pending • HITL {hitlLevel}%
+            <div className="console-header">
+                {/* Left: Branding */}
+                <div className="console-header-brand">
+                    <span className="console-header-icon">✨</span>
+                    <div className="console-header-info">
+                        <h2>Aria Console</h2>
+                        <p>
+                            <span className="console-stat">{agents.length} agents</span>
+                            <span className="console-stat-divider">•</span>
+                            <span className="console-stat">{approvals.length} pending</span>
+                            <span className="console-stat-divider">•</span>
+                            <span className="console-stat">HITL {hitlLevel}%</span>
                         </p>
                     </div>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                        onClick={() => handleCommand('status')}
-                        style={{
-                            padding: '6px 12px',
-                            background: 'var(--bg-card)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            color: 'var(--text-secondary)',
-                            fontSize: '0.8rem',
-                            cursor: 'pointer',
-                        }}
+
+                {/* Center: Actions */}
+                <div className="console-header-actions">
+                    <Tooltip
+                        content={TOOLTIP_CONTENT.ACTION_STATUS.content}
+                        title={TOOLTIP_CONTENT.ACTION_STATUS.title}
+                        position="bottom"
                     >
-                        📊 Status
-                    </button>
-                    {onOpenAgentList && (
-                        <button
-                            onClick={onOpenAgentList}
-                            style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                            }}
-                        >
-                            🤖 Agents
+                        <button className="console-btn" onClick={() => handleCommand('status')}>
+                            📊 Status
                         </button>
+                    </Tooltip>
+                    {onOpenAgentList && (
+                        <Tooltip
+                            content="View and manage all active agents in your workforce."
+                            title="Agent Directory"
+                            position="bottom"
+                        >
+                            <button className="console-btn" onClick={onOpenAgentList}>
+                                🤖 Agents
+                            </button>
+                        </Tooltip>
                     )}
                     {onOpenControls && (
-                        <button
-                            onClick={onOpenControls}
-                            style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                            }}
+                        <Tooltip
+                            content="Adjust HITL governance, spawn agents, and configure system settings."
+                            title="Control Panel"
+                            position="bottom"
                         >
-                            🎛️ Controls
-                        </button>
+                            <button className="console-btn" onClick={onOpenControls}>
+                                🎛️ Controls
+                            </button>
+                        </Tooltip>
                     )}
                     {onOpenTasks && (
-                        <button
-                            onClick={onOpenTasks}
-                            style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                            }}
+                        <Tooltip
+                            content="View task queue, assignments, and completion status across all agents."
+                            title="Task Board"
+                            position="bottom"
                         >
-                            📋 Tasks
-                        </button>
+                            <button className="console-btn" onClick={onOpenTasks}>
+                                📋 Tasks
+                            </button>
+                        </Tooltip>
                     )}
                     {onOpenMetrics && (
-                        <button
-                            onClick={onOpenMetrics}
-                            style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                            }}
+                        <Tooltip
+                            content="Analytics dashboard showing trust scores, performance, and system health."
+                            title="Metrics Dashboard"
+                            position="bottom"
                         >
-                            📈 Metrics
-                        </button>
+                            <button className="console-btn" onClick={onOpenMetrics}>
+                                📈 Metrics
+                            </button>
+                        </Tooltip>
                     )}
-                    <button
-                        onClick={() => handleCommand('tick')}
-                        style={{
-                            padding: '6px 12px',
-                            background: 'var(--accent-green)',
-                            border: 'none',
-                            borderRadius: '6px',
-                            color: 'white',
-                            fontSize: '0.8rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                        }}
+                    <Tooltip
+                        content={TOOLTIP_CONTENT.ACTION_TICK.content}
+                        title={TOOLTIP_CONTENT.ACTION_TICK.title}
+                        position="bottom"
                     >
-                        ⚡ Tick
-                    </button>
-                    {onOpenHelp && (
-                        <button
-                            onClick={onOpenHelp}
-                            style={{
-                                padding: '6px 12px',
-                                background: 'var(--bg-card)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '6px',
-                                color: 'var(--text-secondary)',
-                                fontSize: '0.8rem',
-                                cursor: 'pointer',
-                            }}
+                        <button className="console-btn console-btn-primary" onClick={() => handleCommand('tick')}>
+                            ⚡ Tick
+                        </button>
+                    </Tooltip>
+                    {onOpenTutorial && (
+                        <Tooltip
+                            content="Interactive walkthrough of agent spawning, trust tiers, and HITL governance."
+                            title="Spawn Tutorial"
+                            position="bottom"
                         >
-                            ❓ Help
+                            <button className="console-btn console-btn-tutorial" onClick={onOpenTutorial}>
+                                📚 Tutorial
+                            </button>
+                        </Tooltip>
+                    )}
+                    {onOpenGlossary && (
+                        <Tooltip
+                            content="Searchable reference of AI agent terminology and TrustBot concepts."
+                            title="AI Glossary"
+                            position="bottom"
+                        >
+                            <button className="console-btn console-btn-glossary" onClick={onOpenGlossary}>
+                                📖 Glossary
+                            </button>
+                        </Tooltip>
+                    )}
+                    {/* Pending Actions Indicator */}
+                    {onOpenPending && (
+                        <Tooltip
+                            content={approvals.length > 0
+                                ? `${approvals.length} item(s) awaiting your approval. Click to review.`
+                                : 'View pending tasks, approvals, and problems needing attention.'
+                            }
+                            title="Pending Actions"
+                            position="bottom"
+                        >
+                            <button
+                                className={`pending-indicator ${approvals.length > 0 ? 'pending-indicator-pulse' : ''}`}
+                                onClick={onOpenPending}
+                            >
+                                ⏳ Pending
+                                {approvals.length > 0 && (
+                                    <span className="pending-indicator-count">{approvals.length}</span>
+                                )}
+                            </button>
+                        </Tooltip>
+                    )}
+                    {onOpenHelp && (
+                        <Tooltip
+                            content="Get help with commands, features, and best practices."
+                            title="Help & Support"
+                            position="bottom"
+                        >
+                            <button className="console-btn" onClick={onOpenHelp}>
+                                ❓ Help
+                            </button>
+                        </Tooltip>
+                    )}
+                </div>
+
+                {/* Right: User Profile */}
+                <div className="console-header-user">
+                    {user ? (
+                        <div className="console-user-profile">
+                            {user.picture ? (
+                                <img
+                                    src={user.picture}
+                                    alt={user.name}
+                                    className="console-user-avatar"
+                                    referrerPolicy="no-referrer"
+                                />
+                            ) : (
+                                <div className="console-user-avatar console-user-avatar-fallback">
+                                    {user.name?.charAt(0)?.toUpperCase() || '?'}
+                                </div>
+                            )}
+                            <div className="console-user-info">
+                                <span className="console-user-name">{user.name}</span>
+                                <span className="console-user-email">{user.email}</span>
+                            </div>
+                        </div>
+                    ) : null}
+                    {onLogout && (
+                        <button className="console-btn console-btn-logout" onClick={onLogout}>
+                            🚪
                         </button>
                     )}
                 </div>
@@ -1946,17 +2162,78 @@ ${advisorList}
                         Send
                     </button>
                 </div>
-                <div style={{
-                    marginTop: '8px',
-                    fontSize: '0.7rem',
-                    color: 'var(--text-muted)',
-                    display: 'flex',
-                    gap: '16px',
-                }}>
-                    <span><kbd style={{ padding: '2px 4px', background: 'var(--bg-card)', borderRadius: '3px' }}>Enter</kbd> Send</span>
-                    <span><kbd style={{ padding: '2px 4px', background: 'var(--bg-card)', borderRadius: '3px' }}>↑↓</kbd> History</span>
-                    {SpeechRecognition && <span><kbd style={{ padding: '2px 4px', background: 'var(--bg-card)', borderRadius: '3px' }}>🎤</kbd> Voice</span>}
-                    <span><kbd style={{ padding: '2px 4px', background: 'var(--bg-card)', borderRadius: '3px' }}>help</kbd> Commands</span>
+                {/* Quick Actions */}
+                <div className="console-quick-actions">
+                    <button
+                        className="quick-action-btn"
+                        onClick={() => handleCommand('spawn')}
+                        title="Spawn a new agent"
+                    >
+                        <span className="quick-action-icon">➕</span>
+                        <span className="quick-action-label">Spawn</span>
+                    </button>
+                    <button
+                        className="quick-action-btn"
+                        onClick={() => handleCommand('status')}
+                        title="View system status"
+                    >
+                        <span className="quick-action-icon">📊</span>
+                        <span className="quick-action-label">Status</span>
+                    </button>
+                    <button
+                        className="quick-action-btn"
+                        onClick={() => handleCommand('list agents')}
+                        title="List all agents"
+                    >
+                        <span className="quick-action-icon">🤖</span>
+                        <span className="quick-action-label">Agents</span>
+                    </button>
+                    <button
+                        className="quick-action-btn"
+                        onClick={() => handleCommand('feed')}
+                        title="View activity feed"
+                    >
+                        <span className="quick-action-icon">📰</span>
+                        <span className="quick-action-label">Feed</span>
+                    </button>
+                    <button
+                        className="quick-action-btn quick-action-primary"
+                        onClick={() => handleCommand('tick')}
+                        title="Run a system tick"
+                    >
+                        <span className="quick-action-icon">⚡</span>
+                        <span className="quick-action-label">Tick</span>
+                    </button>
+                    {onOpenInsights && (
+                        <button
+                            className="quick-action-btn"
+                            onClick={onOpenInsights}
+                            title="View AI insights and suggestions"
+                            style={{ background: 'rgba(139, 92, 246, 0.2)' }}
+                        >
+                            <span className="quick-action-icon">💡</span>
+                            <span className="quick-action-label">Insights</span>
+                        </button>
+                    )}
+                    {onOpenSpawnWizard && (
+                        <button
+                            className="quick-action-btn"
+                            onClick={onOpenSpawnWizard}
+                            title="Aria-guided agent creation"
+                            style={{ background: 'rgba(16, 185, 129, 0.2)' }}
+                        >
+                            <span className="quick-action-icon">✨</span>
+                            <span className="quick-action-label">Wizard</span>
+                        </button>
+                    )}
+                </div>
+
+                {/* Keyboard hints */}
+                <div className="console-hints">
+                    <span><kbd>Enter</kbd> Send</span>
+                    <span><kbd>↑↓</kbd> History</span>
+                    {SpeechRecognition && <span><kbd>🎤</kbd> Voice</span>}
+                    <span><kbd>help</kbd> Commands</span>
                 </div>
             </div>
         </div>

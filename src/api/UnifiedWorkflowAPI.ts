@@ -21,8 +21,10 @@ import {
     rateLimitMiddleware,
     securityHeadersMiddleware,
     requestIdMiddleware,
+    googleAuthMiddleware,
     type CORSConfig,
     type RateLimitConfig,
+    type GoogleUser,
 } from './middleware/security.js';
 import {
     validate,
@@ -607,6 +609,12 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         skipPaths: ['/health', '/api/health'],
     }));
 
+    // Google OAuth authentication (optional - sets user if token provided)
+    app.use('*', googleAuthMiddleware({
+        skipPaths: ['/health', '/api/health'],
+        optional: true,  // Don't require auth, but validate if token provided
+    }));
+
     // Health check
     app.get('/health', (c) => c.json({
         status: 'ok',
@@ -747,6 +755,48 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         return c.json(demoAgents);
     });
 
+    // DELETE /api/agents/:id - Archive and remove an agent
+    app.delete('/api/agents/:id', async (c) => {
+        const agentId = c.req.param('id');
+
+        if (supabase) {
+            try {
+                // Get agent name for response message
+                const agent = await supabase.getAgent(agentId);
+                if (!agent) {
+                    return c.json({ error: 'Agent not found' }, 404);
+                }
+
+                // Use the deleteAgent method which handles archiving
+                const result = await supabase.deleteAgent(agentId, '9901');
+
+                return c.json({
+                    success: result.success,
+                    message: `Agent ${agent.name} has been archived and removed`,
+                    archived: result.archived,
+                    agentId,
+                });
+            } catch (e) {
+                console.error('Supabase delete error:', e);
+                return c.json({ error: (e as Error).message }, 500);
+            }
+        }
+
+        // Fallback for demo mode - just remove from demo array
+        const idx = demoAgents.findIndex(a => a.id === agentId);
+        if (idx === -1) {
+            return c.json({ error: 'Agent not found' }, 404);
+        }
+        const removed = demoAgents.splice(idx, 1);
+        const removedAgent = removed[0];
+        return c.json({
+            success: true,
+            message: `Agent ${removedAgent?.name || 'Unknown'} removed (demo mode - not archived)`,
+            archived: false,
+            agentId,
+        });
+    });
+
     // POST /api/spawn - Spawn a new agent
     app.post('/api/spawn', async (c) => {
         const body = await c.req.json<{ name: string; type: string; tier: number }>();
@@ -775,6 +825,260 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
         // Fallback to demo response
         return c.json({ success: true, agent: { id: uuidv4(), name: body.name, type: body.type, tier: body.tier } });
+    });
+
+    // -------------------------------------------------------------------------
+    // Agent Control Endpoints
+    // -------------------------------------------------------------------------
+
+    // POST /api/agent/pause - Pause an agent
+    app.post('/api/agent/pause', async (c) => {
+        const body = await c.req.json<{ agentId: string }>();
+        const agentId = body.agentId;
+
+        if (supabase) {
+            try {
+                await supabase.updateAgent(agentId, { status: 'IDLE' });
+                return c.json({ success: true, status: 'PAUSED', agentId });
+            } catch (e) {
+                console.error('Supabase pause error:', e);
+                return c.json({ error: (e as Error).message }, 500);
+            }
+        }
+
+        // Demo mode fallback
+        const agent = demoAgents.find(a => a.id === agentId);
+        if (agent) {
+            agent.status = 'IDLE';
+            return c.json({ success: true, status: 'PAUSED', agentId });
+        }
+        return c.json({ error: 'Agent not found' }, 404);
+    });
+
+    // POST /api/agent/resume - Resume an agent (and trigger tick)
+    app.post('/api/agent/resume', async (c) => {
+        const body = await c.req.json<{ agentId: string }>();
+        const agentId = body.agentId;
+
+        if (supabase) {
+            try {
+                await supabase.updateAgent(agentId, { status: 'WORKING' });
+                return c.json({ success: true, status: 'WORKING', agentId });
+            } catch (e) {
+                console.error('Supabase resume error:', e);
+                return c.json({ error: (e as Error).message }, 500);
+            }
+        }
+
+        // Demo mode fallback
+        const agent = demoAgents.find(a => a.id === agentId);
+        if (agent) {
+            agent.status = 'WORKING';
+            return c.json({ success: true, status: 'WORKING', agentId });
+        }
+        return c.json({ error: 'Agent not found' }, 404);
+    });
+
+    // POST /api/agent/tick - Tick a specific agent (trigger work cycle)
+    app.post('/api/agent/tick', async (c) => {
+        const body = await c.req.json<{ agentId: string }>();
+        const agentId = body.agentId;
+
+        // Find the agent
+        let agentName = 'Unknown';
+        if (supabase) {
+            try {
+                const agent = await supabase.getAgent(agentId);
+                if (agent) {
+                    agentName = agent.name;
+                    // Update status to WORKING if IDLE
+                    if (agent.status === 'IDLE') {
+                        await supabase.updateAgent(agentId, { status: 'WORKING' });
+                    }
+                }
+            } catch (e) {
+                console.error('Supabase tick error:', e);
+            }
+        } else {
+            const agent = demoAgents.find(a => a.id === agentId);
+            if (agent) {
+                agentName = agent.name;
+                if (agent.status === 'IDLE') {
+                    agent.status = 'WORKING';
+                }
+            }
+        }
+
+        // Simulate processing a task
+        return c.json({
+            success: true,
+            agentId,
+            agentName,
+            processed: true,
+            result: `Agent ${agentName} processed tick cycle`,
+            timestamp: new Date().toISOString(),
+        });
+    });
+
+    // POST /api/agent/trust - Adjust agent trust score
+    app.post('/api/agent/trust', async (c) => {
+        const body = await c.req.json<{ agentId: string; delta: number; reason: string }>();
+        const { agentId, delta, reason } = body;
+
+        if (supabase) {
+            try {
+                const agent = await supabase.getAgent(agentId);
+                if (!agent) {
+                    return c.json({ error: 'Agent not found' }, 404);
+                }
+
+                const newScore = Math.max(0, Math.min(1000, agent.trust_score + delta));
+                const newTier = newScore >= 950 ? 5 : newScore >= 800 ? 4 : newScore >= 600 ? 3 : newScore >= 400 ? 2 : newScore >= 200 ? 1 : 0;
+
+                await supabase.updateAgent(agentId, { trust_score: newScore, tier: newTier });
+
+                // Log the trust change
+                engine.logAudit({
+                    action: delta > 0 ? 'TRUST_REWARD' : 'TRUST_PENALIZE',
+                    actor: { type: 'HUMAN', id: 'OPERATOR' },
+                    outcome: 'SUCCESS',
+                    details: {
+                        agentId,
+                        agentName: agent.name,
+                        delta,
+                        reason,
+                        oldScore: agent.trust_score,
+                        newScore,
+                        newTier,
+                    },
+                });
+
+                return c.json({ success: true, newScore, newTier, agentId });
+            } catch (e) {
+                console.error('Supabase trust adjust error:', e);
+                return c.json({ error: (e as Error).message }, 500);
+            }
+        }
+
+        // Demo mode fallback
+        const agent = demoAgents.find(a => a.id === agentId);
+        if (agent) {
+            const newScore = Math.max(0, Math.min(1000, agent.trustScore + delta));
+            const newTier = newScore >= 950 ? 5 : newScore >= 800 ? 4 : newScore >= 600 ? 3 : newScore >= 400 ? 2 : newScore >= 200 ? 1 : 0;
+            agent.trustScore = newScore;
+            agent.tier = newTier;
+            return c.json({ success: true, newScore, newTier, agentId });
+        }
+        return c.json({ error: 'Agent not found' }, 404);
+    });
+
+    // In-memory task storage for demo mode
+    const agentTasksMap = new Map<string, Array<{
+        id: string;
+        title: string;
+        description?: string;
+        priority: string;
+        status: string;
+        createdAt: string;
+        progress?: number;
+        assignedBy?: string;
+    }>>();
+
+    // GET /api/agent/:id/tasks - Get agent's task queue
+    app.get('/api/agent/:id/tasks', async (c) => {
+        const agentId = c.req.param('id');
+
+        // Get from in-memory store or create empty list
+        let tasks = agentTasksMap.get(agentId) || [];
+
+        return c.json({ tasks, agentId });
+    });
+
+    // POST /api/agent/:id/tasks - Manage agent tasks (add, update, delete)
+    app.post('/api/agent/:id/tasks', async (c) => {
+        const agentId = c.req.param('id');
+        const body = await c.req.json<{
+            action: 'add' | 'update' | 'delete';
+            taskId?: string;
+            title?: string;
+            description?: string;
+            priority?: string;
+            status?: string;
+            progress?: number;
+        }>();
+
+        // Get or create task list
+        let tasks = agentTasksMap.get(agentId) || [];
+
+        switch (body.action) {
+            case 'add': {
+                const newTask = {
+                    id: `task-${Date.now()}`,
+                    title: body.title || 'Untitled Task',
+                    description: body.description,
+                    priority: body.priority || 'medium',
+                    status: 'pending',
+                    createdAt: new Date().toISOString(),
+                    assignedBy: 'HITL-9901',
+                };
+                tasks.unshift(newTask);
+                agentTasksMap.set(agentId, tasks);
+                return c.json({ success: true, task: newTask });
+            }
+
+            case 'update': {
+                const taskIdx = tasks.findIndex(t => t.id === body.taskId);
+                if (taskIdx === -1) {
+                    return c.json({ error: 'Task not found' }, 404);
+                }
+                const task = tasks[taskIdx]!;
+                if (body.status) task.status = body.status;
+                if (body.progress !== undefined) task.progress = body.progress;
+                agentTasksMap.set(agentId, tasks);
+                return c.json({ success: true, task });
+            }
+
+            case 'delete': {
+                tasks = tasks.filter(t => t.id !== body.taskId);
+                agentTasksMap.set(agentId, tasks);
+                return c.json({ success: true });
+            }
+
+            default:
+                return c.json({ error: 'Invalid action' }, 400);
+        }
+    });
+
+    // POST /api/command - Send command to agent
+    app.post('/api/command', async (c) => {
+        const body = await c.req.json<{
+            target: string;
+            command: string;
+            agent?: { name: string; type: string; status: string; trustScore: number };
+        }>();
+
+        const agentName = body.agent?.name || 'Agent';
+        const command = body.command.toLowerCase().trim();
+
+        // Generate context-aware response
+        let response = '';
+        if (command === 'status') {
+            response = `${agentName} is ${body.agent?.status || 'IDLE'}. Trust score: ${body.agent?.trustScore || 0}`;
+        } else if (command === 'report') {
+            response = `Activity Report for ${agentName}:\n- Status: ${body.agent?.status}\n- Trust: ${body.agent?.trustScore}\n- Type: ${body.agent?.type}`;
+        } else if (command === 'help') {
+            response = 'Available commands: status, report, pause, resume, prioritize <task>, collaborate <agent>';
+        } else {
+            response = `Command "${body.command}" received by ${agentName}. Processing...`;
+        }
+
+        return c.json({
+            success: true,
+            command: body.command,
+            response,
+            agentType: body.agent?.type || 'WORKER',
+            timestamp: new Date().toISOString(),
+        });
     });
 
     // GET /api/stats - Quick stats
@@ -823,6 +1127,37 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // GET /api/approvals - Pending approvals (legacy format)
     app.get('/api/approvals', (c) => c.json([]));
+
+    // POST /api/tasks - Create task (legacy format for Console compatibility)
+    app.post('/api/tasks', async (c) => {
+        const body = await c.req.json<{
+            action?: string;
+            description: string;
+            creator?: string;
+            priority?: string;
+            title?: string;
+        }>();
+
+        // Support both legacy format (description, creator) and new format (title, description)
+        const title = body.title || body.description.slice(0, 100);
+        const description = body.description;
+        const priority = (body.priority?.toUpperCase() || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
+        const task = engine.createTask({ title, description, priority });
+
+        return c.json({
+            success: true,
+            task: {
+                id: task.id,
+                title: task.title,
+                description: task.description,
+                status: task.status,
+                priority: task.priority,
+                createdAt: task.createdAt.toISOString(),
+            },
+            message: `Task "${task.title}" created successfully`,
+        });
+    });
 
     // GET /api/settings - System settings
     app.get('/api/settings', (c) => c.json({}));

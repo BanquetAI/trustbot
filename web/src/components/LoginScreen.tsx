@@ -1,78 +1,141 @@
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useState } from 'react';
 
 interface LoginScreenProps {
-    onLogin: () => void;
+    onLogin: (user?: { email: string; name: string; picture?: string }) => void;
 }
 
-export function LoginScreen({ onLogin }: LoginScreenProps) {
-    const [code, setCode] = useState('');
-    const [error, setError] = useState(false);
+// Decode JWT token to get user info
+function decodeJwt(token: string): { email: string; name: string; picture?: string } | null {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+            atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+        );
+        const payload = JSON.parse(jsonPayload);
+        return {
+            email: payload.email,
+            name: payload.name,
+            picture: payload.picture,
+        };
+    } catch {
+        return null;
+    }
+}
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        // Hardcoded access code
-        if (code.toLowerCase() === 'trustbot') {
-            onLogin();
-        } else {
-            setError(true);
-            setCode('');
+const features = [
+    { icon: '🛡️', title: '6-Tier Trust', desc: 'Graduated autonomy levels' },
+    { icon: '👁️', title: 'Real-Time', desc: 'Live agent monitoring' },
+    { icon: '📋', title: 'Audit Trail', desc: 'Complete action history' },
+];
+
+export function LoginScreen({ onLogin }: LoginScreenProps) {
+    const [isLoading, setIsLoading] = useState(false);
+
+    const handleSuccess = (response: CredentialResponse) => {
+        setIsLoading(true);
+        if (response.credential) {
+            const user = decodeJwt(response.credential);
+            if (user) {
+                sessionStorage.setItem('trustbot_user', JSON.stringify(user));
+                sessionStorage.setItem('trustbot_credential', response.credential);
+                onLogin(user);
+            } else {
+                onLogin();
+            }
         }
+        setIsLoading(false);
+    };
+
+    const handleError = () => {
+        console.error('Google Sign-In failed');
+        setIsLoading(false);
+    };
+
+    const handleDemoMode = () => {
+        const demoUser = {
+            email: 'demo@trustbot.ai',
+            name: 'Demo User',
+            picture: undefined,
+        };
+        sessionStorage.setItem('trustbot_user', JSON.stringify(demoUser));
+        sessionStorage.setItem('trustbot_demo', 'true');
+        onLogin(demoUser);
     };
 
     return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'var(--bg-primary)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 9999
-        }}>
-            <form onSubmit={handleSubmit} style={{
-                background: 'var(--bg-card)',
-                padding: '40px',
-                borderRadius: '16px',
-                border: '1px solid var(--border-color)',
-                width: '100%',
-                maxWidth: '400px',
-                textAlign: 'center'
-            }}>
-                <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🛡️</div>
-                <h1 style={{ marginBottom: '8px' }}>Security Check</h1>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
-                    Enter the system access code to proceed.
-                </p>
+        <div className="login-screen">
+            {/* Animated background */}
+            <div className="login-bg-pattern" />
 
-                <input
-                    type="password"
-                    value={code}
-                    onChange={e => { setCode(e.target.value); setError(false); }}
-                    placeholder="Access Code"
-                    autoFocus
-                    className="spawn-input"
-                    style={{
-                        textAlign: 'center',
-                        fontSize: '1.2rem',
-                        letterSpacing: '4px',
-                        marginBottom: '16px'
-                    }}
-                />
-
-                {error && (
-                    <div style={{ color: 'var(--accent-red)', marginBottom: '16px', fontSize: '0.875rem' }}>
-                        Incorrect access code
+            <div className="login-container">
+                {/* Logo and branding */}
+                <div className="login-logo">
+                    <div className="login-logo-icon">
+                        <span className="login-logo-bot">🤖</span>
+                        <div className="login-logo-pulse" />
                     </div>
-                )}
+                </div>
 
-                <button
-                    type="submit"
-                    className="btn btn-primary"
-                    style={{ width: '100%', padding: '12px' }}
-                >
-                    Unlock System
-                </button>
-            </form>
+                <h1 className="login-title">TrustBot HQ</h1>
+                <p className="login-tagline">Sleep soundly while your agents work</p>
+
+                {/* Feature highlights */}
+                <div className="login-features">
+                    {features.map((f, i) => (
+                        <div key={i} className="login-feature">
+                            <span className="login-feature-icon">{f.icon}</span>
+                            <div className="login-feature-text">
+                                <strong>{f.title}</strong>
+                                <span>{f.desc}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Sign in section */}
+                <div className="login-auth-section">
+                    {isLoading ? (
+                        <div className="login-loading">
+                            <div className="login-spinner" />
+                            <span>Authenticating...</span>
+                        </div>
+                    ) : (
+                        <>
+                            <div className="login-google-wrapper">
+                                <GoogleLogin
+                                    onSuccess={handleSuccess}
+                                    onError={handleError}
+                                    theme="filled_black"
+                                    size="large"
+                                    shape="rectangular"
+                                    text="signin_with"
+                                    logo_alignment="left"
+                                />
+                            </div>
+
+                            <div className="login-divider">
+                                <span>or</span>
+                            </div>
+
+                            <button
+                                onClick={handleDemoMode}
+                                className="login-demo-btn"
+                            >
+                                Try Demo Mode
+                            </button>
+                        </>
+                    )}
+                </div>
+
+                <p className="login-footer">
+                    AI Agent Governance Platform
+                </p>
+            </div>
         </div>
     );
 }

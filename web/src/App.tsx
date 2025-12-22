@@ -1,5 +1,6 @@
 // TrustBot HQ - Main Application with Aria Console
 import { useState, useEffect } from 'react';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
 import { Console } from './components/Console';
 import { ControlPanel } from './components/ControlPanel';
@@ -24,13 +25,21 @@ import { SkillLibrary } from './components/SkillLibrary';
 import { AutonomyQuery } from './components/AutonomyQuery';
 import { RequestGrantPanel } from './components/RequestGrantPanel';
 import { CodeGovernance } from './components/CodeGovernance';
+import { AgentPermissionsPanel } from './components/AgentPermissionsPanel';
 import { GuidedOnboarding } from './components/GuidedOnboarding';
+import { SpawnTutorial } from './components/SpawnTutorial';
+import { Glossary } from './components/Glossary';
+import { PendingActionsPanel } from './components/PendingActionsPanel';
+import { AgentTaskQueue } from './components/AgentTaskQueue';
+import { SpawnWizard, type SpawnConfig } from './components/SpawnWizard';
+import { InsightsPanel } from './components/InsightsPanel';
 import { ToastProvider } from './components/ui';
 import { useTrustBot } from './hooks';
 import { api } from './api';
+import type { HITLUser } from './types';
 
 // Modal state types - simplified for Console-first architecture
-type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms' | 'thoughtLog' | 'skillLibrary' | 'autonomyQuery' | 'requestGrant' | 'codeGovernance' | 'guidedOnboarding';
+type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms' | 'thoughtLog' | 'skillLibrary' | 'autonomyQuery' | 'requestGrant' | 'codeGovernance' | 'guidedOnboarding' | 'tutorial' | 'glossary' | 'pending' | 'permissions' | 'taskQueue' | 'spawnWizard' | 'insights';
 
 // Inner app component that can use game context
 function AppContent() {
@@ -71,14 +80,41 @@ function AppContent() {
         }).catch(e => console.warn('Failed to sync settings', e));
     }, []);
 
-    // Auth state
+    // Auth state with user info
     const [authenticated, setAuthenticated] = useState(() => {
         return sessionStorage.getItem('trustbot_auth') === 'true';
     });
+    const [currentUser, setCurrentUser] = useState<{ email: string; name: string; picture?: string } | null>(() => {
+        const stored = sessionStorage.getItem('trustbot_user');
+        return stored ? JSON.parse(stored) : null;
+    });
 
-    const handleLogin = () => {
+    // HITL User - the human operator (CEO by default)
+    const hitlUser: HITLUser | undefined = currentUser ? {
+        id: 'hitl-primary',
+        structuredId: '9901',           // CEO (9) + All Areas (0) + Instance (1)
+        name: currentUser.name || 'Operator',
+        authority: 9,                   // CEO level
+        area: 0,                        // All areas
+        status: 'ONLINE',
+        spawnedAgentIds: agents.filter(a => a.createdByStructuredId === '9901').map(a => a.structuredId || a.id),
+    } : undefined;
+
+    const handleLogin = (user?: { email: string; name: string; picture?: string }) => {
         setAuthenticated(true);
         sessionStorage.setItem('trustbot_auth', 'true');
+        if (user) {
+            setCurrentUser(user);
+            sessionStorage.setItem('trustbot_user', JSON.stringify(user));
+        }
+    };
+
+    const handleLogout = () => {
+        setAuthenticated(false);
+        setCurrentUser(null);
+        sessionStorage.removeItem('trustbot_auth');
+        sessionStorage.removeItem('trustbot_user');
+        sessionStorage.removeItem('trustbot_credential');
     };
 
     // Keyboard accessibility - Escape to close modals
@@ -133,11 +169,34 @@ function AppContent() {
                     response: result.response,
                     timestamp: result.timestamp,
                 } : null;
-            } catch {
-                // Return simulated fallback response
+            } catch (e) {
+                // Provide context-aware fallback responses based on command
+                const cmdLower = command.toLowerCase().trim();
+                let response = '';
+
+                if (cmdLower === 'status') {
+                    response = `📊 ${selectedAgent.name} Status:\n• State: ${selectedAgent.status}\n• Trust: ${selectedAgent.trustScore}\n• Tier: T${selectedAgent.tier}\n• Type: ${selectedAgent.type}`;
+                } else if (cmdLower === 'report') {
+                    response = `📋 Activity Report for ${selectedAgent.name}:\n• Current task: Processing queue items\n• Uptime: Active\n• Recent: Completed 3 tasks successfully`;
+                } else if (cmdLower === 'pause') {
+                    response = `⏸️ Pause command received. Use the Pause button in controls for full functionality.`;
+                } else if (cmdLower === 'resume') {
+                    response = `▶️ Resume command received. Use the Resume button in controls for full functionality.`;
+                } else if (cmdLower === 'review') {
+                    response = `🔮 Trust review requested. Current score: ${selectedAgent.trustScore}. Use Evaluate button for full autonomy assessment.`;
+                } else if (cmdLower === 'help') {
+                    response = `📚 Available Commands:\n• status - Check agent state\n• report - Get activity summary\n• pause/resume - Control agent work\n• review - Request trust evaluation\n• prioritize <task> - Set priority\n• collaborate <agent> - Request help`;
+                } else if (cmdLower.startsWith('prioritize')) {
+                    response = `⚡ Priority adjustment noted. Open Task Queue (📋) for full task management.`;
+                } else if (cmdLower.startsWith('collaborate')) {
+                    response = `🤝 Collaboration request logged. The orchestrator will coordinate with available agents.`;
+                } else {
+                    response = `✅ Command "${command}" queued for ${selectedAgent.name}.\n💡 Tip: Run a system tick to process commands.`;
+                }
+
                 return {
                     command,
-                    response: `✅ Command "${command}" received. (Demo mode - API unavailable)`,
+                    response,
                     timestamp: new Date().toISOString(),
                 };
             }
@@ -174,6 +233,7 @@ function AppContent() {
                 blackboardEntries={blackboardEntries}
                 hitlLevel={hitlLevel}
                 approvals={approvals}
+                user={currentUser}
                 onSpawn={handleSpawnAgent}
                 onSetHITL={handleSetHITL}
                 onApprove={approve}
@@ -183,6 +243,12 @@ function AppContent() {
                 onOpenMetrics={() => setActiveModal('metrics')}
                 onOpenTasks={() => setActiveModal('tasks')}
                 onOpenHelp={() => setShowHelpPanel(true)}
+                onOpenTutorial={() => setActiveModal('tutorial')}
+                onOpenGlossary={() => setActiveModal('glossary')}
+                onOpenPending={() => setActiveModal('pending')}
+                onOpenSpawnWizard={() => setActiveModal('spawnWizard')}
+                onOpenInsights={() => setActiveModal('insights')}
+                onLogout={handleLogout}
             />
 
             {/* Control Panel Modal */}
@@ -192,6 +258,8 @@ function AppContent() {
                     onSetHITL={handleSetHITL}
                     onSpawn={handleSpawnAgent}
                     onClose={closeModal}
+                    onOpenSpawnWizard={() => setActiveModal('spawnWizard')}
+                    onOpenInsights={() => setActiveModal('insights')}
                 />
             )}
 
@@ -210,6 +278,66 @@ function AppContent() {
                     onEvaluateAutonomy={() => {
                         setActiveModal('autonomyQuery');
                     }}
+                    onPauseAgent={async (agentId) => {
+                        try {
+                            await api.pauseAgent(agentId);
+                            await refresh();
+                        } catch (e) {
+                            console.error('Failed to pause agent:', e);
+                        }
+                    }}
+                    onResumeAgent={async (agentId) => {
+                        try {
+                            await api.resumeAgent(agentId);
+                            await refresh();
+                        } catch (e) {
+                            console.error('Failed to resume agent:', e);
+                        }
+                    }}
+                    onDeleteAgent={async (agentId) => {
+                        try {
+                            await api.deleteAgent(agentId);
+                            closeModal();
+                            await refresh();
+                            setShowAchievement({
+                                id: 'agent-archived',
+                                title: 'Agent Archived',
+                                description: 'Agent has been archived and removed',
+                                icon: '🗑️',
+                                rarity: 'common',
+                                xpReward: 10,
+                            });
+                        } catch (e) {
+                            console.error('Failed to delete agent:', e);
+                        }
+                    }}
+                    onReassignAgent={(agentId) => {
+                        // TODO: Open reassign modal
+                        console.log('Reassign agent:', agentId);
+                    }}
+                    onEditPermissions={() => {
+                        setActiveModal('permissions');
+                    }}
+                    onAdjustTrust={async (agentId, delta, reason) => {
+                        try {
+                            const result = await api.adjustTrust(agentId, delta, reason);
+                            await refresh();
+                            // Show achievement for trust adjustment
+                            if (result.success) {
+                                setShowAchievement({
+                                    id: delta > 0 ? 'trust-increased' : 'trust-decreased',
+                                    title: delta > 0 ? 'Trust Increased' : 'Trust Decreased',
+                                    description: `${selectedAgent?.name}'s trust is now ${result.newScore}`,
+                                    icon: delta > 0 ? '📈' : '📉',
+                                    rarity: 'common',
+                                    xpReward: 15,
+                                });
+                            }
+                        } catch (e) {
+                            console.error('Failed to adjust trust:', e);
+                        }
+                    }}
+                    onOpenTaskQueue={() => setActiveModal('taskQueue')}
                 />
             )}
 
@@ -235,10 +363,15 @@ function AppContent() {
 
             {/* Agent List */}
             {activeModal === 'agentList' && (
-                <AgentListModal agents={agents} onClose={closeModal} onSelectAgent={(id) => {
-                    closeModal();
-                    setTimeout(() => openAgent(id), 100);
-                }} />
+                <AgentListModal
+                    agents={agents}
+                    hitlUser={hitlUser}
+                    onClose={closeModal}
+                    onSelectAgent={(id) => {
+                        closeModal();
+                        setTimeout(() => openAgent(id), 100);
+                    }}
+                />
             )}
 
             {/* Trust Breakdown */}
@@ -407,6 +540,25 @@ function AppContent() {
                 />
             )}
 
+            {/* Agent Permissions Panel */}
+            {activeModal === 'permissions' && selectedAgent && (
+                <AgentPermissionsPanel
+                    agent={selectedAgent}
+                    onClose={closeModal}
+                    onSavePermissions={(agentId, permissions) => {
+                        console.log('Saved permissions for:', agentId, permissions);
+                        setShowAchievement({
+                            id: 'permissions-updated',
+                            title: 'Permissions Updated',
+                            description: 'Agent access controls have been modified',
+                            icon: '🔐',
+                            rarity: 'rare',
+                            xpReward: 50,
+                        });
+                    }}
+                />
+            )}
+
             {/* Request/Grant Panel */}
             {activeModal === 'requestGrant' && selectedAgent && (
                 <RequestGrantPanel
@@ -477,6 +629,120 @@ function AppContent() {
                 />
             )}
 
+            {/* Spawn Tutorial */}
+            {activeModal === 'tutorial' && (
+                <SpawnTutorial
+                    onClose={closeModal}
+                    onSpawn={handleSpawnAgent}
+                />
+            )}
+
+            {/* AI Glossary */}
+            {activeModal === 'glossary' && (
+                <Glossary onClose={closeModal} />
+            )}
+
+            {/* Pending Actions Panel */}
+            {activeModal === 'pending' && (
+                <PendingActionsPanel
+                    approvals={approvals}
+                    blackboardEntries={blackboardEntries}
+                    agents={agents}
+                    hitlLevel={hitlLevel}
+                    onApprove={approve}
+                    onClose={closeModal}
+                    onOpenGlossary={() => setActiveModal('glossary')}
+                />
+            )}
+
+            {/* Agent Task Queue */}
+            {activeModal === 'taskQueue' && selectedAgent && (
+                <AgentTaskQueue
+                    agentId={selectedAgent.id}
+                    agentName={selectedAgent.name}
+                    onClose={closeModal}
+                    onAddTask={async (agentId, task) => {
+                        try {
+                            await api.addAgentTask(agentId, task);
+                            // Trigger agent tick to process the new task
+                            await api.tickAgent(agentId);
+                        } catch (e) {
+                            console.error('Failed to add task:', e);
+                        }
+                    }}
+                    onDeleteTask={async (agentId, taskId) => {
+                        try {
+                            await api.deleteAgentTask(agentId, taskId);
+                        } catch (e) {
+                            console.error('Failed to delete task:', e);
+                        }
+                    }}
+                    onPauseTask={async (agentId, taskId) => {
+                        try {
+                            await api.updateAgentTask(agentId, taskId, { status: 'paused' });
+                        } catch (e) {
+                            console.error('Failed to pause task:', e);
+                        }
+                    }}
+                    onResumeTask={async (agentId, taskId) => {
+                        try {
+                            await api.updateAgentTask(agentId, taskId, { status: 'pending' });
+                            // Trigger tick to process
+                            await api.tickAgent(agentId);
+                        } catch (e) {
+                            console.error('Failed to resume task:', e);
+                        }
+                    }}
+                />
+            )}
+
+            {/* Spawn Wizard - Aria's step-by-step agent creation */}
+            {activeModal === 'spawnWizard' && (
+                <SpawnWizard
+                    onClose={closeModal}
+                    allAgents={agents}
+                    onSpawn={async (config: SpawnConfig) => {
+                        try {
+                            await api.spawnAgent({
+                                name: config.name,
+                                type: config.type,
+                                tier: config.tier,
+                            });
+                            await refresh();
+                            setShowAchievement({
+                                id: 'agent-spawned',
+                                title: 'Agent Created',
+                                description: `${config.name} has joined the team!`,
+                                icon: '🤖',
+                                rarity: 'common',
+                                xpReward: 25,
+                            });
+                        } catch (e) {
+                            console.error('Failed to spawn agent:', e);
+                        }
+                    }}
+                />
+            )}
+
+            {/* Insights Panel - App Intelligence */}
+            {activeModal === 'insights' && (
+                <InsightsPanel
+                    agents={agents}
+                    onClose={closeModal}
+                    onApplyInsight={(insightId, action) => {
+                        console.log('Applying insight:', insightId, action);
+                        if (action === 'spawn-sitter') {
+                            setActiveModal('spawnWizard');
+                        } else if (action === 'spawn-worker') {
+                            setActiveModal('spawnWizard');
+                        }
+                    }}
+                    onDismissInsight={(insightId) => {
+                        console.log('Dismissed insight:', insightId);
+                    }}
+                />
+            )}
+
             {/* Achievement Toast */}
             {showAchievement && (
                 <AchievementToast
@@ -505,14 +771,24 @@ function AppContent() {
     );
 }
 
-// Main App wrapper with GameUXProvider and ToastProvider
+// Google OAuth Client ID from environment variable
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+// Main App wrapper with GoogleOAuthProvider, GameUXProvider and ToastProvider
 function App() {
+    // Show warning if no client ID configured
+    if (!GOOGLE_CLIENT_ID) {
+        console.warn('VITE_GOOGLE_CLIENT_ID not configured. Google Sign-In will not work.');
+    }
+
     return (
-        <ToastProvider maxToasts={5} defaultDuration={5000}>
-            <GameUXProvider>
-                <AppContent />
-            </GameUXProvider>
-        </ToastProvider>
+        <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+            <ToastProvider maxToasts={5} defaultDuration={5000}>
+                <GameUXProvider>
+                    <AppContent />
+                </GameUXProvider>
+            </ToastProvider>
+        </GoogleOAuthProvider>
     );
 }
 

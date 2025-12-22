@@ -1,9 +1,20 @@
 /**
  * TrustBot System - Core Type Definitions
- * 
+ *
  * These types define the fundamental structures used throughout
  * the holonic swarm intelligence system.
  */
+
+// Import structured ID types
+export * from './types/agentId.js';
+import {
+  AgentRole,
+  AgentCategory,
+  HITLAuthority,
+  HITLArea,
+  ParsedAgentId,
+  ParsedHITLId,
+} from './types/agentId.js';
 
 // ============================================================================
 // Trust System Types
@@ -74,9 +85,13 @@ export interface Capability {
 }
 
 export interface AgentBlueprint {
-    id: AgentId;
+    id: AgentId;                          // UUID for internal references
+    structuredId?: string;                // 6-digit ID (TRCCII format) - optional for backwards compat
+    parsedId?: ParsedAgentId;             // Parsed structured ID components
     name: string;
     type: AgentType;
+    role?: AgentRole;                     // Operational role (1-9)
+    category?: AgentCategory;             // Functional category (10-99)
     tier: AgentTier;
     trustScore: TrustScore;
     trustPolicy: TrustPolicy;
@@ -84,8 +99,11 @@ export interface AgentBlueprint {
     location: AgentLocation;
     status: AgentStatus;
     parentId: AgentId | null;
+    parentStructuredId?: string | null;   // Parent's structured ID
     childIds: AgentId[];
+    childStructuredIds?: string[];        // Children's structured IDs
     createdAt: Date;
+    createdByStructuredId?: string;       // Creator's structured ID (HITL or agent)
     lastActiveAt: Date;
     metadata: Record<string, unknown>;
 }
@@ -217,6 +235,29 @@ export interface SpawnResult {
 // ============================================================================
 // HITL Types
 // ============================================================================
+
+/**
+ * Human-In-The-Loop Entity
+ *
+ * HITL ID Format: 9XAI (4 digits)
+ * - 9:  HITL marker (always 9)
+ * - X:  Authority level (9=CEO, 8=Exec, 7=Manager, etc.)
+ * - A:  Area of guidance (0=All, 1=Strategy, etc.)
+ * - I:  Instance number
+ */
+export interface HITLEntity {
+    id: string;                           // UUID for internal references
+    structuredId: string;                 // 4-digit HITL ID (9XAI format)
+    parsedId?: ParsedHITLId;              // Parsed structured ID components
+    name: string;
+    authority: HITLAuthority;             // Authority level (1-9, 9=CEO)
+    area: HITLArea;                       // Area of guidance
+    email?: string;
+    createdAt: Date;
+    lastActiveAt: Date;
+    spawnedAgentIds: string[];            // Structured IDs of agents spawned by this HITL
+    metadata: Record<string, unknown>;
+}
 
 export interface HITLApproval {
     id: string;

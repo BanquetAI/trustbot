@@ -48,11 +48,34 @@ export interface APISystemState {
 }
 
 // ============================================================================
+// Auth Helper
+// ============================================================================
+
+function getAuthToken(): string | null {
+    // Get the Google credential from session storage
+    const credential = sessionStorage.getItem('trustbot_credential');
+    return credential;
+}
+
+function getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+    };
+    const token = getAuthToken();
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+// ============================================================================
 // Fetch Helpers
 // ============================================================================
 
 async function fetchAPI<T>(path: string): Promise<T> {
-    const res = await fetch(`${API_BASE}${path}`);
+    const res = await fetch(`${API_BASE}${path}`, {
+        headers: getAuthHeaders(),
+    });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
 }
@@ -60,7 +83,7 @@ async function fetchAPI<T>(path: string): Promise<T> {
 async function postAPI<T>(path: string, data: unknown): Promise<T> {
     const res = await fetch(`${API_BASE}${path}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -87,6 +110,51 @@ export const api = {
     // POST
     spawnAgent: (params: { name: string; type: string; tier: number }) =>
         postAPI<Agent>('/spawn', params),
+
+    // Agent Control Actions
+    deleteAgent: async (agentId: string): Promise<{ success: boolean; message: string; archived: boolean }> => {
+        const res = await fetch(`${API_BASE}/agents/${agentId}`, {
+            method: 'DELETE',
+            headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+        return res.json();
+    },
+
+    pauseAgent: (agentId: string) =>
+        postAPI<{ success: boolean; status: string }>('/agent/pause', { agentId }),
+
+    resumeAgent: async (agentId: string) => {
+        // Resume agent and trigger a tick to get it working
+        const result = await postAPI<{ success: boolean; status: string }>('/agent/resume', { agentId });
+        // Also trigger tick for this agent
+        try {
+            await postAPI<{ success: boolean }>('/agent/tick', { agentId });
+        } catch {
+            // Tick endpoint might not exist, that's ok
+        }
+        return result;
+    },
+
+    // Tick a specific agent (trigger work cycle)
+    tickAgent: (agentId: string) =>
+        postAPI<{ success: boolean; agentId: string; processed: boolean; result?: string }>('/agent/tick', { agentId }),
+
+    adjustTrust: (agentId: string, delta: number, reason: string) =>
+        postAPI<{ success: boolean; newScore: number; newTier: number }>('/agent/trust', { agentId, delta, reason }),
+
+    // Agent Task Management
+    getAgentTasks: (agentId: string) =>
+        fetchAPI<{ tasks: Array<{ id: string; title: string; description?: string; priority: string; status: string; createdAt: string; progress?: number }> }>(`/agent/${agentId}/tasks`),
+
+    addAgentTask: (agentId: string, task: { title: string; description?: string; priority: string }) =>
+        postAPI<{ success: boolean; task: any }>(`/agent/${agentId}/tasks`, { action: 'add', ...task }),
+
+    updateAgentTask: (agentId: string, taskId: string, updates: { status?: string; progress?: number }) =>
+        postAPI<{ success: boolean; task: any }>(`/agent/${agentId}/tasks`, { action: 'update', taskId, ...updates }),
+
+    deleteAgentTask: (agentId: string, taskId: string) =>
+        postAPI<{ success: boolean }>(`/agent/${agentId}/tasks`, { action: 'delete', taskId }),
 
     setHITL: (level: number) =>
         postAPI<{ success: boolean; hitlLevel: number }>('/hitl', { level }),

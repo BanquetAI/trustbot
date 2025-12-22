@@ -1,5 +1,5 @@
 export type AgentStatus = 'IDLE' | 'WORKING' | 'IN_MEETING' | 'ERROR' | 'TERMINATED';
-export type AgentType = 'EXECUTOR' | 'PLANNER' | 'VALIDATOR' | 'EVOLVER' | 'SPAWNER' | 'LISTENER' | 'WORKER';
+export type AgentType = 'EXECUTOR' | 'PLANNER' | 'VALIDATOR' | 'EVOLVER' | 'SPAWNER' | 'LISTENER' | 'WORKER' | 'SITTER' | 'SPECIALIST' | 'ORCHESTRATOR';
 
 // ============================================================================
 // TRUST TIER SYSTEM - Anti-Delegation Rules
@@ -113,6 +113,7 @@ export interface AgentLocation {
 
 export interface Agent {
     id: string;
+    structuredId?: string;          // 6-digit ID (TRCCII format)
     name: string;
     type: AgentType;
     tier: number;
@@ -122,7 +123,23 @@ export interface Agent {
     capabilities: string[];
     skills?: string[];
     parentId: string | null;
+    parentStructuredId?: string;
     childIds?: string[];
+    createdByStructuredId?: string; // HITL or agent that created this
+}
+
+// ============================================================================
+// HITL (Human-In-The-Loop) Entity
+// ============================================================================
+
+export interface HITLUser {
+    id: string;
+    structuredId: string;           // 4-digit ID (9XAI format)
+    name: string;
+    authority: number;              // 1-9 (9=CEO)
+    area: number;                   // 0=All, 1-9 specific areas
+    status: 'ONLINE' | 'AWAY' | 'OFFLINE';
+    spawnedAgentIds?: string[];
 }
 
 export interface BlackboardEntry {

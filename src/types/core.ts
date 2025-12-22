@@ -1,9 +1,18 @@
 /**
  * TrustBot Infrastructure - Core Type Definitions
- * 
+ *
  * Foundational types for the bot-builds-bot earned trust system.
  * All agents operate within this type system regardless of tier.
  */
+
+// Import structured ID types
+export * from './agentId.js';
+import {
+  AgentRole,
+  AgentCategory,
+  ParsedAgentId,
+  ParsedHITLId,
+} from './agentId.js';
 
 // ============================================================================
 // TRUST SYSTEM TYPES
@@ -106,11 +115,14 @@ export type ChannelId = string & { readonly __brand: 'ChannelId' };
 export type NamespaceId = string & { readonly __brand: 'NamespaceId' };
 
 export interface AgentIdentity {
-  id: AgentId;
+  id: AgentId;                        // UUID for internal references
+  structuredId?: string;              // 6-digit structured ID (TRCCII format) - optional for backwards compat
+  parsedId?: ParsedAgentId;           // Parsed structured ID components
   name: string;
   version: string;
   createdAt: Timestamp;
   createdBy: AgentId | 'SYSTEM' | 'HUMAN';
+  createdByStructuredId?: string;     // Structured ID of creator (if agent/HITL)
   trustState: TrustState;
   capabilities: CapabilitySet;
   status: AgentStatus;
@@ -128,6 +140,8 @@ export enum AgentStatus {
 export interface AgentMetadata {
   purpose: string;
   specialization?: string;
+  role?: AgentRole;                   // Operational role (1-9) - optional for backwards compat
+  category?: AgentCategory;           // Functional category (10-99) - optional for backwards compat
   modelProvider?: string;             // e.g., 'anthropic', 'openai'
   modelId?: string;                   // e.g., 'claude-sonnet-4-20250514'
   customConfig?: Record<string, unknown>;

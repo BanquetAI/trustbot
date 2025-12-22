@@ -2,15 +2,18 @@ import { useState } from 'react';
 import { api } from '../api';
 import { FormField, SelectField, useToast } from './ui';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { Tooltip, InfoTooltip } from './Tooltip';
 
 interface ControlPanelProps {
     hitlLevel: number;
     onSetHITL: (level: number) => void;
     onSpawn: (name: string, type: string, tier: number) => void;
     onClose: () => void;
+    onOpenSpawnWizard?: () => void;
+    onOpenInsights?: () => void;
 }
 
-export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose }: ControlPanelProps) {
+export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose, onOpenSpawnWizard, onOpenInsights }: ControlPanelProps) {
     const toast = useToast();
     const { containerRef } = useFocusTrap({ enabled: true, onEscape: onClose });
 
@@ -89,6 +92,69 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose }: Control
                 </div>
 
                 <div className="modal-content">
+                    {/* Quick Actions - Insights & Wizard */}
+                    <div className="control-section" style={{
+                        background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(59, 130, 246, 0.15))',
+                        border: '1px solid var(--accent-purple)',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        marginBottom: '20px'
+                    }}>
+                        <h3 style={{ color: 'var(--accent-purple)', marginTop: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            ✨ Intelligence & Tools
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {onOpenInsights && (
+                                <button
+                                    className="btn"
+                                    onClick={() => {
+                                        onClose();
+                                        onOpenInsights();
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '16px',
+                                        background: 'rgba(139, 92, 246, 0.2)',
+                                        border: '1px solid var(--accent-purple)',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '1.5rem' }}>💡</span>
+                                    <span style={{ fontWeight: 600 }}>Insights</span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        Patterns & Suggestions
+                                    </span>
+                                </button>
+                            )}
+                            {onOpenSpawnWizard && (
+                                <button
+                                    className="btn"
+                                    onClick={() => {
+                                        onClose();
+                                        onOpenSpawnWizard();
+                                    }}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '16px',
+                                        background: 'rgba(16, 185, 129, 0.2)',
+                                        border: '1px solid var(--accent-green)',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '1.5rem' }}>🤖</span>
+                                    <span style={{ fontWeight: 600 }}>Spawn Wizard</span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                        Aria-guided creation
+                                    </span>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Agent Tick System */}
                     <div className="control-section" style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid var(--accent-green)', borderRadius: '8px', padding: '16px', marginBottom: '20px' }}>
                         <h3 style={{ color: 'var(--accent-green)', marginTop: 0 }}>⚡ Agent Work Loop</h3>
@@ -156,18 +222,40 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose }: Control
 
                     {/* HITL Level Control */}
                     <div className="control-section">
-                        <h3>📊 Governance Level</h3>
-                        <div className="hitl-slider-container">
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={localHITL}
-                                onChange={e => setLocalHITL(Number(e.target.value))}
-                                onMouseUp={() => onSetHITL(localHITL)}
-                                onTouchEnd={() => onSetHITL(localHITL)}
-                                className="hitl-slider"
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            📊 Governance Level
+                            <InfoTooltip
+                                title="Human-in-the-Loop (HITL)"
+                                content="Controls how much human oversight agents require. Higher values = more human approval needed. Lower values = more agent autonomy."
                             />
+                        </h3>
+                        <div className="hitl-slider-container">
+                            <Tooltip
+                                content={
+                                    localHITL >= 80 ? 'Full human control. Every agent action requires your explicit approval before proceeding.' :
+                                    localHITL >= 50 ? 'Balanced oversight. Agents handle routine work, humans review important decisions.' :
+                                    localHITL >= 20 ? 'Autonomous mode. Agents work independently, escalating only critical issues.' :
+                                    'Minimal oversight. Full agent autonomy - only use with highly trusted agents.'
+                                }
+                                title={
+                                    localHITL >= 80 ? 'Full Control (80-100%)' :
+                                    localHITL >= 50 ? 'Balanced (50-79%)' :
+                                    localHITL >= 20 ? 'Autonomous (20-49%)' :
+                                    'Minimal (0-19%)'
+                                }
+                                position="top"
+                            >
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={localHITL}
+                                    onChange={e => setLocalHITL(Number(e.target.value))}
+                                    onMouseUp={() => onSetHITL(localHITL)}
+                                    onTouchEnd={() => onSetHITL(localHITL)}
+                                    className="hitl-slider"
+                                />
+                            </Tooltip>
                             <div className="hitl-value">{localHITL}%</div>
                         </div>
                         <p className="helper-text">
@@ -180,7 +268,13 @@ export function ControlPanel({ hitlLevel, onSetHITL, onSpawn, onClose }: Control
 
                     {/* Spawn Agent */}
                     <div className="control-section">
-                        <h3>🏭 Spawn New Agent</h3>
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🏭 Spawn New Agent
+                            <InfoTooltip
+                                title="Agent Spawning"
+                                content="Create new AI agents with specific roles and trust levels. New agents start with basic capabilities and earn more autonomy through demonstrated reliability."
+                            />
+                        </h3>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                             <FormField
                                 label="Agent Name"

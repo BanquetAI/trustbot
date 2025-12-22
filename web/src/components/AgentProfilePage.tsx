@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { TrustTierBadge } from './TrustTierBadge';
 import { TrustScoreGauge } from './TrustScoreGauge';
+import { AgentControlPanel } from './AgentControlPanel';
 import type { Agent, BlackboardEntry } from '../types';
 
 /**
  * Agent Profile Page
- * 
+ *
  * Detailed view of an agent with trust history, capabilities,
  * activity log, and relationship to other agents.
  */
@@ -24,6 +25,13 @@ interface AgentProfilePageProps {
     onViewAgent?: (agentId: string) => void;
     onSendCommand?: (command: string) => Promise<CommandResponse | null>;
     onEvaluateAutonomy?: (agentId: string) => void;
+    onPauseAgent?: (agentId: string) => void;
+    onResumeAgent?: (agentId: string) => void;
+    onDeleteAgent?: (agentId: string) => void;
+    onReassignAgent?: (agentId: string) => void;
+    onEditPermissions?: (agentId: string) => void;
+    onAdjustTrust?: (agentId: string, delta: number, reason: string) => void;
+    onOpenTaskQueue?: () => void;
 }
 
 const AGENT_ICONS: Record<string, string> = {
@@ -34,6 +42,9 @@ const AGENT_ICONS: Record<string, string> = {
     SPAWNER: '🏭',
     LISTENER: '👂',
     WORKER: '🤖',
+    SITTER: '👔',
+    SPECIALIST: '🔬',
+    ORCHESTRATOR: '🎯',
 };
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
@@ -51,6 +62,13 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     onViewAgent,
     onSendCommand,
     onEvaluateAutonomy,
+    onPauseAgent,
+    onResumeAgent,
+    onDeleteAgent,
+    onReassignAgent,
+    onEditPermissions,
+    onAdjustTrust,
+    onOpenTaskQueue,
 }) => {
     const [commandHistory, setCommandHistory] = useState<CommandResponse[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -61,12 +79,38 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     // Get agent's blackboard entries
     const agentEntries = blackboardEntries.filter(e => e.author === agent.id);
 
-    // Get related agents (same location or parent/child relationships)
+    // Get parent agent
+    const parentAgent = agent.parentId ? allAgents.find(a => a.id === agent.parentId) : null;
+
+    // Get child agents
+    const childAgents = allAgents.filter(a => a.parentId === agent.id);
+
+    // Get sibling agents (same parent)
+    const siblingAgents = agent.parentId
+        ? allAgents.filter(a => a.parentId === agent.parentId && a.id !== agent.id)
+        : [];
+
+    // Get sitter agent (T4 SITTER type if exists)
+    const sitterAgent = allAgents.find(a => a.type === 'SITTER' && a.tier >= 4);
+
+    // Build delegation chain
+    const buildDelegationChain = (agentId: string, chain: Agent[] = []): Agent[] => {
+        const a = allAgents.find(ag => ag.id === agentId);
+        if (!a) return chain;
+        chain.unshift(a);
+        if (a.parentId) {
+            return buildDelegationChain(a.parentId, chain);
+        }
+        return chain;
+    };
+    const delegationChain = buildDelegationChain(agent.id);
+
+    // Get related agents (same location)
     const relatedAgents = allAgents.filter(a =>
-        a.id !== agent.id && (
-            a.location.room === agent.location.room ||
-            a.id === agent.id // Parent/child would go here
-        )
+        a.id !== agent.id &&
+        a.parentId !== agent.id &&
+        a.id !== agent.parentId &&
+        a.location.room === agent.location.room
     ).slice(0, 5);
 
     // Calculate trust progress to next tier
@@ -135,6 +179,233 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                 </div>
 
                 <div className="modal-content" style={{ overflowY: 'auto', maxHeight: '70vh' }}>
+                    {/* Hierarchy & Delegation Section */}
+                    <div style={{
+                        background: 'var(--bg-secondary)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '20px',
+                        marginBottom: '20px',
+                    }}>
+                        <h3 style={{ fontSize: '0.9rem', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            🏛️ Hierarchy & Delegation
+                        </h3>
+
+                        {/* Delegation Chain Visualization */}
+                        {delegationChain.length > 1 && (
+                            <div style={{ marginBottom: '16px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                    Delegation Chain:
+                                </div>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                    flexWrap: 'wrap',
+                                    padding: '12px',
+                                    background: 'var(--bg-tertiary)',
+                                    borderRadius: 'var(--radius-md)',
+                                }}>
+                                    <span style={{
+                                        padding: '4px 8px',
+                                        background: 'rgba(139, 92, 246, 0.2)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        fontSize: '0.75rem',
+                                        color: 'var(--accent-purple)',
+                                    }}>
+                                        👤 HITL
+                                    </span>
+                                    {sitterAgent && (
+                                        <>
+                                            <span style={{ color: 'var(--text-muted)' }}>→</span>
+                                            <span
+                                                onClick={() => onViewAgent?.(sitterAgent.id)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    background: 'rgba(245, 158, 11, 0.2)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontSize: '0.75rem',
+                                                    color: 'var(--accent-yellow)',
+                                                    cursor: onViewAgent ? 'pointer' : 'default',
+                                                }}
+                                            >
+                                                👔 Sitter
+                                            </span>
+                                        </>
+                                    )}
+                                    {delegationChain.map((a) => (
+                                        <React.Fragment key={a.id}>
+                                            <span style={{ color: 'var(--text-muted)' }}>→</span>
+                                            <span
+                                                onClick={() => a.id !== agent.id && onViewAgent?.(a.id)}
+                                                style={{
+                                                    padding: '4px 8px',
+                                                    background: a.id === agent.id
+                                                        ? 'rgba(16, 185, 129, 0.3)'
+                                                        : 'rgba(59, 130, 246, 0.2)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontSize: '0.75rem',
+                                                    color: a.id === agent.id ? 'var(--accent-green)' : 'var(--accent-blue)',
+                                                    cursor: a.id !== agent.id && onViewAgent ? 'pointer' : 'default',
+                                                    fontWeight: a.id === agent.id ? 600 : 400,
+                                                    border: a.id === agent.id ? '1px solid var(--accent-green)' : 'none',
+                                                }}
+                                            >
+                                                {AGENT_ICONS[a.type] || '🤖'} {a.name}
+                                            </span>
+                                        </React.Fragment>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Parent, Sitter, Children Grid */}
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                            gap: '12px',
+                        }}>
+                            {/* Parent Agent */}
+                            <div style={{
+                                padding: '12px',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: 'var(--radius-md)',
+                                borderLeft: '3px solid var(--accent-blue)',
+                            }}>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                                    ⬆️ PARENT
+                                </div>
+                                {parentAgent ? (
+                                    <div
+                                        onClick={() => onViewAgent?.(parentAgent.id)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            cursor: onViewAgent ? 'pointer' : 'default',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '1.2rem' }}>{AGENT_ICONS[parentAgent.type] || '🤖'}</span>
+                                        <div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{parentAgent.name}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                                T{parentAgent.tier} {parentAgent.type}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                        None (Root Level)
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Sitter Agent */}
+                            <div style={{
+                                padding: '12px',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: 'var(--radius-md)',
+                                borderLeft: '3px solid var(--accent-yellow)',
+                            }}>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                                    👔 SITTER (Deputy)
+                                </div>
+                                {sitterAgent ? (
+                                    <div
+                                        onClick={() => onViewAgent?.(sitterAgent.id)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            cursor: onViewAgent ? 'pointer' : 'default',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '1.2rem' }}>👔</span>
+                                        <div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{sitterAgent.name}</div>
+                                            <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                                T{sitterAgent.tier} • Handles routine approvals
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                        Not assigned
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Children */}
+                            <div style={{
+                                padding: '12px',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: 'var(--radius-md)',
+                                borderLeft: '3px solid var(--accent-green)',
+                            }}>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                                    ⬇️ CHILDREN ({childAgents.length})
+                                </div>
+                                {childAgents.length > 0 ? (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                        {childAgents.slice(0, 4).map(child => (
+                                            <span
+                                                key={child.id}
+                                                onClick={() => onViewAgent?.(child.id)}
+                                                style={{
+                                                    padding: '2px 8px',
+                                                    background: 'rgba(16, 185, 129, 0.2)',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    fontSize: '0.7rem',
+                                                    cursor: onViewAgent ? 'pointer' : 'default',
+                                                }}
+                                            >
+                                                {AGENT_ICONS[child.type] || '🤖'} {child.name}
+                                            </span>
+                                        ))}
+                                        {childAgents.length > 4 && (
+                                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                                +{childAgents.length - 4} more
+                                            </span>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                        No children
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Siblings */}
+                        {siblingAgents.length > 0 && (
+                            <div style={{ marginTop: '12px' }}>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                                    👥 SIBLINGS ({siblingAgents.length}):
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                    {siblingAgents.slice(0, 6).map(sibling => (
+                                        <span
+                                            key={sibling.id}
+                                            onClick={() => onViewAgent?.(sibling.id)}
+                                            style={{
+                                                padding: '4px 10px',
+                                                background: 'var(--bg-tertiary)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: '0.75rem',
+                                                cursor: onViewAgent ? 'pointer' : 'default',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                            }}
+                                        >
+                                            {AGENT_ICONS[sibling.type] || '🤖'} {sibling.name}
+                                            <TrustTierBadge tier={sibling.tier} size="small" />
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Trust Score Section - Enhanced with Gauge */}
                     <div style={{
                         background: 'var(--bg-secondary)',
@@ -212,33 +483,21 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                                 </div>
                             </div>
 
-                            {/* Evaluate Autonomy Button */}
-                            {onEvaluateAutonomy && (
-                                <button
-                                    onClick={() => onEvaluateAutonomy(agent.id)}
-                                    style={{
-                                        marginTop: '16px',
-                                        padding: '10px 16px',
-                                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                                        border: 'none',
-                                        borderRadius: 'var(--radius-md)',
-                                        color: 'white',
-                                        fontSize: '0.85rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        transition: 'transform 0.2s ease',
-                                    }}
-                                    onMouseOver={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                                    onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
-                                >
-                                    🔮 Evaluate Autonomy
-                                </button>
-                            )}
                         </div>
                     </div>
+
+                    {/* Agent Control Panel */}
+                    <AgentControlPanel
+                        agent={agent}
+                        onPause={onPauseAgent}
+                        onResume={onResumeAgent}
+                        onEvaluateAutonomy={onEvaluateAutonomy}
+                        onReassign={onReassignAgent}
+                        onEditPermissions={onEditPermissions}
+                        onDelete={onDeleteAgent}
+                        onAdjustTrust={onAdjustTrust}
+                        onOpenTaskQueue={onOpenTaskQueue}
+                    />
 
                     {/* Stats Grid */}
                     <div style={{
