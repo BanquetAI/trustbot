@@ -540,8 +540,8 @@ describe('API Routing Tree', () => {
     // =========================================================================
 
     describe('AI Providers', () => {
-        it('GET /ai/providers - should return available providers', async () => {
-            const res = await request('GET', '/ai/providers');
+        it('GET /api/ai/providers - should return available providers', async () => {
+            const res = await request('GET', '/api/ai/providers');
             expect(res.status).toBe(200);
 
             const data = await res.json();
@@ -549,8 +549,8 @@ describe('API Routing Tree', () => {
             expect(Array.isArray(data.available)).toBe(true);
         });
 
-        it('GET /ai/info - should return provider info', async () => {
-            const res = await request('GET', '/ai/info');
+        it('GET /api/ai/info - should return provider info', async () => {
+            const res = await request('GET', '/api/ai/info');
             expect(res.status).toBe(200);
 
             const data = await res.json();
@@ -558,23 +558,23 @@ describe('API Routing Tree', () => {
             expect(data).toHaveProperty('allProviderTypes');
         });
 
-        it('POST /ai/complete - should handle missing provider gracefully', async () => {
-            const res = await request('POST', '/ai/complete', {
+        it('POST /api/ai/complete - should handle missing provider gracefully', async () => {
+            const res = await request('POST', '/api/ai/complete', {
                 messages: [{ role: 'user', content: 'Hello' }],
             });
             // Should either succeed or fail gracefully (no AI configured)
             expect([200, 500]).toContain(res.status);
         });
 
-        it('POST /ai/ask - should handle missing provider gracefully', async () => {
-            const res = await request('POST', '/ai/ask', {
+        it('POST /api/ai/ask - should handle missing provider gracefully', async () => {
+            const res = await request('POST', '/api/ai/ask', {
                 prompt: 'Hello',
             });
             expect([200, 500]).toContain(res.status);
         });
 
-        it('POST /ai/configure - should reject missing params', async () => {
-            const res = await request('POST', '/ai/configure', {});
+        it('POST /api/ai/configure - should reject missing params', async () => {
+            const res = await request('POST', '/api/ai/configure', {});
             expect(res.status).toBe(400);
         });
     });
@@ -584,8 +584,8 @@ describe('API Routing Tree', () => {
     // =========================================================================
 
     describe('Aria AI', () => {
-        it('GET /ai/aria/settings - should return Aria settings', async () => {
-            const res = await request('GET', '/ai/aria/settings');
+        it('GET /api/ai/aria/settings - should return Aria settings', async () => {
+            const res = await request('GET', '/api/ai/aria/settings');
             expect(res.status).toBe(200);
 
             const data = await res.json();
@@ -596,8 +596,8 @@ describe('API Routing Tree', () => {
             expect(data.settings).toHaveProperty('advisors');
         });
 
-        it('POST /ai/aria/settings - should update Aria settings', async () => {
-            const res = await request('POST', '/ai/aria/settings', {
+        it('POST /api/ai/aria/settings - should update Aria settings', async () => {
+            const res = await request('POST', '/api/ai/aria/settings', {
                 enabled: true,
                 mode: 'single',
             });
@@ -608,8 +608,8 @@ describe('API Routing Tree', () => {
             expect(data.settings).toHaveProperty('enabled', true);
         });
 
-        it('GET /ai/aria/advisors - should return advisors list', async () => {
-            const res = await request('GET', '/ai/aria/advisors');
+        it('GET /api/ai/aria/advisors - should return advisors list', async () => {
+            const res = await request('GET', '/api/ai/aria/advisors');
             expect(res.status).toBe(200);
 
             const data = await res.json();
@@ -618,16 +618,16 @@ describe('API Routing Tree', () => {
             expect(data).toHaveProperty('councilName');
         });
 
-        it('POST /ai/aria/advisors - should reject without required fields', async () => {
-            const res = await request('POST', '/ai/aria/advisors', {});
+        it('POST /api/ai/aria/advisors - should reject without required fields', async () => {
+            const res = await request('POST', '/api/ai/aria/advisors', {});
             expect(res.status).toBe(400);
 
             const data = await res.json();
             expect(data).toHaveProperty('error');
         });
 
-        it('POST /ai/aria/advisors - should add new advisor', async () => {
-            const res = await request('POST', '/ai/aria/advisors', {
+        it('POST /api/ai/aria/advisors - should add new advisor', async () => {
+            const res = await request('POST', '/api/ai/aria/advisors', {
                 name: 'TestAdvisor',
                 provider: 'claude',
                 aliases: ['test'],
@@ -640,13 +640,13 @@ describe('API Routing Tree', () => {
             expect(data.advisor.name).toBe('TestAdvisor');
         });
 
-        it('DELETE /ai/aria/advisors/:name - should return 404 for unknown advisor', async () => {
-            const res = await request('DELETE', '/ai/aria/advisors/nonexistent');
+        it('DELETE /api/ai/aria/advisors/:name - should return 404 for unknown advisor', async () => {
+            const res = await request('DELETE', '/api/ai/aria/advisors/nonexistent');
             expect(res.status).toBe(404);
         });
 
-        it('POST /ai/aria/council - should update council settings', async () => {
-            const res = await request('POST', '/ai/aria/council', {
+        it('POST /api/ai/aria/council - should update council settings', async () => {
+            const res = await request('POST', '/api/ai/aria/council', {
                 name: 'TestCouncil',
                 aliases: ['test', 'advisors'],
             });
@@ -657,8 +657,8 @@ describe('API Routing Tree', () => {
             expect(data).toHaveProperty('councilName', 'TestCouncil');
         });
 
-        it('POST /ai/aria/interpret - should handle interpretation', async () => {
-            const res = await request('POST', '/ai/aria/interpret', {
+        it('POST /api/ai/aria/interpret - should handle interpretation', async () => {
+            const res = await request('POST', '/api/ai/aria/interpret', {
                 message: 'show me the status',
             });
             expect(res.status).toBe(200);
@@ -668,8 +668,8 @@ describe('API Routing Tree', () => {
             expect(data.interpretation).toHaveProperty('action');
         });
 
-        it('POST /ai/aria/gather - should handle no providers gracefully', async () => {
-            const res = await request('POST', '/ai/aria/gather', {
+        it('POST /api/ai/aria/gather - should handle no providers gracefully', async () => {
+            const res = await request('POST', '/api/ai/aria/gather', {
                 question: 'What is the meaning of life?',
             });
             expect(res.status).toBe(200);
@@ -678,8 +678,8 @@ describe('API Routing Tree', () => {
             expect(data).toHaveProperty('perspectives');
         });
 
-        it('POST /ai/aria/consult - should handle missing provider', async () => {
-            const res = await request('POST', '/ai/aria/consult', {
+        it('POST /api/ai/aria/consult - should handle missing provider', async () => {
+            const res = await request('POST', '/api/ai/aria/consult', {
                 question: 'Test question',
                 provider: 'claude',
             });
