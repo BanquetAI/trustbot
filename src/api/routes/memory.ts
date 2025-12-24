@@ -11,11 +11,17 @@ import {
     getConversationMemoryService,
     getKnowledgeStoreService,
     getEmbeddingService,
+    getDecisionPatternService,
+    getUserPreferencesService,
 } from '../../core/memory';
 import type {
     ConversationEntryInput,
     KnowledgeEntryInput,
     KnowledgeSearchOptions,
+    DecisionPatternInput,
+    DecisionPatternType,
+    DecisionOutcome,
+    UserPreferencesInput,
 } from '../../core/memory/types';
 
 const memoryRoutes = new Hono();
@@ -316,14 +322,306 @@ memoryRoutes.get('/embed/stats', async (c) => {
 });
 
 // ============================================================================
+// Decision Pattern Endpoints
+// ============================================================================
+
+/**
+ * Record a decision pattern
+ */
+memoryRoutes.post('/patterns', async (c) => {
+    try {
+        const body = await c.req.json<DecisionPatternInput>();
+        const service = getDecisionPatternService();
+        const pattern = await service.record(body);
+        return c.json(pattern, 201);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Find similar decision patterns
+ */
+memoryRoutes.post('/patterns/similar', async (c) => {
+    try {
+        const { context, options } = await c.req.json<{
+            context: {
+                agentType?: string;
+                agentTier?: number;
+                actionType?: string;
+                contextSummary: string;
+            };
+            options?: {
+                patternType?: DecisionPatternType;
+                limit?: number;
+                minSimilarity?: number;
+            };
+        }>();
+        const service = getDecisionPatternService();
+        const patterns = await service.findSimilar(context, options);
+        return c.json(patterns);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Predict decision based on similar patterns
+ */
+memoryRoutes.post('/patterns/predict', async (c) => {
+    try {
+        const context = await c.req.json<{
+            agentType?: string;
+            agentTier?: number;
+            actionType?: string;
+            contextSummary: string;
+        }>();
+        const service = getDecisionPatternService();
+        const prediction = await service.predictDecision(context);
+        return c.json(prediction);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get patterns by type
+ */
+memoryRoutes.get('/patterns/type/:type', async (c) => {
+    try {
+        const patternType = c.req.param('type') as DecisionPatternType;
+        const limit = parseInt(c.req.query('limit') || '50');
+        const minFrequency = parseInt(c.req.query('minFrequency') || '1');
+        const service = getDecisionPatternService();
+        const patterns = await service.getByType(patternType, { limit, minFrequency });
+        return c.json(patterns);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get patterns by HITL user
+ */
+memoryRoutes.get('/patterns/user/:userId', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const limit = parseInt(c.req.query('limit') || '50');
+        const service = getDecisionPatternService();
+        const patterns = await service.getByUser(userId, { limit });
+        return c.json(patterns);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get top patterns by frequency
+ */
+memoryRoutes.get('/patterns/top', async (c) => {
+    try {
+        const limit = parseInt(c.req.query('limit') || '20');
+        const patternType = c.req.query('type') as DecisionPatternType | undefined;
+        const service = getDecisionPatternService();
+        const patterns = await service.getTopPatterns({ limit, patternType });
+        return c.json(patterns);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get pattern by ID
+ */
+memoryRoutes.get('/patterns/:id', async (c) => {
+    try {
+        const id = c.req.param('id');
+        const service = getDecisionPatternService();
+        const pattern = await service.getById(id);
+        return c.json(pattern);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Update pattern outcome
+ */
+memoryRoutes.patch('/patterns/:id/outcome', async (c) => {
+    try {
+        const id = c.req.param('id');
+        const { outcome, details } = await c.req.json<{
+            outcome: DecisionOutcome;
+            details?: string;
+        }>();
+        const service = getDecisionPatternService();
+        const pattern = await service.updateOutcome(id, outcome, details);
+        return c.json(pattern);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get pattern statistics
+ */
+memoryRoutes.get('/patterns/stats', async (c) => {
+    try {
+        const service = getDecisionPatternService();
+        const stats = await service.getStats();
+        return c.json(stats);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+// ============================================================================
+// User Preferences Endpoints
+// ============================================================================
+
+/**
+ * Get or create user preferences
+ */
+memoryRoutes.get('/preferences/:userId', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const orgId = c.req.query('orgId');
+        const service = getUserPreferencesService();
+        const prefs = await service.getOrCreate(userId, orgId);
+        return c.json(prefs);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Update user preferences
+ */
+memoryRoutes.patch('/preferences/:userId', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const updates = await c.req.json<Partial<UserPreferencesInput>>();
+        const service = getUserPreferencesService();
+        const prefs = await service.update(userId, updates);
+        return c.json(prefs);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Update notification preferences
+ */
+memoryRoutes.patch('/preferences/:userId/notifications', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const notifications = await c.req.json();
+        const service = getUserPreferencesService();
+        const prefs = await service.updateNotifications(userId, notifications);
+        return c.json(prefs);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Update learned preferences (from Shadow Bot)
+ */
+memoryRoutes.patch('/preferences/:userId/learned', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const learned = await c.req.json();
+        const service = getUserPreferencesService();
+        const prefs = await service.updateLearnedPreferences(userId, learned);
+        return c.json(prefs);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Record user interaction
+ */
+memoryRoutes.post('/preferences/:userId/interaction', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const { sessionId } = await c.req.json<{ sessionId: string }>();
+        const service = getUserPreferencesService();
+        await service.recordInteraction(userId, sessionId);
+        return c.json({ success: true });
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Record approval/denial decision
+ */
+memoryRoutes.post('/preferences/:userId/decision', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const { approved } = await c.req.json<{ approved: boolean }>();
+        const service = getUserPreferencesService();
+        await service.recordDecision(userId, approved);
+        return c.json({ success: true });
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Analyze user's approval tendency
+ */
+memoryRoutes.get('/preferences/:userId/tendency', async (c) => {
+    try {
+        const userId = c.req.param('userId');
+        const service = getUserPreferencesService();
+        const analysis = await service.analyzeApprovalTendency(userId);
+        return c.json(analysis);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get all users for an organization
+ */
+memoryRoutes.get('/preferences/org/:orgId', async (c) => {
+    try {
+        const orgId = c.req.param('orgId');
+        const service = getUserPreferencesService();
+        const users = await service.getOrgUsers(orgId);
+        return c.json(users);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
+ * Get most active users
+ */
+memoryRoutes.get('/preferences/active', async (c) => {
+    try {
+        const limit = parseInt(c.req.query('limit') || '10');
+        const service = getUserPreferencesService();
+        const users = await service.getMostActiveUsers(limit);
+        return c.json(users);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+// ============================================================================
 // Health Check
 // ============================================================================
 
 memoryRoutes.get('/health', async (c) => {
     try {
-        // Quick health check
-        const conversationService = getConversationMemoryService();
-        const knowledgeService = getKnowledgeStoreService();
+        // Quick health check - verify all services initialize
+        getConversationMemoryService();
+        getKnowledgeStoreService();
+        getDecisionPatternService();
+        getUserPreferencesService();
 
         return c.json({
             status: 'ok',
@@ -331,6 +629,8 @@ memoryRoutes.get('/health', async (c) => {
                 conversations: 'ready',
                 knowledge: 'ready',
                 embeddings: 'ready',
+                patterns: 'ready',
+                preferences: 'ready',
             },
             timestamp: new Date().toISOString(),
         });
