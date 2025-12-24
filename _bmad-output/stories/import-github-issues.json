@@ -1,0 +1,326 @@
+{
+  "project": "TrustBot 2.0",
+  "description": "Enterprise-scale autonomous agent governance platform",
+  "milestones": [
+    {
+      "title": "Sprint 1: Foundation",
+      "description": "Core trust scoring + audit trail",
+      "due_on": null
+    },
+    {
+      "title": "Sprint 2: Complete Scoring",
+      "description": "Finish trust scoring, audit export, begin council",
+      "due_on": null
+    },
+    {
+      "title": "Sprint 3: Council Governance",
+      "description": "Complete council governance system",
+      "due_on": null
+    },
+    {
+      "title": "Sprint 4: Delegation & Budgets",
+      "description": "Complete core autonomy features",
+      "due_on": null
+    },
+    {
+      "title": "Sprint 5: API & Frontend",
+      "description": "Expose features to users",
+      "due_on": null
+    }
+  ],
+  "labels": [
+    { "name": "epic-1-trust", "color": "0366d6", "description": "Enhanced Trust Scoring" },
+    { "name": "epic-2-audit", "color": "d73a49", "description": "Cryptographic Audit Trail" },
+    { "name": "epic-3-council", "color": "6f42c1", "description": "Council Governance" },
+    { "name": "epic-4-delegation", "color": "28a745", "description": "Delegation & Budgets" },
+    { "name": "epic-5-frontend", "color": "fd7e14", "description": "API & Frontend" },
+    { "name": "P0-blocker", "color": "b60205", "description": "Blocks other work" },
+    { "name": "P1-high", "color": "d93f0b", "description": "High priority" },
+    { "name": "P2-medium", "color": "fbca04", "description": "Medium priority" },
+    { "name": "size-1", "color": "c5def5", "description": "1 story point" },
+    { "name": "size-2", "color": "bfd4f2", "description": "2 story points" },
+    { "name": "size-3", "color": "a2c4e0", "description": "3 story points" }
+  ],
+  "issues": [
+    {
+      "id": "TRUST-1.1",
+      "title": "[E1] Trust Component Type Definitions",
+      "body": "## Description\nAs a developer, I need TypeScript interfaces for the enhanced trust scoring system so that all components have consistent type safety.\n\n## Acceptance Criteria\n- [ ] `TrustComponents` interface defines all 5 component scores\n- [ ] `ComponentScore` interface includes raw, weighted, samples, confidence, lastUpdated\n- [ ] `EnhancedTrustScore` extends existing `TrustScore` with new fields\n- [ ] `TrustTier` type maps score ranges to tier names\n- [ ] All types exported from `src/core/types/trust.ts`\n- [ ] JSDoc comments on all interfaces\n\n## Files\n- CREATE: `src/core/types/trust.ts`\n- MODIFY: `src/types.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P0-blocker", "size-2"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-1.2",
+      "title": "[E1] Decision Accuracy Calculator",
+      "body": "## Description\nAs the trust system, I need to calculate decision accuracy from task approval rates so that agent performance is measured objectively.\n\n## Acceptance Criteria\n- [ ] Query task history for specified agent (configurable lookback, default 90 days)\n- [ ] Calculate raw approval rate: approved / total\n- [ ] Apply risk-adjusted weighting (low=1x, medium=1.5x, high=2x, critical=3x)\n- [ ] Return `ComponentScore` with confidence based on sample size\n- [ ] Handle edge case: new agent with 0 tasks returns 50 (neutral)\n- [ ] Confidence reaches 1.0 at 100+ samples\n\n## Files\n- CREATE: `src/core/TrustScoreCalculator.ts`\n- CREATE: `src/core/TrustScoreCalculator.test.ts`\n\n## Story Points: 3",
+      "labels": ["epic-1-trust", "P1-high", "size-3"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-1.3",
+      "title": "[E1] Ethics Compliance Calculator",
+      "body": "## Description\nAs the trust system, I need to calculate ethics compliance from violations and escalations so that behavioral issues reduce trust.\n\n## Acceptance Criteria\n- [ ] Query violations for agent (90-day window)\n- [ ] Query escalations for agent (90-day window)\n- [ ] Start at 100, deduct 10 per violation, 5 per escalation\n- [ ] Floor at 0 (no negative scores)\n- [ ] Return `ComponentScore` with confidence = 1\n- [ ] Integrate with existing `SecurityLayer.getAuditLog()`\n\n## Files\n- MODIFY: `src/core/TrustScoreCalculator.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P1-high", "size-2"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-1.4",
+      "title": "[E1] Task Success Calculator",
+      "body": "## Description\nAs the trust system, I need to calculate task success rate from completed vs failed tasks so that reliability is measured.\n\n## Acceptance Criteria\n- [ ] Query completed tasks for agent (90-day window)\n- [ ] Query failed tasks for agent (90-day window)\n- [ ] Calculate: (completed / (completed + failed)) * 100\n- [ ] Handle edge case: 0 tasks returns 50 (neutral)\n- [ ] Return `ComponentScore` with confidence based on sample size\n- [ ] Use existing task data from `PersistenceLayer`\n\n## Files\n- MODIFY: `src/core/TrustScoreCalculator.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P1-high", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-1.5",
+      "title": "[E1] Operational Stability Calculator",
+      "body": "## Description\nAs the trust system, I need to calculate operational stability from error rates and response times so that system health is tracked.\n\n## Acceptance Criteria\n- [ ] Query error count for agent (90-day window)\n- [ ] Query average response time for agent\n- [ ] Error penalty: -5 per error (max -50)\n- [ ] Response time penalty: -1 per 100ms above 500ms baseline\n- [ ] Start at 100, apply penalties, floor at 0\n- [ ] Return `ComponentScore` with appropriate confidence\n\n## Files\n- MODIFY: `src/core/TrustScoreCalculator.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P1-high", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-1.6",
+      "title": "[E1] Peer Reviews Calculator (Blackboard)",
+      "body": "## Description\nAs the trust system, I need to calculate peer reviews from Blackboard contributions so that collaborative value is recognized.\n\n## Acceptance Criteria\n- [ ] Query Blackboard contributions by agent\n- [ ] Count endorsements on agent's contributions\n- [ ] Count resolved SOLUTION entries by agent\n- [ ] Score formula: (endorsements * 5) + (solutions * 20), capped at 100\n- [ ] Return `ComponentScore` with confidence based on contribution count\n- [ ] Integrate with `Blackboard.getContributionsBy()`\n\n## Files\n- MODIFY: `src/core/TrustScoreCalculator.ts`\n- MODIFY: `src/core/Blackboard.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P1-high", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-1.7",
+      "title": "[E1] Weighted Score Aggregation",
+      "body": "## Description\nAs the trust system, I need to aggregate component scores with proper weighting so that the final FICO-style score is calculated.\n\n## Acceptance Criteria\n- [ ] Apply weights: accuracy=35%, ethics=25%, tasks=20%, stability=15%, peers=5%\n- [ ] Calculate weighted sum of component scores\n- [ ] Scale to 300-1000 range (FICO-style)\n- [ ] Apply inheritance bonus (80% of parent)\n- [ ] Apply penalty deductions\n- [ ] Clamp final score to 300-1000\n- [ ] Derive tier from final score\n- [ ] Calculate 7-day trend\n\n## Files\n- MODIFY: `src/core/TrustScoreCalculator.ts`\n\n## Story Points: 2",
+      "labels": ["epic-1-trust", "P0-blocker", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-1.8",
+      "title": "[E1] TrustEngine Integration",
+      "body": "## Description\nAs the trust system, I need to integrate the new TrustScoreCalculator into the existing TrustEngine so that all trust operations use enhanced scoring.\n\n## Acceptance Criteria\n- [ ] Add feature flag `USE_FICO_SCORING` (default: true)\n- [ ] Inject `TrustScoreCalculator` into `TrustEngine`\n- [ ] Modify `createTrust()` to use calculator when flag enabled\n- [ ] Modify `reward()` to recalculate score after reward\n- [ ] Modify `penalize()` to recalculate score after penalty\n- [ ] Preserve inheritance and penalty propagation logic\n- [ ] Emit `trust:score-recalculated` event\n- [ ] Backward compatibility when flag disabled\n\n## Files\n- MODIFY: `src/core/TrustEngine.ts`\n- CREATE: `src/core/config/features.ts`\n\n## Story Points: 3",
+      "labels": ["epic-1-trust", "P0-blocker", "size-3"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-2.1",
+      "title": "[E2] Audit Entry Type Definitions",
+      "body": "## Description\nAs a developer, I need TypeScript interfaces for the cryptographic audit system so that all audit entries have consistent structure.\n\n## Acceptance Criteria\n- [ ] `CryptographicAuditEntry` extends existing `AuditEntry`\n- [ ] Add `sequenceNumber: number` (monotonic counter)\n- [ ] Add `previousHash: string` (SHA-256 of previous)\n- [ ] Add `entryHash: string` (SHA-256 of current)\n- [ ] Add optional `merkleRoot: string`\n- [ ] `AuditChainStatus` interface for verification\n- [ ] All types exported from `src/core/types/audit.ts`\n\n## Files\n- CREATE: `src/core/types/audit.ts`\n\n## Story Points: 1",
+      "labels": ["epic-2-audit", "P0-blocker", "size-1"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-2.2",
+      "title": "[E2] Hash Computation Module",
+      "body": "## Description\nAs the audit system, I need a reliable hash computation module so that audit entries are cryptographically secured.\n\n## Acceptance Criteria\n- [ ] Use Node.js `crypto.createHash('sha256')`\n- [ ] Compute hash from deterministic JSON string\n- [ ] Exclude `entryHash` field from computation\n- [ ] Handle Date serialization consistently (ISO string)\n- [ ] Handle undefined/null values consistently\n- [ ] Return lowercase hex string (64 characters)\n\n## Files\n- CREATE: `src/core/CryptographicAuditLogger.ts`\n- CREATE: `src/core/CryptographicAuditLogger.test.ts`\n\n## Story Points: 2",
+      "labels": ["epic-2-audit", "P0-blocker", "size-2"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-2.3",
+      "title": "[E2] Chain-Linked Entry Logging",
+      "body": "## Description\nAs the audit system, I need to create chain-linked audit entries so that the audit trail is tamper-evident.\n\n## Acceptance Criteria\n- [ ] First entry uses `previousHash = 'GENESIS'`\n- [ ] Each subsequent entry uses previous entry's `entryHash`\n- [ ] Increment `sequenceNumber` monotonically\n- [ ] Compute and store `entryHash` for current entry\n- [ ] Persist entry immediately (append-only)\n- [ ] Return complete `CryptographicAuditEntry`\n- [ ] Emit `audit:entry-created` event\n\n## Files\n- MODIFY: `src/core/CryptographicAuditLogger.ts`\n\n## Story Points: 2",
+      "labels": ["epic-2-audit", "P0-blocker", "size-2"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-2.4",
+      "title": "[E2] Chain Verification",
+      "body": "## Description\nAs a compliance officer, I need to verify the audit chain integrity so that I can prove the log hasn't been tampered with.\n\n## Acceptance Criteria\n- [ ] Verify chain from any start sequence to any end sequence\n- [ ] Check each entry's `previousHash` matches previous `entryHash`\n- [ ] Recompute each entry's hash and compare to stored\n- [ ] Return `AuditChainStatus` with success/failure details\n- [ ] On failure, identify exact sequence number\n- [ ] Describe what was wrong (missing, mismatch, tampered)\n- [ ] Handle missing entries gracefully\n\n## Files\n- MODIFY: `src/core/CryptographicAuditLogger.ts`\n\n## Story Points: 2",
+      "labels": ["epic-2-audit", "P0-blocker", "size-2"],
+      "milestone": "Sprint 1: Foundation"
+    },
+    {
+      "id": "TRUST-2.5",
+      "title": "[E2] Compliance Export",
+      "body": "## Description\nAs a compliance officer, I need to export audit logs in standard formats so that I can provide them to auditors.\n\n## Acceptance Criteria\n- [ ] Export by date range (startDate, endDate)\n- [ ] JSON format includes chain verification status\n- [ ] CSV format includes all fields as columns\n- [ ] Include export metadata (date, verifier, entry count)\n- [ ] Cryptographically sign the export (optional)\n- [ ] Handle large exports efficiently (streaming)\n\n## Files\n- MODIFY: `src/core/CryptographicAuditLogger.ts`\n\n## Story Points: 1",
+      "labels": ["epic-2-audit", "P1-high", "size-1"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-2.6",
+      "title": "[E2] SecurityLayer Integration",
+      "body": "## Description\nAs the security system, I need to replace the existing audit logger with the cryptographic version.\n\n## Acceptance Criteria\n- [ ] Add feature flag `USE_CRYPTO_AUDIT` (default: true)\n- [ ] Inject `CryptographicAuditLogger` into `SecurityLayer`\n- [ ] Replace all `logAudit()` calls to use new logger\n- [ ] Migrate existing audit entries (add hashes)\n- [ ] Preserve existing audit query capabilities\n- [ ] Add `verifyAuditChain()` method\n- [ ] Backward compatibility when flag disabled\n\n## Files\n- MODIFY: `src/core/SecurityLayer.ts`\n- MODIFY: `src/core/config/features.ts`\n\n## Story Points: 2",
+      "labels": ["epic-2-audit", "P0-blocker", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-3.1",
+      "title": "[E3] Council Type Definitions",
+      "body": "## Description\nAs a developer, I need TypeScript interfaces for the council governance system.\n\n## Acceptance Criteria\n- [ ] `CouncilMember` interface with agentId, tier, votingWeight\n- [ ] `CouncilReview` interface with full lifecycle\n- [ ] `CouncilVote` interface with vote, reasoning, confidence\n- [ ] `Precedent` interface for stored decisions\n- [ ] Request types enum\n- [ ] Status types enum\n- [ ] All types exported\n\n## Files\n- CREATE: `src/core/council/types.ts`\n- CREATE: `src/core/council/index.ts`\n\n## Story Points: 2",
+      "labels": ["epic-3-council", "P0-blocker", "size-2"],
+      "milestone": "Sprint 2: Complete Scoring"
+    },
+    {
+      "id": "TRUST-3.2",
+      "title": "[E3] Council Member Management",
+      "body": "## Description\nAs the council system, I need to manage council membership so that qualified agents can participate.\n\n## Acceptance Criteria\n- [ ] Only T4+ agents can be council members\n- [ ] Register member with `registerMember(agentId)`\n- [ ] Unregister member with `unregisterMember(agentId)`\n- [ ] List active members\n- [ ] Track activeReviews per member (max 3)\n- [ ] Auto-unregister if agent drops below T4\n- [ ] Emit events: `council:member-joined/left`\n\n## Files\n- CREATE: `src/core/council/CouncilMemberRegistry.ts`\n- CREATE: `src/core/council/CouncilMemberRegistry.test.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P1-high", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.3",
+      "title": "[E3] Reviewer Selection Algorithm",
+      "body": "## Description\nAs the council system, I need to select appropriate reviewers for each request.\n\n## Acceptance Criteria\n- [ ] Select 3 reviewers per request\n- [ ] Exclude requester from reviewers\n- [ ] Prefer agents with < 3 active reviews\n- [ ] Prefer diverse specializations\n- [ ] Weight T5 agents higher for critical requests\n- [ ] Fallback to any available T4+\n- [ ] Fail if < 3 eligible reviewers\n\n## Files\n- CREATE: `src/core/council/CouncilService.ts`\n- CREATE: `src/core/council/CouncilService.test.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P1-high", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.4",
+      "title": "[E3] Review Submission",
+      "body": "## Description\nAs an agent, I need to submit requests for council review.\n\n## Acceptance Criteria\n- [ ] Create review with unique ID, timestamp, expiry (24h)\n- [ ] Select reviewers using selection algorithm\n- [ ] Increment activeReviews for each reviewer\n- [ ] Persist review\n- [ ] Notify reviewers via MessageBus\n- [ ] Return pending review object\n- [ ] Log in audit trail\n\n## Files\n- MODIFY: `src/core/council/CouncilService.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P0-blocker", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.5",
+      "title": "[E3] Voting Mechanism",
+      "body": "## Description\nAs a council member, I need to submit my vote on pending reviews.\n\n## Acceptance Criteria\n- [ ] Only assigned reviewers can vote\n- [ ] Vote options: approve, reject, abstain\n- [ ] Vote includes reasoning (required) and confidence\n- [ ] Cannot vote on already-decided reviews\n- [ ] Cannot change vote once submitted\n- [ ] Persist vote immediately\n- [ ] Emit `council:vote-submitted` event\n\n## Files\n- MODIFY: `src/core/council/CouncilService.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P0-blocker", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.6",
+      "title": "[E3] Decision Resolution",
+      "body": "## Description\nAs the council system, I need to resolve reviews when sufficient votes are collected.\n\n## Acceptance Criteria\n- [ ] 2 of 3 approves → approved\n- [ ] 2 of 3 rejects → rejected\n- [ ] Timeout (24h) with no majority → escalate to human\n- [ ] Synthesize reasoning from majority votes\n- [ ] Update review status and decidedAt\n- [ ] Decrement activeReviews for all reviewers\n- [ ] Emit `council:decision-made` event\n- [ ] Notify requester of outcome\n\n## Files\n- MODIFY: `src/core/council/CouncilService.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P0-blocker", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.7",
+      "title": "[E3] Precedent Service",
+      "body": "## Description\nAs the council system, I need to record and apply precedents for consistent treatment.\n\n## Acceptance Criteria\n- [ ] Create precedent from decided review\n- [ ] Store: requestType, context patterns, decision, reasoning\n- [ ] Calculate similarity score between requests and precedents\n- [ ] Auto-apply precedent if similarity > 0.9\n- [ ] Reference precedent in new decision\n- [ ] Allow precedent override with justification\n- [ ] Persist across restarts\n\n## Files\n- CREATE: `src/core/council/PrecedentService.ts`\n- CREATE: `src/core/council/PrecedentService.test.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P1-high", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-3.8",
+      "title": "[E3] HITL Gateway Integration",
+      "body": "## Description\nAs the governance system, I need to route requests to council when HITL is low.\n\n## Acceptance Criteria\n- [ ] If HITL >= 50% → route to human approval\n- [ ] If HITL < 50% → route to council review\n- [ ] EMERGENCY type always routes to human\n- [ ] Council timeout escalates to human\n- [ ] Map approval types to council request types\n- [ ] Await council decision before returning\n- [ ] Feature flag `USE_COUNCIL` (default: true)\n\n## Files\n- MODIFY: `src/core/HITLGateway.ts`\n- MODIFY: `src/core/config/features.ts`\n\n## Story Points: 3",
+      "labels": ["epic-3-council", "P0-blocker", "size-3"],
+      "milestone": "Sprint 3: Council Governance"
+    },
+    {
+      "id": "TRUST-4.1",
+      "title": "[E4] Delegation Type Definitions",
+      "body": "## Description\nAs a developer, I need TypeScript interfaces for the delegation system.\n\n## Acceptance Criteria\n- [ ] `DelegationRequest` interface with full lifecycle\n- [ ] `ActiveDelegation` interface for granted capabilities\n- [ ] Status types enum\n- [ ] Permission types match RBAC\n- [ ] Duration in milliseconds\n- [ ] All types exported\n\n## Files\n- CREATE: `src/core/delegation/types.ts`\n- CREATE: `src/core/delegation/index.ts`\n\n## Story Points: 1",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-1"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.2",
+      "title": "[E4] Delegation Request Creation",
+      "body": "## Description\nAs an agent, I need to request temporary capabilities.\n\n## Acceptance Criteria\n- [ ] Create request with capabilities, reason, duration\n- [ ] Validate requested capabilities exist\n- [ ] Validate duration within limits (max 24h)\n- [ ] Attach requester's track record\n- [ ] Count similar past approvals\n- [ ] Persist request\n- [ ] Log in audit trail\n\n## Files\n- CREATE: `src/core/delegation/DelegationManager.ts`\n- CREATE: `src/core/delegation/DelegationManager.test.ts`\n\n## Story Points: 2",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-2"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.3",
+      "title": "[E4] Auto-Approval Logic",
+      "body": "## Description\nAs a high-trust agent, I need my requests auto-approved when I meet criteria.\n\n## Acceptance Criteria\n- [ ] Auto-approve if: Tier >= 4, Success rate >= 90%, 3+ similar approvals, Duration <= 1h, No restricted capabilities\n- [ ] Create ActiveDelegation immediately\n- [ ] Set expiry based on duration\n- [ ] Log auto-approval in audit\n- [ ] Emit `delegation:auto-approved` event\n\n## Files\n- MODIFY: `src/core/delegation/DelegationManager.ts`\n\n## Story Points: 2",
+      "labels": ["epic-4-delegation", "P1-high", "size-2"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.4",
+      "title": "[E4] Delegation Approval Routing",
+      "body": "## Description\nAs the delegation system, I need to route non-auto requests to appropriate approvers.\n\n## Acceptance Criteria\n- [ ] If not auto-approved, route to council or human\n- [ ] HITL >= 50% → human approval\n- [ ] HITL < 50% → council review\n- [ ] Await decision before returning\n- [ ] On approval, create ActiveDelegation\n- [ ] On rejection, mark request rejected\n- [ ] Notify requester of outcome\n\n## Files\n- MODIFY: `src/core/delegation/DelegationManager.ts`\n\n## Story Points: 2",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-2"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.5",
+      "title": "[E4] Active Delegation Management",
+      "body": "## Description\nAs the delegation system, I need to manage active delegations.\n\n## Acceptance Criteria\n- [ ] Store active delegations per agent\n- [ ] Check expiry on every capability check\n- [ ] Remove expired delegations automatically\n- [ ] Allow manual revocation with reason\n- [ ] `checkCapability()` includes delegated\n- [ ] List active delegations for agent\n- [ ] Emit events: `delegation:expired/revoked`\n\n## Files\n- MODIFY: `src/core/delegation/DelegationManager.ts`\n\n## Story Points: 2",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-2"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.6",
+      "title": "[E4] Autonomy Budget Type Definitions",
+      "body": "## Description\nAs a developer, I need TypeScript interfaces for the autonomy budget system.\n\n## Acceptance Criteria\n- [ ] `DailyBudget` interface with limits and usage\n- [ ] `BudgetAction` interface for tracking actions\n- [ ] `TierBudgets` const with per-tier limits\n- [ ] T5 has unlimited (-1) values\n- [ ] All types exported\n\n## Files\n- CREATE: `src/core/autonomy/types.ts`\n- CREATE: `src/core/autonomy/index.ts`\n\n## Story Points: 1",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-1"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.7",
+      "title": "[E4] Budget Creation & Reset",
+      "body": "## Description\nAs the autonomy system, I need to create and reset daily budgets.\n\n## Acceptance Criteria\n- [ ] Create budget for agent if doesn't exist today\n- [ ] Set limits based on agent's current tier\n- [ ] Reset at midnight UTC (configurable)\n- [ ] Preserve yesterday's budget for history\n- [ ] Handle tier changes\n- [ ] Persist budgets\n- [ ] Emit `budget:reset` event at midnight\n\n## Files\n- CREATE: `src/core/autonomy/AutonomyBudget.ts`\n- CREATE: `src/core/autonomy/AutonomyBudget.test.ts`\n\n## Story Points: 2",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-2"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-4.8",
+      "title": "[E4] Budget Enforcement",
+      "body": "## Description\nAs the autonomy system, I need to enforce budget limits.\n\n## Acceptance Criteria\n- [ ] `canPerformAction()` checks limit\n- [ ] Return allowed: false with reason if over budget\n- [ ] Return remaining count if allowed\n- [ ] `recordAction()` increments usage\n- [ ] T5 agents always allowed (unlimited)\n- [ ] Track each action in actions array\n- [ ] Emit `budget:action` event\n- [ ] Emit `budget:exhausted` when limit reached\n\n## Files\n- MODIFY: `src/core/autonomy/AutonomyBudget.ts`\n\n## Story Points: 3",
+      "labels": ["epic-4-delegation", "P0-blocker", "size-3"],
+      "milestone": "Sprint 4: Delegation & Budgets"
+    },
+    {
+      "id": "TRUST-5.1",
+      "title": "[E5] Trust Component API Endpoints",
+      "body": "## Description\nAs an API consumer, I need endpoints to retrieve trust component details.\n\n## Acceptance Criteria\n- [ ] `GET /trust/:agentId/components` returns all 5 components\n- [ ] Response includes raw, weighted, confidence\n- [ ] `GET /trust/:agentId/history?days=30` returns history\n- [ ] History includes daily snapshots\n- [ ] Requires T2+ token or human token\n- [ ] Returns 404 if agent not found\n\n## Files\n- MODIFY: `src/api/UnifiedWorkflowAPI.ts`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P1-high", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.2",
+      "title": "[E5] Audit Verification API Endpoints",
+      "body": "## Description\nAs a compliance officer, I need endpoints to verify and export audit trail.\n\n## Acceptance Criteria\n- [ ] `GET /audit/verify` verifies chain segment\n- [ ] Returns AuditChainStatus\n- [ ] `GET /audit/export` exports JSON or CSV\n- [ ] Export includes chain verification status\n- [ ] Requires HUMAN token only\n- [ ] Large exports stream response\n\n## Files\n- MODIFY: `src/api/UnifiedWorkflowAPI.ts`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P0-blocker", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.3",
+      "title": "[E5] Council API Endpoints",
+      "body": "## Description\nAs a council member, I need endpoints to view and vote on reviews.\n\n## Acceptance Criteria\n- [ ] `GET /council/reviews` lists pending reviews\n- [ ] `GET /council/reviews/:id` gets review details\n- [ ] `POST /council/reviews/:id/vote` submits vote\n- [ ] `GET /council/members` lists members\n- [ ] Requires T4+ token for voting\n- [ ] Returns appropriate errors\n\n## Files\n- MODIFY: `src/api/UnifiedWorkflowAPI.ts`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P1-high", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.4",
+      "title": "[E5] Delegation & Budget API Endpoints",
+      "body": "## Description\nAs an agent or operator, I need endpoints for delegation and budget management.\n\n## Acceptance Criteria\n- [ ] `POST /delegation/request` creates request\n- [ ] `GET /delegation/:agentId/active` lists delegations\n- [ ] `DELETE /delegation/:id` revokes (human only)\n- [ ] `GET /autonomy/:agentId/budget` returns status\n- [ ] `POST /autonomy/:agentId/action` records action\n- [ ] Appropriate auth for each endpoint\n\n## Files\n- MODIFY: `src/api/UnifiedWorkflowAPI.ts`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P1-high", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.5",
+      "title": "[E5] Trust Score Gauge Component",
+      "body": "## Description\nAs a user, I need a visual gauge showing trust scores.\n\n## Acceptance Criteria\n- [ ] Circular gauge showing 300-1000 score\n- [ ] Color gradient: red → yellow → green\n- [ ] Tier badge displayed in center\n- [ ] Trend indicator (arrow up/down/stable)\n- [ ] Hover shows component breakdown\n- [ ] Animates on score change\n- [ ] Responsive sizing\n\n## Files\n- CREATE: `web/src/components/TrustScoreGauge.tsx`\n\n## Story Points: 3",
+      "labels": ["epic-5-frontend", "P1-high", "size-3"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.6",
+      "title": "[E5] Component Breakdown Panel",
+      "body": "## Description\nAs a user, I need to see the breakdown of trust components.\n\n## Acceptance Criteria\n- [ ] Bar chart showing 5 components\n- [ ] Each bar labeled with component name\n- [ ] Show raw score and weight percentage\n- [ ] Color-coded by score\n- [ ] Confidence indicator per component\n- [ ] Tooltip with detailed explanation\n\n## Files\n- CREATE: `web/src/components/ComponentBreakdown.tsx`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P1-high", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.7",
+      "title": "[E5] Council Review Panel",
+      "body": "## Description\nAs a council member, I need a panel to view and vote on reviews.\n\n## Acceptance Criteria\n- [ ] List of pending reviews assigned to user\n- [ ] Review card shows type, requester, context\n- [ ] Expandable detail view\n- [ ] Vote buttons: Approve, Reject, Abstain\n- [ ] Reasoning text field (required)\n- [ ] Confidence slider\n- [ ] Shows other votes after submitting\n- [ ] Auto-refresh on decision\n\n## Files\n- CREATE: `web/src/components/CouncilPanel.tsx`\n- CREATE: `web/src/components/ReviewCard.tsx`\n- CREATE: `web/src/components/VoteForm.tsx`\n\n## Story Points: 3",
+      "labels": ["epic-5-frontend", "P1-high", "size-3"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.8",
+      "title": "[E5] Delegation Request Modal",
+      "body": "## Description\nAs an operator, I need a modal to request capability delegations.\n\n## Acceptance Criteria\n- [ ] Modal triggered from agent detail view\n- [ ] Capability checklist (multi-select)\n- [ ] Reason text field\n- [ ] Duration selector\n- [ ] Shows eligibility for auto-approval\n- [ ] Submit button with loading state\n- [ ] Success/error feedback\n\n## Files\n- CREATE: `web/src/components/DelegationModal.tsx`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P2-medium", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.9",
+      "title": "[E5] Autonomy Budget Widget",
+      "body": "## Description\nAs a user, I need to see agent autonomy budgets.\n\n## Acceptance Criteria\n- [ ] Progress bar showing used/max\n- [ ] Percentage label\n- [ ] Time until reset countdown\n- [ ] Color changes as budget depletes\n- [ ] Tooltip shows tier and limits\n- [ ] Updates in real-time\n\n## Files\n- CREATE: `web/src/components/AutonomyBudgetWidget.tsx`\n\n## Story Points: 2",
+      "labels": ["epic-5-frontend", "P1-high", "size-2"],
+      "milestone": "Sprint 5: API & Frontend"
+    },
+    {
+      "id": "TRUST-5.10",
+      "title": "[E5] Dashboard Integration",
+      "body": "## Description\nAs a user, I need all new components integrated into the main dashboard.\n\n## Acceptance Criteria\n- [ ] Trust gauge in agent cards\n- [ ] Component breakdown in agent detail modal\n- [ ] Council panel in sidebar (T4+ only)\n- [ ] Budget widget in agent cards\n- [ ] Delegation button in agent detail\n- [ ] Audit verification status in footer\n- [ ] All data refreshes on interval (30s)\n\n## Files\n- MODIFY: `web/src/App.tsx`\n- MODIFY: `web/src/api.ts`\n\n## Story Points: 3",
+      "labels": ["epic-5-frontend", "P0-blocker", "size-3"],
+      "milestone": "Sprint 5: API & Frontend"
+    }
+  ]
+}

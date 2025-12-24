@@ -62,6 +62,8 @@ import {
     getSkillStats,
     SKILL_CATEGORIES,
 } from '../skills/index.js';
+// Memory system
+import { memoryRoutes } from './routes/memory.js';
 
 // ============================================================================
 // Types
@@ -647,6 +649,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     // Agent type for API responses
     type APIAgent = {
         id: string;
+        structuredId?: string;  // 6-digit ID (TRCCII format)
         name: string;
         type: string;
         tier: number;
@@ -661,17 +664,51 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     };
 
     // Demo agents for fallback when no Supabase
+    // structuredId format: TRCCII (Tier, Role, Category, Instance)
     const demoAgents: APIAgent[] = [
-        { id: 'exec-1', name: 'T5-EXECUTOR', type: 'EXECUTOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'EXECUTOR_OFFICE' }, trustScore: 1000, capabilities: ['execution'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
-        { id: 'plan-1', name: 'T5-PLANNER', type: 'PLANNER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'PLANNER_OFFICE' }, trustScore: 980, capabilities: ['strategy'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
-        { id: 'valid-1', name: 'T5-VALIDATOR', type: 'VALIDATOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'VALIDATOR_OFFICE' }, trustScore: 990, capabilities: ['audit'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
-        { id: 'evolve-1', name: 'T5-EVOLVER', type: 'EVOLVER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'EVOLVER_OFFICE' }, trustScore: 970, capabilities: ['optimize'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
-        { id: 'spawn-1', name: 'T5-SPAWNER', type: 'SPAWNER', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'SPAWNER_OFFICE' }, trustScore: 985, capabilities: ['spawn'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
+        { id: 'exec-1', structuredId: '550001', name: 'T5-EXECUTOR', type: 'EXECUTOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'EXECUTOR_OFFICE' }, trustScore: 1000, capabilities: ['execution'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
+        { id: 'plan-1', structuredId: '530001', name: 'T5-PLANNER', type: 'PLANNER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'PLANNER_OFFICE' }, trustScore: 980, capabilities: ['strategy'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
+        { id: 'valid-1', structuredId: '570001', name: 'T5-VALIDATOR', type: 'VALIDATOR', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'VALIDATOR_OFFICE' }, trustScore: 990, capabilities: ['audit'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
+        { id: 'evolve-1', structuredId: '560001', name: 'T5-EVOLVER', type: 'EVOLVER', tier: 5, status: 'WORKING', location: { floor: 'EXECUTIVE', room: 'EVOLVER_OFFICE' }, trustScore: 970, capabilities: ['optimize'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
+        { id: 'spawn-1', structuredId: '580001', name: 'T5-SPAWNER', type: 'SPAWNER', tier: 5, status: 'IDLE', location: { floor: 'EXECUTIVE', room: 'SPAWNER_OFFICE' }, trustScore: 985, capabilities: ['spawn'], skills: [], parentId: null, childIds: [], createdAt: new Date().toISOString() },
     ];
+
+    // Structured ID generation for agents
+    // Format: TRCCII where T=Tier, R=Role, CC=Category, II=Instance
+    const ROLE_CODES: Record<string, number> = {
+        WORKER: 1,
+        SPECIALIST: 2,
+        COORDINATOR: 3,
+        MANAGER: 4,
+        EXECUTIVE: 5,
+        EXECUTOR: 5,
+        ORCHESTRATOR: 6,
+        EVOLVER: 6,
+        VALIDATOR: 7,
+        RESEARCHER: 8,
+        SPAWNER: 8,
+        CREATOR: 9,
+        PLANNER: 3,
+        ANALYZER: 2,
+        COMMUNICATOR: 4,
+    };
+
+    const generateStructuredId = (tier: number, type: string, existingAgents: Array<{ type: string; tier: number }>): string => {
+        const roleCode = ROLE_CODES[type.toUpperCase()] || 0;
+        const category = '00'; // Default category, could be expanded
+
+        // Count existing agents of same tier+type to determine instance number
+        const key = `${tier}-${type}`;
+        const existingCount = existingAgents.filter(a => a.tier === tier && a.type.toUpperCase() === type.toUpperCase()).length;
+        const instance = (existingCount + 1).toString().padStart(2, '0');
+
+        return `${tier}${roleCode}${category}${instance}`;
+    };
 
     // Helper to convert Supabase agent to API format
     const formatAgent = (a: SupabaseAgent): APIAgent => ({
         id: a.id,
+        structuredId: (a as any).structured_id || undefined,
         name: a.name,
         type: a.type,
         tier: a.tier,
@@ -725,35 +762,143 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         });
     });
 
-    // GET /api/tick - Trigger agent work loop
+    // GET /api/tick - Trigger agent work loop with REAL task assignment
     app.get('/api/tick', async (c) => {
         const timestamp = new Date().toISOString();
-        const tasks = engine.getTasks();
-        const pending = tasks.filter((t: { status: string }) => t.status === 'QUEUED').length;
-        const inProgress = tasks.filter((t: { status: string }) => t.status === 'IN_PROGRESS').length;
-        const completed = tasks.filter((t: { status: string }) => t.status === 'COMPLETED').length;
+        const events: string[] = [];
+        let assignedCount = 0;
+        let completedCount = 0;
+
+        // Get all tasks
+        const allTasks = engine.getTasks();
+        const queuedTasks = allTasks.filter((t: { status: string }) => t.status === 'QUEUED');
+        const pendingApproval = allTasks.filter((t: { status: string }) => t.status === 'PENDING_APPROVAL');
+        const inProgressTasks = allTasks.filter((t: { status: string }) => t.status === 'IN_PROGRESS');
+        const completedTasks = allTasks.filter((t: { status: string }) => t.status === 'COMPLETED');
+
+        // Get agents (from supabase or demo) - use flexible type for both sources
+        type TickAgent = { id: string; name: string; type: string; tier: number; status: string };
+        let agents: TickAgent[] = [];
+        if (supabase) {
+            try {
+                const dbAgents = await supabase.getAgents();
+                agents = dbAgents.length > 0 ? dbAgents : demoAgents;
+            } catch {
+                agents = demoAgents;
+            }
+        } else {
+            agents = demoAgents;
+        }
+
+        // Find IDLE agents available for work
+        const idleAgents = agents.filter(a => a.status === 'IDLE' && a.tier >= 2);
+
+        // Sort tasks by priority (HIGH > MEDIUM > LOW)
+        const priorityOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
+        const sortedTasks = [...queuedTasks].sort((a, b) =>
+            (priorityOrder[a.priority as keyof typeof priorityOrder] || 1) -
+            (priorityOrder[b.priority as keyof typeof priorityOrder] || 1)
+        );
+
+        // Assign tasks to idle agents
+        const assignments: Array<{ taskId: string; taskTitle: string; agentId: string; agentName: string }> = [];
+
+        for (const task of sortedTasks) {
+            if (idleAgents.length === 0) break;
+
+            // Find best matching agent (prefer WORKER type, then by tier)
+            const agentIndex = idleAgents.findIndex(a =>
+                a.tier >= (task.requiredTier || 2) &&
+                (a.type === 'WORKER' || a.type === 'ANALYST' || a.type === 'EXECUTOR')
+            );
+
+            if (agentIndex !== -1) {
+                const agent = idleAgents[agentIndex];
+                if (!agent) continue;
+
+                // Assign the task
+                task.assignedTo = agent.id;
+                task.status = 'IN_PROGRESS';
+                task.startedAt = new Date();
+
+                // Update agent status
+                agent.status = 'WORKING';
+                if (supabase) {
+                    await supabase.updateAgent(agent.id, { status: 'WORKING' });
+                }
+
+                assignments.push({
+                    taskId: task.id,
+                    taskTitle: task.title,
+                    agentId: agent.id,
+                    agentName: agent.name,
+                });
+
+                events.push(`📋 Assigned "${task.title}" to ${agent.name}`);
+                assignedCount++;
+
+                // Remove agent from idle pool
+                idleAgents.splice(agentIndex, 1);
+            }
+        }
+
+        // Simulate work completion for IN_PROGRESS tasks (demo mode)
+        for (const task of inProgressTasks) {
+            // 30% chance of completing on each tick (for demo purposes)
+            if (Math.random() < 0.3) {
+                task.status = 'COMPLETED';
+                task.completedAt = new Date();
+                completedCount++;
+
+                // Free up the agent
+                if (task.assignedTo) {
+                    const agent = agents.find(a => a.id === task.assignedTo);
+                    if (agent) {
+                        agent.status = 'IDLE';
+                        if (supabase) {
+                            await supabase.updateAgent(agent.id, { status: 'IDLE' });
+                        }
+                        events.push(`✅ ${agent.name} completed "${task.title}"`);
+                    }
+                }
+            }
+        }
 
         // Get trust stats
         const trustStats = engine.getTrustEngine().getStats();
+
+        // Build detailed pending summary
+        const pendingSummary = {
+            queued: queuedTasks.length - assignedCount,
+            awaitingApproval: pendingApproval.length,
+            inProgress: inProgressTasks.length + assignedCount - completedCount,
+            items: [
+                ...pendingApproval.map(t => ({ id: t.id, title: t.title, status: 'PENDING_APPROVAL', reason: 'Requires human approval' })),
+                ...queuedTasks.filter(t => t.status === 'QUEUED').map(t => ({ id: t.id, title: t.title, status: 'QUEUED', reason: 'Waiting for available agent' })),
+            ],
+        };
 
         return c.json({
             success: true,
             tick: Date.now(),
             timestamp,
-            processed: inProgress,
-            assigned: inProgress,
-            completed,
+            processed: inProgressTasks.length,
+            assigned: assignedCount,
+            completed: completedCount,
             queue: {
-                pending,
-                inProgress,
-                totalTasks: tasks.length,
+                pending: queuedTasks.length - assignedCount,
+                inProgress: inProgressTasks.length + assignedCount - completedCount,
+                awaitingApproval: pendingApproval.length,
+                totalTasks: allTasks.length,
             },
+            assignments,
+            pendingSummary,
             trustSystem: {
                 avgTrust: trustStats.avgTrust,
                 agentsByTier: trustStats.byLevel,
             },
-            events: [],
-            newBlackboardEntries: 0,
+            events,
+            idleAgentsAvailable: idleAgents.length,
         });
     });
 
@@ -820,6 +965,10 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
         if (supabase) {
             try {
+                // Get existing agents to generate structured ID
+                const existingAgents = await supabase.getAgents();
+                const structuredId = generateStructuredId(body.tier, body.type, existingAgents);
+
                 const agent = await supabase.createAgent({
                     id: uuidv4(),
                     name: body.name,
@@ -833,15 +982,37 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
                     skills: [],
                     parent_id: null,
                 });
-                return c.json({ success: true, agent: formatAgent(agent) });
+
+                // Add structured ID to the formatted response
+                const formattedAgent = formatAgent(agent);
+                formattedAgent.structuredId = structuredId;
+
+                return c.json({ success: true, agent: formattedAgent });
             } catch (e) {
                 console.error('Supabase spawn error:', e);
                 return c.json({ error: (e as Error).message }, 500);
             }
         }
 
-        // Fallback to demo response
-        return c.json({ success: true, agent: { id: uuidv4(), name: body.name, type: body.type, tier: body.tier } });
+        // Fallback to demo response with structured ID
+        const structuredId = generateStructuredId(body.tier, body.type, demoAgents);
+        const newAgent: APIAgent = {
+            id: uuidv4(),
+            structuredId,
+            name: body.name,
+            type: body.type,
+            tier: body.tier,
+            status: 'IDLE',
+            location: { floor: body.tier >= 4 ? 'EXECUTIVE' : 'OPERATIONS', room: 'SPAWN_BAY' },
+            trustScore: body.tier * 150 + 100,
+            capabilities: [],
+            skills: [],
+            parentId: null,
+            childIds: [],
+            createdAt: new Date().toISOString(),
+        };
+        demoAgents.push(newAgent);
+        return c.json({ success: true, agent: newAgent });
     });
 
     // -------------------------------------------------------------------------
@@ -2629,6 +2800,11 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
             ...requirements,
         });
     });
+
+    // ========================================================================
+    // Memory System Routes
+    // ========================================================================
+    app.route('/api/memory', memoryRoutes);
 
     return app;
 }
