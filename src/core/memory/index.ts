@@ -21,3 +21,13 @@ export {
     getKnowledgeStoreService,
     resetKnowledgeStoreService,
 } from './KnowledgeStoreService';
+export {
+    DecisionPatternService,
+    getDecisionPatternService,
+    resetDecisionPatternService,
+} from './DecisionPatternService';
+export {
+    UserPreferencesService,
+    getUserPreferencesService,
+    resetUserPreferencesService,
+} from './UserPreferencesService';
