@@ -415,13 +415,13 @@ describe('InvestigationCard', () => {
 
     it('shows rollback details when expanded', () => {
         render(<InvestigationCard investigation={mockInvestigation} expanded />);
-        expect(screen.getByText('Rollbacks')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Rollbacks' })).toBeInTheDocument();
         expect(screen.getByText(mockRollback.reason)).toBeInTheDocument();
     });
 
     it('shows linked events when expanded', () => {
         render(<InvestigationCard investigation={mockInvestigation} expanded />);
-        expect(screen.getByText('Linked Events')).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: 'Linked Events' })).toBeInTheDocument();
         expect(screen.getByText('evt-456')).toBeInTheDocument();
     });
 

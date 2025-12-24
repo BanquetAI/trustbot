@@ -315,7 +315,8 @@ describe('IncidentCard', () => {
 describe('CostAvoidedCard', () => {
     it('renders total cost avoided', () => {
         render(<CostAvoidedCard summary={mockIncidentSummary} />);
-        expect(screen.getByText('$284.5K')).toBeInTheDocument();
+        // formatCurrency rounds K values to whole numbers: 284500 -> $285K
+        expect(screen.getByText('$285K')).toBeInTheDocument();
     });
 
     it('renders category breakdown', () => {
