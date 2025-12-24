@@ -1,0 +1,692 @@
+# Sprint Status Tracking File
+# Generated: 2025-12-23
+# Project: TrustBot Mission Control
+# Total: 8 Epics, 41 Stories
+
+generated: 2025-12-23
+project: TrustBot Mission Control
+source: _bmad-output/epics.md
+tracking_system: file-system
+story_location: "_bmad-output/sprint-artifacts/stories"
+
+# Status values: backlog | ready-for-dev | in-progress | review | done
+# Epic status: backlog | active | completed
+
+development_status:
+  # =============================================================================
+  # Epic 1: Mission Control Core & Agent Visibility
+  # Foundation epic - provides RBAC, real-time, agent visibility
+  # =============================================================================
+  epic-1:
+    title: "Mission Control Core & Agent Visibility"
+    status: completed
+    completed: 2025-12-23
+    stories: 6
+    frs_covered: [FR1, FR2, FR3, FR4, FR5, FR6, FR51, FR52, FR53, FR55]
+
+  1-1-rbac-middleware-role-based-access:
+    epic: 1
+    title: "RBAC Middleware & Role-Based Access"
+    status: done
+    completed: 2025-12-23
+    frs: [FR51, FR52, FR53]
+    technical_notes: "Create src/api/middleware/rbac.ts with requireRole() middleware"
+    deliverables:
+      - src/api/middleware/rbac.ts
+      - src/api/middleware/rbac.test.ts
+      - supabase/migrations/20231223_001_add_rls_policies.sql
+
+  1-2-zustand-store-real-time-connection:
+    epic: 1
+    title: "Zustand Store & Real-Time Connection"
+    status: done
+    completed: 2025-12-23
+    frs: [FR55]
+    technical_notes: "Create web/src/stores/missionControlStore.ts, web/src/hooks/useRealtimeConnection.ts"
+    deliverables:
+      - web/src/stores/missionControlStore.ts
+      - web/src/stores/missionControlStore.test.ts
+      - web/src/hooks/useRealtimeConnection.ts
+      - web/src/components/ConnectionStatusIndicator.tsx
+
+  1-3-agent-overview-module-list-view:
+    epic: 1
+    title: "Agent Overview Module - List View"
+    status: done
+    completed: 2025-12-23
+    frs: [FR1, FR4, FR5]
+    technical_notes: "Create web/src/components/mission-control/modules/AgentOverviewModule.tsx"
+    deliverables:
+      - web/src/components/mission-control/modules/AgentOverviewModule.tsx
+      - web/src/components/mission-control/modules/AgentOverviewModule.test.tsx
+      - src/api/routes/mission-control/index.ts
+
+  1-4-agent-trust-score-display-tier-badges:
+    epic: 1
+    title: "Agent Trust Score Display with Tier Badges"
+    status: done
+    completed: 2025-12-23
+    frs: [FR3, FR6]
+    technical_notes: "Create TrustBadge.tsx, TrendIndicator.tsx components"
+    deliverables:
+      - web/src/components/mission-control/shared/TrustBadge.tsx
+      - web/src/components/mission-control/shared/TrustBadge.test.tsx
+      - web/src/components/mission-control/shared/TrendIndicator.tsx
+      - web/src/components/mission-control/shared/TrendIndicator.test.tsx
+      - web/src/types.ts (AgentTrustTrend interface)
+
+  1-5-agent-profile-navigation-agentlink:
+    epic: 1
+    title: "Agent Profile Navigation with AgentLink"
+    status: done
+    completed: 2025-12-23
+    frs: [FR2]
+    technical_notes: "Create AgentLink.tsx, update AgentProfilePage.tsx"
+    deliverables:
+      - web/src/components/mission-control/shared/AgentLink.tsx
+      - web/src/components/mission-control/shared/AgentLink.test.tsx
+      - web/src/components/mission-control/shared/Breadcrumb.tsx
+      - web/src/components/mission-control/modules/AgentOverviewModule.tsx (updated to use AgentLink)
+
+  1-6-organization-data-isolation:
+    epic: 1
+    title: "Organization Data Isolation"
+    status: done
+    completed: 2025-12-23
+    frs: [FR53]
+    technical_notes: "Create RLS policies for all Mission Control tables"
+    deliverables:
+      - supabase/migrations/20231223_001_add_rls_policies.sql (Story 1.1)
+      - supabase/migrations/20231223_002_mission_control_rls.sql
+      - src/api/middleware/org-isolation.test.ts
+
+  # =============================================================================
+  # Epic 2: Decision Queue & Morning Review
+  # Core operator workflow - pending decisions, approve/deny, morning queue
+  # =============================================================================
+  epic-2:
+    title: "Decision Queue & Morning Review"
+    status: completed
+    completed: 2025-12-23
+    stories: 7
+    frs_covered: [FR7, FR8, FR9, FR10, FR11, FR12, FR13, FR14, FR15, FR16, FR17, FR18]
+
+  2-1-task-pipeline-module-pending-decisions-view:
+    epic: 2
+    title: "Task Pipeline Module - Pending Decisions View"
+    status: done
+    completed: 2025-12-23
+    frs: [FR7, FR11, FR12, FR13]
+    technical_notes: "Create TaskPipelineModule.tsx, GET /api/v1/mission-control/queue endpoint"
+    deliverables:
+      - supabase/migrations/20231223_003_action_requests.sql
+      - src/api/routes/mission-control/index.ts (queue endpoints added)
+      - web/src/components/mission-control/modules/TaskPipelineModule.tsx
+      - web/src/components/mission-control/modules/TaskPipelineModule.test.tsx
+      - web/src/components/mission-control/shared/UrgencyBadge.tsx
+      - web/src/components/mission-control/shared/UrgencyBadge.test.tsx
+      - web/src/components/mission-control/shared/QueueDuration.tsx
+      - web/src/components/mission-control/shared/QueueDuration.test.tsx
+      - web/src/types.ts (ActionRequest types)
+
+  2-2-morning-queue-view:
+    epic: 2
+    title: "Morning Queue View"
+    status: done
+    completed: 2025-12-23
+    frs: [FR10]
+    technical_notes: "Create GET /api/v1/mission-control/queue/morning endpoint"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (morning queue endpoint added)
+      - web/src/components/mission-control/modules/MorningQueueSection.tsx
+      - web/src/components/mission-control/modules/MorningQueueSection.test.tsx
+
+  2-3-approve-action-request:
+    epic: 2
+    title: "Approve Action Request"
+    status: done
+    completed: 2025-12-23
+    frs: [FR14]
+    technical_notes: "Create POST /api/v1/mission-control/decisions/:id/approve, hitl_metrics table"
+    deliverables:
+      - supabase/migrations/20231223_004_hitl_metrics.sql
+      - src/api/routes/mission-control/index.ts (approve/deny endpoints added)
+      - src/api/routes/mission-control/approve.test.ts
+      - web/src/stores/missionControlStore.ts (optimistic update actions)
+      - web/src/stores/missionControlStore.test.ts (queue and optimistic tests)
+
+  2-4-deny-action-request:
+    epic: 2
+    title: "Deny Action Request"
+    status: done
+    completed: 2025-12-23
+    frs: [FR15, FR16]
+    technical_notes: "Create POST /api/v1/mission-control/decisions/:id/deny endpoint"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (deny endpoint - implemented with approve in Story 2.3)
+      - src/api/routes/mission-control/approve.test.ts (includes deny tests)
+      - web/src/stores/missionControlStore.ts (denyDecisionOptimistic action)
+
+  2-5-trust-impact-preview:
+    epic: 2
+    title: "Trust Impact Preview"
+    status: done
+    completed: 2025-12-23
+    frs: [FR17]
+    technical_notes: "Create TrustImpactPreview.tsx, GET /api/v1/mission-control/decisions/:id/impact"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (impact endpoint added)
+      - web/src/components/mission-control/shared/TrustImpactPreview.tsx
+      - web/src/components/mission-control/shared/TrustImpactPreview.test.tsx (31 tests)
+
+  2-6-sample-data-viewing:
+    epic: 2
+    title: "Sample Data Viewing"
+    status: done
+    completed: 2025-12-23
+    frs: [FR18]
+    technical_notes: "Create GET /api/v1/mission-control/decisions/:id/sample with data masking"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (sample endpoint with masking functions)
+      - web/src/components/mission-control/shared/SampleDataViewer.tsx
+      - web/src/components/mission-control/shared/SampleDataViewer.test.tsx (43 tests)
+
+  2-7-task-execution-progress-view:
+    epic: 2
+    title: "Task Execution Progress View"
+    status: done
+    completed: 2025-12-23
+    frs: [FR8, FR9]
+    technical_notes: "Create GET /tasks/executing, /tasks/completed endpoints, TaskProgressModule component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (task execution endpoints added)
+      - web/src/components/mission-control/modules/TaskProgressModule.tsx
+      - web/src/components/mission-control/modules/TaskProgressModule.test.tsx (38 tests)
+      - web/src/components/mission-control/shared/ProgressBar.tsx
+      - web/src/components/mission-control/shared/ProgressBar.test.tsx (33 tests)
+      - web/src/types.ts (ExecutingTask, ExecutingTaskCounts types)
+
+  # =============================================================================
+  # Epic 3: Governance & Tribunal Transparency
+  # Bot Tribunal records, Trust Gate explanations, HITL overrides
+  # =============================================================================
+  epic-3:
+    title: "Governance & Tribunal Transparency"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 4
+    frs_covered: [FR19, FR20, FR21, FR22]
+
+  3-1-bot-tribunal-voting-records-display:
+    epic: 3
+    title: "Bot Tribunal Voting Records Display"
+    status: done
+    completed: 2025-12-23
+    frs: [FR19]
+    technical_notes: "Create tribunal_votes table, TribunalRecord.tsx component"
+    deliverables:
+      - supabase/migrations/20231223_005_tribunal_votes.sql
+      - src/api/routes/mission-control/index.ts (tribunal endpoint added)
+      - web/src/components/mission-control/shared/TribunalRecord.tsx
+      - web/src/components/mission-control/shared/TribunalRecord.test.tsx (47 tests)
+      - web/src/types.ts (TribunalVote, TribunalSummary, TribunalRecord types)
+
+  3-2-trust-gate-decision-explanations:
+    epic: 3
+    title: "Trust Gate Decision Explanations"
+    status: done
+    completed: 2025-12-23
+    frs: [FR20]
+    technical_notes: "Create TrustGateExplanation.tsx, add trust_gate_rules field"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (trust-gate endpoint added)
+      - web/src/components/mission-control/shared/TrustGateExplanation.tsx
+      - web/src/components/mission-control/shared/TrustGateExplanation.test.tsx (46 tests)
+      - web/src/types.ts (TrustGateRule, TrustGateExplanation types)
+
+  3-3-hitl-override-with-rationale:
+    epic: 3
+    title: "HITL Override with Rationale"
+    status: done
+    completed: 2025-12-23
+    frs: [FR21]
+    technical_notes: "POST /decisions/:id/override endpoint, OverrideRationale component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (override endpoint added)
+      - web/src/components/mission-control/shared/OverrideRationale.tsx
+      - web/src/components/mission-control/shared/OverrideRationale.test.tsx (45 tests)
+      - web/src/types.ts (OverrideRecord, OverrideRequest types)
+
+  3-4-director-governance-rule-approval:
+    epic: 3
+    title: "Director Governance Rule Approval"
+    status: done
+    completed: 2025-12-23
+    frs: [FR22]
+    technical_notes: "GET/POST /rules endpoints, GovernanceRuleCard with impact analysis, director decision workflow"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (governance endpoints added)
+      - web/src/components/mission-control/shared/GovernanceRuleCard.tsx
+      - web/src/components/mission-control/shared/GovernanceRuleCard.test.tsx (57 tests)
+      - web/src/types.ts (GovernanceRule, GovernanceRuleDefinition, GovernanceRuleImpact types)
+
+  # =============================================================================
+  # Epic 4: Cryptographic Audit Trail
+  # Hash chain verification, accountability chains, HITL metrics
+  # =============================================================================
+  epic-4:
+    title: "Cryptographic Audit Trail"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 5
+    frs_covered: [FR23, FR24, FR25, FR26, FR27, FR28, FR30]
+
+  4-1-record-review-module-audit-trail-view:
+    epic: 4
+    title: "Record Review Module - Audit Trail View"
+    status: done
+    completed: 2025-12-23
+    frs: [FR23]
+    technical_notes: "GET /audit with cursor pagination, AuditEntry component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (audit endpoints added)
+      - web/src/components/mission-control/shared/AuditEntry.tsx
+      - web/src/components/mission-control/shared/AuditEntry.test.tsx
+      - web/src/types.ts (AuditEntry, AuditActionType, HashStatus types)
+
+  4-2-hash-chain-verification-visual-badges:
+    epic: 4
+    title: "Hash Chain Verification with Visual Badges"
+    status: done
+    completed: 2025-12-23
+    frs: [FR24, FR30]
+    technical_notes: "HashBadge and TamperProofIndicator components, GET /audit/:id/verify endpoint"
+    deliverables:
+      - web/src/components/mission-control/shared/AuditEntry.tsx (HashBadge, TamperProofIndicator)
+      - src/api/routes/mission-control/index.ts (verify endpoint added)
+
+  4-3-five-level-accountability-chain-display:
+    epic: 4
+    title: "Five-Level Accountability Chain Display"
+    status: done
+    completed: 2025-12-23
+    frs: [FR25]
+    technical_notes: "AccountabilityChain component with 5 levels, entity navigation"
+    deliverables:
+      - web/src/components/mission-control/shared/AccountabilityChain.tsx
+      - web/src/components/mission-control/shared/AccountabilityChain.test.tsx
+      - src/api/routes/mission-control/index.ts (accountability endpoint added)
+      - web/src/types.ts (AccountabilityLevel, AccountabilityChain types)
+
+  4-4-hitl-quality-metrics-dashboard:
+    epic: 4
+    title: "HITL Quality Metrics Dashboard"
+    status: done
+    completed: 2025-12-23
+    frs: [FR26, FR27]
+    technical_notes: "HITLMetricsCard and summary components, risk badges, metric gauges"
+    deliverables:
+      - web/src/components/mission-control/shared/HITLMetricsCard.tsx
+      - web/src/components/mission-control/shared/HITLMetricsCard.test.tsx
+      - src/api/routes/mission-control/index.ts (metrics/hitl endpoint added)
+      - web/src/types.ts (HITLQualityMetrics, HITLMetricsSummary types)
+
+  4-5-automation-bias-alerts:
+    epic: 4
+    title: "Automation Bias Alerts"
+    status: done
+    completed: 2025-12-23
+    frs: [FR28]
+    technical_notes: "BiasAlertCard and BiasAlertList components, severity badges, acknowledge/dismiss actions"
+    deliverables:
+      - web/src/components/mission-control/shared/BiasAlertCard.tsx
+      - web/src/components/mission-control/shared/BiasAlertCard.test.tsx
+      - src/api/routes/mission-control/index.ts (alerts/bias endpoints added)
+      - web/src/types.ts (AutomationBiasAlert, BiasAlertSeverity, BiasAlertStatus types)
+
+  # =============================================================================
+  # Epic 5: Compliance & Evidence Packages
+  # Customer data trail search, evidence package generation
+  # =============================================================================
+  epic-5:
+    title: "Compliance & Evidence Packages"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 2
+    frs_covered: [FR26, FR27]
+
+  5-1-customer-data-trail-search:
+    epic: 5
+    title: "Customer Data Trail Search"
+    status: done
+    completed: 2025-12-23
+    frs: [FR26]
+    technical_notes: "GET /compliance/search endpoint with filters and cursor pagination"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (compliance search endpoint)
+      - web/src/components/mission-control/shared/CustomerDataTrailSearch.tsx
+      - web/src/components/mission-control/shared/CustomerDataTrailSearch.test.tsx
+      - web/src/types.ts (CustomerDataTrailEntry, CustomerDataTrailFilters types)
+
+  5-2-evidence-package-generator:
+    epic: 5
+    title: "Evidence Package Generator"
+    status: done
+    completed: 2025-12-23
+    frs: [FR27]
+    technical_notes: "Evidence package request, generation, status tracking, and download"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (evidence-package endpoints)
+      - web/src/components/mission-control/shared/EvidencePackageCard.tsx
+      - web/src/components/mission-control/shared/EvidencePackageCard.test.tsx
+      - web/src/types.ts (EvidencePackage, HashIntegrityReport types)
+
+  # =============================================================================
+  # Epic 6: Investigation Management
+  # Initiate, expand, link investigations with rollback capability
+  # =============================================================================
+  epic-6:
+    title: "Investigation Management"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 5
+    frs_covered: [FR31, FR32, FR33, FR34, FR35]
+
+  6-1-initiate-investigation:
+    epic: 6
+    title: "Initiate Investigation"
+    status: done
+    completed: 2025-12-23
+    frs: [FR31]
+    technical_notes: "POST /investigations endpoint, InvestigationCard component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (investigation endpoints)
+      - web/src/components/mission-control/shared/InvestigationCard.tsx
+      - web/src/components/mission-control/shared/InvestigationCard.test.tsx
+      - web/src/types.ts (Investigation, InvestigationScope types)
+
+  6-2-expand-investigation-scope:
+    epic: 6
+    title: "Expand Investigation Scope"
+    status: done
+    completed: 2025-12-23
+    frs: [FR32]
+    technical_notes: "PUT /investigations/:id/scope endpoint, scope expansion UI"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (scope endpoint)
+      - web/src/components/mission-control/shared/InvestigationCard.tsx (onExpandScope)
+      - web/src/types.ts (ScopeExpansion type)
+
+  6-3-link-related-events:
+    epic: 6
+    title: "Link Related Events"
+    status: done
+    completed: 2025-12-23
+    frs: [FR33]
+    technical_notes: "POST /investigations/:id/events endpoint, LinkedEventCard component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (events endpoint)
+      - web/src/components/mission-control/shared/InvestigationCard.tsx (LinkedEventCard)
+      - web/src/types.ts (LinkedEvent type)
+
+  6-4-rollback-review-capability:
+    epic: 6
+    title: "Rollback Review Capability"
+    status: done
+    completed: 2025-12-23
+    frs: [FR34]
+    technical_notes: "POST /investigations/:id/rollback endpoint, RollbackCard component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (rollback endpoint)
+      - web/src/components/mission-control/shared/InvestigationCard.tsx (RollbackCard)
+      - web/src/types.ts (RollbackRecord type)
+
+  6-5-pattern-anomaly-detection:
+    epic: 6
+    title: "Pattern Anomaly Detection"
+    status: done
+    completed: 2025-12-23
+    frs: [FR35]
+    technical_notes: "GET /anomalies, PUT /anomalies/:id/status, AnomalyCard component"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (anomaly endpoints)
+      - web/src/components/mission-control/shared/InvestigationCard.tsx (AnomalyCard)
+      - web/src/types.ts (PatternAnomaly, AnomalyBaseline types)
+
+  # =============================================================================
+  # Epic 7: Team & Executive Dashboards
+  # Supervisor views, Executive KPIs, cost avoided estimates
+  # =============================================================================
+  epic-7:
+    title: "Team & Executive Dashboards"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 6
+    frs_covered: [FR36, FR37, FR38, FR39, FR40, FR41, FR42, FR43, FR44, FR45]
+
+  7-1-supervisor-view-team-operators:
+    epic: 7
+    title: "Supervisor View - Team Operators"
+    status: done
+    completed: 2025-12-23
+    frs: [FR36]
+    technical_notes: "SupervisorDashboard component with OperatorCard, TeamSummary"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (team endpoints)
+      - web/src/components/mission-control/shared/SupervisorDashboard.tsx
+      - web/src/components/mission-control/shared/SupervisorDashboard.test.tsx
+      - web/src/types.ts (TeamOperator, SupervisorTeamView types)
+
+  7-2-cross-operator-activity-patterns:
+    epic: 7
+    title: "Cross-Operator Activity Patterns"
+    status: done
+    completed: 2025-12-23
+    frs: [FR37]
+    technical_notes: "Outlier detection and deviation display"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (patterns endpoint)
+      - web/src/components/mission-control/shared/SupervisorDashboard.tsx (OutlierAlert)
+      - web/src/types.ts (CrossOperatorPatterns, OperatorActivityPattern types)
+
+  7-3-team-decision-metrics:
+    epic: 7
+    title: "Team Decision Metrics"
+    status: done
+    completed: 2025-12-23
+    frs: [FR38]
+    technical_notes: "MetricsTrend component with period filtering"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (metrics endpoint with period param)
+      - web/src/components/mission-control/shared/SupervisorDashboard.tsx (MetricsTrend)
+      - web/src/types.ts (TeamDecisionMetrics type)
+
+  7-4-executive-view-fleet-health-kpis:
+    epic: 7
+    title: "Executive View - Fleet Health KPIs"
+    status: done
+    completed: 2025-12-23
+    frs: [FR39, FR40, FR41]
+    technical_notes: "ExecutiveDashboard with KPICard, HealthIndicator, TrustDistribution"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (executive/kpis endpoint)
+      - web/src/components/mission-control/shared/ExecutiveDashboard.tsx
+      - web/src/components/mission-control/shared/ExecutiveDashboard.test.tsx
+      - web/src/types.ts (FleetHealthKPIs type)
+
+  7-5-hitl-load-autonomous-rate-metrics:
+    epic: 7
+    title: "HITL Load & Autonomous Rate Metrics"
+    status: done
+    completed: 2025-12-23
+    frs: [FR42, FR43]
+    technical_notes: "HITLLoadCard with autonomous rate and capacity metrics"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (executive/hitl-load endpoint)
+      - web/src/components/mission-control/shared/ExecutiveDashboard.tsx (HITLLoadCard)
+      - web/src/types.ts (HITLLoadMetrics type)
+
+  7-6-active-incidents-cost-avoided:
+    epic: 7
+    title: "Active Incidents & Cost Avoided"
+    status: done
+    completed: 2025-12-23
+    frs: [FR44, FR45]
+    technical_notes: "IncidentCard and CostAvoidedCard with formatCurrency helper"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (executive/incidents endpoint)
+      - web/src/components/mission-control/shared/ExecutiveDashboard.tsx (IncidentCard, CostAvoidedCard)
+      - web/src/types.ts (ActiveIncident, CostAvoidedMetrics, IncidentSummary types)
+
+  # =============================================================================
+  # Epic 8: Onboarding & Education
+  # Tooltip tour, contextual learning, on-demand help
+  # =============================================================================
+  epic-8:
+    title: "Onboarding & Education"
+    status: completed
+    started: 2025-12-23
+    completed: 2025-12-23
+    stories: 6
+    frs_covered: [FR46, FR47, FR48, FR49, FR50, FR54]
+
+  8-1-guided-tooltip-tour:
+    epic: 8
+    title: "Guided Tooltip Tour"
+    status: done
+    completed: 2025-12-23
+    frs: [FR46]
+    technical_notes: "OnboardingTour component with Tooltip, Spotlight, tour navigation"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (onboarding/tour endpoints)
+      - web/src/components/mission-control/shared/OnboardingTour.tsx
+      - web/src/components/mission-control/shared/OnboardingTour.test.tsx
+      - web/src/types.ts (TourStep, TourConfig, TourState types)
+
+  8-2-first-denial-learning-popup:
+    epic: 8
+    title: "First Denial Learning Popup"
+    status: done
+    completed: 2025-12-23
+    frs: [FR47]
+    technical_notes: "LearningPopupCard, LearningPopupProvider components"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (onboarding/popup endpoints)
+      - web/src/components/mission-control/shared/OnboardingTour.tsx (LearningPopupCard)
+      - web/src/types.ts (LearningPopup, LearningEventType types)
+
+  8-3-first-approval-request-learning:
+    epic: 8
+    title: "First Approval Request Learning"
+    status: done
+    completed: 2025-12-23
+    frs: [FR48]
+    technical_notes: "Reuses LearningPopupCard with first_approval event type"
+    deliverables:
+      - web/src/components/mission-control/shared/OnboardingTour.tsx (shared with 8.2)
+      - web/src/types.ts (UserLearningProgress type)
+
+  8-4-tier-change-learning:
+    epic: 8
+    title: "Tier Change Learning"
+    status: done
+    completed: 2025-12-23
+    frs: [FR49]
+    technical_notes: "tier_up and tier_down event types with contextual content"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (popup dismiss endpoint)
+      - web/src/components/mission-control/shared/OnboardingTour.tsx (LearningPopupProvider)
+
+  8-5-contextual-help-panel:
+    epic: 8
+    title: "Contextual Help Panel"
+    status: done
+    completed: 2025-12-23
+    frs: [FR50]
+    technical_notes: "HelpPanel with ExplanationCard, FAQItem, context-aware content"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (help/explanations, help/context endpoints)
+      - web/src/components/mission-control/shared/HelpPanel.tsx
+      - web/src/components/mission-control/shared/HelpPanel.test.tsx
+      - web/src/types.ts (TrustExplanation, HelpPanelContent types)
+
+  8-6-urgency-level-configuration:
+    epic: 8
+    title: "Urgency Level Configuration"
+    status: done
+    completed: 2025-12-23
+    frs: [FR54]
+    technical_notes: "UrgencyConfigPanel, UrgencyRuleCard components with getUrgencyColor helper"
+    deliverables:
+      - src/api/routes/mission-control/index.ts (settings/urgency endpoints)
+      - web/src/components/mission-control/shared/HelpPanel.tsx (UrgencyConfigPanel, UrgencyRuleCard)
+      - web/src/types.ts (UrgencyRule, UrgencyRuleConfig types)
+
+# =============================================================================
+# Sprint Planning Recommendations
+# =============================================================================
+recommended_sprint_order:
+  sprint-1:
+    epics: [1]
+    rationale: "Foundation epic - provides RBAC, auth, real-time, and agent visibility"
+    stories: 6
+
+  sprint-2:
+    epics: [2]
+    rationale: "Core operator workflow - the primary daily use case"
+    stories: 7
+
+  sprint-3:
+    epics: [4]
+    rationale: "Compliance foundation - audit trail and hash chain verification"
+    stories: 5
+
+  sprint-4:
+    epics: [3]
+    rationale: "Transparency features - tribunal records and Trust Gate explanations"
+    stories: 4
+
+  sprint-5:
+    epics: [5]
+    rationale: "Regulatory capability - search and evidence packages"
+    stories: 2
+
+  sprint-6:
+    epics: [6]
+    rationale: "Incident handling - investigation management"
+    stories: 5
+
+  sprint-7:
+    epics: [7]
+    rationale: "Leadership views - supervisor and executive dashboards"
+    stories: 6
+
+  sprint-8:
+    epics: [8]
+    rationale: "User education - onboarding and help system"
+    stories: 6
+
+# =============================================================================
+# Summary Statistics
+# =============================================================================
+summary:
+  total_epics: 8
+  total_stories: 41
+  total_frs_covered: 55
+  stories_by_status:
+    backlog: 0
+    ready-for-dev: 0
+    in-progress: 0
+    review: 0
+    done: 41
+  epics_by_status:
+    backlog: 0
+    active: 0
+    completed: 8  # All epics complete (41 stories)
+  sprint_complete: true
+  completed_date: 2025-12-23
