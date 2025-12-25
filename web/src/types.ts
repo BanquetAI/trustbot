@@ -80,6 +80,136 @@ export const EXECUTION_RULES = {
     },
 } as const;
 
+// ============================================================================
+// AGENT CAPABILITIES - 8 Core Capabilities
+// ============================================================================
+
+export type CapabilityId = 
+    | 'execute'    // Run tasks directly
+    | 'delegate'   // Assign tasks to others
+    | 'spawn'      // Create new agents
+    | 'approve'    // Approve other agents' actions
+    | 'enhance'    // Train/upgrade other agents
+    | 'external'   // Call external APIs
+    | 'write'      // Modify system data
+    | 'sensitive'; // Access sensitive data
+
+export interface AgentCapability {
+    id: CapabilityId;
+    name: string;
+    icon: string;
+    description: string;
+    requiredTier: number;      // Minimum tier (1-5)
+    requiredTrust?: number;    // Minimum trust score (0-100)
+}
+
+export const CAPABILITIES: Record<CapabilityId, AgentCapability> = {
+    execute: {
+        id: 'execute',
+        name: 'Execute',
+        icon: '⚡',
+        description: 'Run tasks directly',
+        requiredTier: 1,
+    },
+    delegate: {
+        id: 'delegate',
+        name: 'Delegate',
+        icon: '🔀',
+        description: 'Assign tasks to others',
+        requiredTier: 3,
+    },
+    spawn: {
+        id: 'spawn',
+        name: 'Spawn',
+        icon: '🥚',
+        description: 'Create new agents',
+        requiredTier: 4,
+    },
+    approve: {
+        id: 'approve',
+        name: 'Approve',
+        icon: '✅',
+        description: 'Approve other actions',
+        requiredTier: 4,
+    },
+    enhance: {
+        id: 'enhance',
+        name: 'Enhance',
+        icon: '🎓',
+        description: 'Train/upgrade agents',
+        requiredTier: 3,
+    },
+    external: {
+        id: 'external',
+        name: 'External',
+        icon: '🌐',
+        description: 'Call external APIs',
+        requiredTier: 1,
+        requiredTrust: 70,
+    },
+    write: {
+        id: 'write',
+        name: 'Write',
+        icon: '💾',
+        description: 'Modify system data',
+        requiredTier: 1,
+        requiredTrust: 50,
+    },
+    sensitive: {
+        id: 'sensitive',
+        name: 'Sensitive',
+        icon: '🔐',
+        description: 'Access sensitive data',
+        requiredTier: 3,
+    },
+};
+
+// Helper: Get all capabilities with enabled/disabled status for an agent
+export function getAgentCapabilities(tier: number, trustScore: number): Array<AgentCapability & { enabled: boolean }> {
+    return Object.values(CAPABILITIES).map(cap => ({
+        ...cap,
+        enabled: tier >= cap.requiredTier && (!cap.requiredTrust || trustScore >= cap.requiredTrust),
+    }));
+}
+
+// ============================================================================
+// SKILLS & SPECIALIZATIONS
+// ============================================================================
+
+export type SkillCategory = 'DOMAIN' | 'TECHNICAL' | 'OPERATIONS' | 'INTEGRATION';
+
+export interface Skill {
+    id: string;
+    category: SkillCategory;
+    name: string;
+    description: string;
+    icon: string;
+    requiredTier: number;
+}
+
+export const SKILLS: Record<string, Skill> = {
+    'web-dev': { id: 'web-dev', category: 'TECHNICAL', name: 'Web Development', description: 'Frontend/backend web', icon: '🌐', requiredTier: 1 },
+    'data-analysis': { id: 'data-analysis', category: 'TECHNICAL', name: 'Data Analysis', description: 'Data processing/insights', icon: '📊', requiredTier: 2 },
+    'api-integration': { id: 'api-integration', category: 'INTEGRATION', name: 'API Integration', description: 'Connect external APIs', icon: '🔌', requiredTier: 2 },
+    'doc-writing': { id: 'doc-writing', category: 'OPERATIONS', name: 'Documentation', description: 'Write docs/reports', icon: '📝', requiredTier: 1 },
+    'code-review': { id: 'code-review', category: 'OPERATIONS', name: 'Code Review', description: 'Review/improve code', icon: '🔍', requiredTier: 2 },
+    'security': { id: 'security', category: 'TECHNICAL', name: 'Security', description: 'Security scanning', icon: '🛡️', requiredTier: 3 },
+    'finance': { id: 'finance', category: 'DOMAIN', name: 'Finance', description: 'Financial operations', icon: '💰', requiredTier: 3 },
+    'marketing': { id: 'marketing', category: 'DOMAIN', name: 'Marketing', description: 'Marketing tasks', icon: '📣', requiredTier: 2 },
+    'customer-service': { id: 'customer-service', category: 'DOMAIN', name: 'Customer Service', description: 'Support tasks', icon: '🎧', requiredTier: 1 },
+    'llm-prompting': { id: 'llm-prompting', category: 'TECHNICAL', name: 'LLM Prompting', description: 'Optimize AI prompts', icon: '🤖', requiredTier: 2 },
+};
+
+// Helper: Get skill by ID
+export function getSkill(skillId: string): Skill | undefined {
+    return SKILLS[skillId];
+}
+
+// Helper: Get skills by category
+export function getSkillsByCategory(category: SkillCategory): Skill[] {
+    return Object.values(SKILLS).filter(s => s.category === category);
+}
+
 // Helper: Get tier from trust score
 export function getTierFromScore(score: number): TrustTier {
     for (const tier of [
@@ -595,9 +725,17 @@ export interface HITLMetricsSummary {
     period: string;
     avgReviewTimeMs: number;
     detailViewRate: number;
+    avgDetailViewRate: number;
     sampleDataViewRate: number;
     operatorCount: number;
+    totalOperators: number;
+    totalDecisions: number;
     biasAlertCount: number;
+    operatorsByRisk: {
+        low: number;
+        medium: number;
+        high: number;
+    };
 }
 
 // ============================================================================

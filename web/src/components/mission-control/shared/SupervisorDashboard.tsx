@@ -11,7 +11,6 @@ import { memo } from 'react';
 import type {
     TeamOperator,
     SupervisorTeamView,
-    OperatorActivityPattern,
     CrossOperatorPatterns,
     TeamDecisionMetrics,
 } from '../../../types';

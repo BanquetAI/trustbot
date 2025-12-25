@@ -57,7 +57,7 @@ export function formatRelativeAlertTime(timestamp: string): string {
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins} min ago`;
     if (diffHours < 24) return `${diffHours} hr ago`;
-    return date.toLocaleDateString();
+    return then.toLocaleDateString();
 }
 
 // ============================================================================

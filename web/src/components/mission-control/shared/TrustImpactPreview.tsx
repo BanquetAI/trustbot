@@ -84,7 +84,7 @@ interface ImpactCardProps {
 
 const ImpactCard = memo(function ImpactCard({ title, outcome, variant }: ImpactCardProps) {
     const tierInfo = getTrustTier(outcome.newScore);
-    const isPositive = outcome.scoreDelta > 0;
+    // Note: Could use outcome.scoreDelta > 0 for conditional styling
 
     return (
         <div className={`trust-impact-preview__card trust-impact-preview__card--${variant}`}>

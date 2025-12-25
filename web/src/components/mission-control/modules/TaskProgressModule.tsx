@@ -12,7 +12,7 @@ import { createContext, useContext, memo, useMemo, useCallback, useState } from 
 import type { ExecutingTask, ExecutingTaskStatus, ExecutingTaskCounts } from '../../../types';
 import { ProgressBar } from '../shared/ProgressBar';
 import { AgentLink } from '../shared/AgentLink';
-import { ACTION_TYPE_LABELS, getActionTypeConfig } from './TaskPipelineModule';
+import { getActionTypeConfig } from './TaskPipelineModule';
 
 // ============================================================================
 // Types

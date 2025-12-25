@@ -172,7 +172,7 @@ const Header = memo(function Header({ title = 'Agent Fleet', count, className = 
 // ============================================================================
 
 const List = memo(function List({ children, maxHeight = '400px', className = '' }: ListProps) {
-    const { agents, isLoading, error, onAgentClick } = useAgentOverviewContext();
+    const { agents, isLoading, error, onAgentClick: _onAgentClick } = useAgentOverviewContext();
 
     if (error) {
         return (

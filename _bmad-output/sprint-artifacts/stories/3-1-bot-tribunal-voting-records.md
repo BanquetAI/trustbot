@@ -2,7 +2,7 @@
 
 ## Story Info
 - **Epic**: 3 - Governance & Tribunal Transparency
-- **Status**: complete
+- **Status**: done
 - **Completed**: 2025-12-23
 - **Started**: 2025-12-23
 - **FRs Covered**: FR19

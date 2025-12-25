@@ -23,7 +23,7 @@ export const MAX_RATIONALE_LENGTH = 2000;
 // ============================================================================
 
 export function getOverrideActionLabel(
-    currentRecommendation: TribunalVoteType,
+    _currentRecommendation: TribunalVoteType,
     overrideType: 'approve' | 'deny'
 ): string {
     return `Override to ${overrideType === 'approve' ? 'Approve' : 'Deny'}`;
@@ -116,7 +116,7 @@ export interface OverrideRationaleProps {
 }
 
 export const OverrideRationale = memo(function OverrideRationale({
-    decisionId,
+    decisionId: _decisionId,
     tribunalRecommendation,
     onSubmit,
     onCancel,

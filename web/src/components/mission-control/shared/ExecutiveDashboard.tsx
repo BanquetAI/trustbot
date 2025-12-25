@@ -281,7 +281,7 @@ export interface ExecutiveDashboardProps {
 
 export const ExecutiveDashboard = memo(function ExecutiveDashboard({
     data,
-    onIncidentClick,
+    onIncidentClick: _onIncidentClick,
     className = '',
 }: ExecutiveDashboardProps) {
     const { fleetHealth, hitlLoad, incidents } = data;

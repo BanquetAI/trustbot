@@ -93,18 +93,18 @@ const STALE_THRESHOLD = 5000;
 // ============================================================================
 
 export function useRealtimeConnection(options: UseRealtimeConnectionOptions = {}) {
-    const { pollInterval = 2000, enabled = true, orgId } = options;
+    const { pollInterval = 2000, enabled = true, orgId: _orgId } = options;
 
     // Store actions
     const {
-        setAgents,
+        setAgents: _setAgents,
         updateAgent,
-        addAgent,
-        removeAgent,
-        setPendingDecisions,
+        addAgent: _addAgent,
+        removeAgent: _removeAgent,
+        setPendingDecisions: _setPendingDecisions,
         addDecision,
         removeDecision,
-        setActiveTasks,
+        setActiveTasks: _setActiveTasks,
         setConnectionStatus,
         setLastSync,
         incrementReconnectAttempts,

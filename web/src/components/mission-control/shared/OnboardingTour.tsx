@@ -11,10 +11,8 @@
 import { memo, useState, useEffect, useCallback } from 'react';
 import type {
     TourStep,
-    TourState,
     TourConfig,
     LearningPopup,
-    UserLearningProgress,
 } from '../../../types';
 
 // ============================================================================

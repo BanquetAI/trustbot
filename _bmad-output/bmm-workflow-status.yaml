@@ -26,20 +26,20 @@ workflow_status:
   document-project: "_bmad-output/index.md"
 
   # Phase 0: Discovery (Optional)
-  brainstorm-project: optional
-  research: optional
-  product-brief: optional
+  brainstorm-project: skipped
+  research: skipped
+  product-brief: skipped
 
   # Phase 1: Planning
-  prd: required
-  create-ux-design: conditional
+  prd: "_bmad-output/prd.md"
+  create-ux-design: skipped
 
   # Phase 2: Solutioning
-  create-architecture: recommended
-  create-epics-and-stories: "_bmad-output/stories/"
-  test-design: recommended
-  validate-architecture: optional
-  implementation-readiness: required
+  create-architecture: "_bmad-output/architecture.md"
+  create-epics-and-stories: "_bmad-output/epics.md"
+  test-design: skipped
+  validate-architecture: skipped
+  implementation-readiness: skipped
 
   # Phase 3: Implementation
-  sprint-planning: required
+  sprint-planning: "_bmad-output/sprint-artifacts/sprint-status.yaml"
