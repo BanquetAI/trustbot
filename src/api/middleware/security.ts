@@ -28,11 +28,18 @@ export interface CORSConfig {
 
 export interface RateLimitConfig {
     windowMs: number;      // Time window in milliseconds
-    maxRequests: number;   // Max requests per window
+    maxRequests: number;   // Max requests per window for unauthenticated
+    maxAuthenticatedRequests?: number;  // Max requests for authenticated users
     keyGenerator?: (c: Context) => string;  // Custom key generator
     skipFailedRequests?: boolean;
     skipPaths?: string[];  // Paths to skip rate limiting
     message?: string;
+}
+
+export interface RequestSizeLimitConfig {
+    maxBodySize: number;   // Max body size in bytes
+    maxUrlLength: number;  // Max URL length
+    skipPaths?: string[];  // Paths to skip size limiting
 }
 
 export interface SecurityHeadersConfig {
@@ -76,8 +83,15 @@ const DEFAULT_CORS_CONFIG: CORSConfig = {
 
 const DEFAULT_RATE_LIMIT_CONFIG: RateLimitConfig = {
     windowMs: 60 * 1000,  // 1 minute
-    maxRequests: 100,     // 100 requests per minute
+    maxRequests: 100,     // 100 requests per minute for unauthenticated
+    maxAuthenticatedRequests: 1000,  // 1000 requests per minute for authenticated
     message: 'Too many requests, please try again later.',
+};
+
+const DEFAULT_REQUEST_SIZE_CONFIG: RequestSizeLimitConfig = {
+    maxBodySize: 1024 * 1024,  // 1MB max body size
+    maxUrlLength: 2048,        // 2KB max URL length
+    skipPaths: ['/api/upload'], // Skip for upload endpoints
 };
 
 const DEFAULT_SECURITY_HEADERS: SecurityHeadersConfig = {
@@ -242,16 +256,25 @@ export function rateLimitMiddleware(config: Partial<RateLimitConfig> = {}) {
         const key = keyGenerator(c);
         const entry = rateLimitStore.increment(key, cfg.windowMs);
 
-        // Set rate limit headers
-        c.header('X-RateLimit-Limit', cfg.maxRequests.toString());
-        c.header('X-RateLimit-Remaining', Math.max(0, cfg.maxRequests - entry.count).toString());
-        c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+        // Determine if request is authenticated (higher limit)
+        const isAuthenticated = !!c.req.header('Authorization');
+        const maxRequests = isAuthenticated && cfg.maxAuthenticatedRequests
+            ? cfg.maxAuthenticatedRequests
+            : cfg.maxRequests;
 
-        if (entry.count > cfg.maxRequests) {
+        // Set rate limit headers
+        c.header('X-RateLimit-Limit', maxRequests.toString());
+        c.header('X-RateLimit-Remaining', Math.max(0, maxRequests - entry.count).toString());
+        c.header('X-RateLimit-Reset', Math.ceil(entry.resetTime / 1000).toString());
+        c.header('X-RateLimit-Policy', isAuthenticated ? 'authenticated' : 'public');
+
+        if (entry.count > maxRequests) {
             c.header('Retry-After', Math.ceil((entry.resetTime - Date.now()) / 1000).toString());
             return c.json({
                 error: cfg.message,
                 retryAfter: Math.ceil((entry.resetTime - Date.now()) / 1000),
+                limit: maxRequests,
+                policy: isAuthenticated ? 'authenticated' : 'public',
             }, 429);
         }
 
@@ -295,6 +318,51 @@ export function securityHeadersMiddleware(config: Partial<SecurityHeadersConfig>
         // Additional security headers
         c.header('X-XSS-Protection', '1; mode=block');
         c.header('X-Permitted-Cross-Domain-Policies', 'none');
+        c.header('X-Download-Options', 'noopen');
+        c.header('X-DNS-Prefetch-Control', 'off');
+        c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+
+        await next();
+    };
+}
+
+// ============================================================================
+// Request Size Limit Middleware
+// ============================================================================
+
+export function requestSizeLimitMiddleware(config: Partial<RequestSizeLimitConfig> = {}) {
+    const cfg = { ...DEFAULT_REQUEST_SIZE_CONFIG, ...config };
+
+    return async (c: Context, next: Next): Promise<Response | void> => {
+        const path = c.req.path;
+
+        // Skip for specified paths
+        if (cfg.skipPaths?.some(p => path === p || path.startsWith(p))) {
+            await next();
+            return;
+        }
+
+        // Check URL length
+        const url = c.req.url;
+        if (url.length > cfg.maxUrlLength) {
+            return c.json({
+                error: 'URI Too Long',
+                message: `URL exceeds maximum length of ${cfg.maxUrlLength} characters`,
+            }, 414);
+        }
+
+        // Check Content-Length header for body size
+        const contentLength = c.req.header('Content-Length');
+        if (contentLength) {
+            const size = parseInt(contentLength, 10);
+            if (size > cfg.maxBodySize) {
+                return c.json({
+                    error: 'Payload Too Large',
+                    message: `Request body exceeds maximum size of ${Math.round(cfg.maxBodySize / 1024)}KB`,
+                    maxSize: cfg.maxBodySize,
+                }, 413);
+            }
+        }
 
         await next();
     };
@@ -403,17 +471,21 @@ export function createSecurityMiddleware(options: {
     cors?: Partial<CORSConfig>;
     rateLimit?: Partial<RateLimitConfig>;
     headers?: Partial<SecurityHeadersConfig>;
+    requestSize?: Partial<RequestSizeLimitConfig>;
 } = {}) {
     const corsHandler = corsMiddleware(options.cors);
     const rateLimitHandler = rateLimitMiddleware(options.rateLimit);
     const headersHandler = securityHeadersMiddleware(options.headers);
+    const requestSizeHandler = requestSizeLimitMiddleware(options.requestSize);
     const requestIdHandler = requestIdMiddleware();
 
     return async (c: Context, next: Next) => {
         await requestIdHandler(c, async () => {
             await headersHandler(c, async () => {
-                await corsHandler(c, async () => {
-                    await rateLimitHandler(c, next);
+                await requestSizeHandler(c, async () => {
+                    await corsHandler(c, async () => {
+                        await rateLimitHandler(c, next);
+                    });
                 });
             });
         });
