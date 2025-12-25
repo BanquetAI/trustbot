@@ -35,6 +35,8 @@ import {
     validateAuth,
     validateAggressiveness,
 } from './middleware/validation.js';
+import { loggingMiddleware, getRequestLogger } from './middleware/logging.js';
+import { logger } from '../lib/logger.js';
 import { PersistenceLayer, type PersistedState } from '../core/PersistenceLayer.js';
 import { SupabasePersistence, hasSupabaseConfig, getSupabasePersistence, type Agent as SupabaseAgent } from '../core/SupabasePersistence.js';
 // Epic 5: Import new core services
@@ -626,6 +628,9 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     ];
 
     app.use('*', requestIdMiddleware());
+    app.use('*', loggingMiddleware({
+        skipPaths: ['/health', '/live', '/ready', '/favicon.ico'],
+    }));
     app.use('*', corsMiddleware({ allowedOrigins }));
     app.use('*', securityHeadersMiddleware());
     app.use('*', rateLimitMiddleware({
@@ -2941,6 +2946,15 @@ export async function startUnifiedWorkflowServer(port: number = 3002): Promise<{
     const app = createWorkflowAPI(engine, supabase);
 
     serve({ fetch: app.fetch, port }, () => {
+        // Structured logging for server startup
+        logger.info('Server started', {
+            component: 'server',
+            port,
+            persistence: supabase ? 'supabase' : 'file',
+            dataDir: supabase ? undefined : persistence.getDataDir(),
+        });
+
+        // Also log to console for development visibility
         console.log(`\n🚀 Unified Workflow API running on http://localhost:${port}`);
         console.log(`\n📊 Dashboard: http://localhost:${port}/dashboard/today`);
         console.log(`🎚️  Aggressiveness: http://localhost:${port}/dashboard/aggressiveness`);
