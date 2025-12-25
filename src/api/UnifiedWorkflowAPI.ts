@@ -64,6 +64,10 @@ import {
 } from '../skills/index.js';
 // Memory system
 import { memoryRoutes } from './routes/memory.js';
+import { createHealthRoutes } from './routes/health.js';
+// Orchestrators and Time
+import { T5Planner } from '../orchestrators/T5-Planner.js';
+import { timeService } from '../core/TimeService.js';
 
 // ============================================================================
 // Types
@@ -236,11 +240,12 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
         this.lastDayReset.setHours(0, 0, 0, 0);
 
         // Default aggressiveness (conservative start)
+        // Default aggressiveness (conservative start)
         this.aggressiveness = {
-            level: 0,                    // Start fully conservative (100% HITL)
-            autoApproveUpToTier: 1,      // Only auto-approve T1 tasks
-            maxDelegationDepth: 3,
-            trustRewardMultiplier: 1.0,
+            level: 40,                   // Moderate autonomy (60% HITL)
+            autoApproveUpToTier: 2,      // Auto-approve T1 and T2 tasks (Operational/Tactical)
+            maxDelegationDepth: 5,
+            trustRewardMultiplier: 1.2,
             trustPenaltyMultiplier: 1.0,
         };
 
@@ -604,7 +609,8 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // Security middleware stack
     const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-        // Local development
+        // All local development ports
+        '*', // Allow all for local dev to prevent CORS issues
         'http://localhost:3000',
         'http://localhost:3001',
         'http://localhost:3002',
@@ -624,7 +630,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     app.use('*', securityHeadersMiddleware());
     app.use('*', rateLimitMiddleware({
         windowMs: 60000,     // 1 minute
-        maxRequests: 100,    // 100 requests per minute
+        maxRequests: 1000,   // 1000 requests per minute (increased for dev/polling)
         skipPaths: ['/health', '/api/health'],
     }));
 
@@ -634,12 +640,14 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         optional: true,  // Don't require auth, but validate if token provided
     }));
 
-    // Health check
-    app.get('/health', (c) => c.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        database: supabase ? 'supabase' : 'file',
-    }));
+    // Health check routes (Kubernetes-compatible liveness/readiness probes)
+    // FR56: Health check endpoints for liveness and readiness probes
+    const healthRoutes = createHealthRoutes({
+        supabase: supabase?.getClient(),
+        getConnectionCount: () => engine.getTasks().filter(t => t.status === 'IN_PROGRESS').length,
+        getActiveAgentCount: () => engine.getTasks().filter(t => t.assignedTo).length,
+    });
+    app.route('/', healthRoutes);  // Mount at root for /health, /ready, /live
 
     // -------------------------------------------------------------------------
     // Legacy API Compatibility Layer (/api/*)
@@ -766,6 +774,11 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
     app.get('/api/tick', async (c) => {
         const timestamp = new Date().toISOString();
         const events: string[] = [];
+
+        // Advance global time service (wakes up T5-Planner)
+        const tickResult = await timeService.tick();
+        events.push(`⏰ Time Tick: ${tickResult}`);
+
         let assignedCount = 0;
         let completedCount = 0;
 
@@ -800,17 +813,81 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
             (priorityOrder[b.priority as keyof typeof priorityOrder] || 1)
         );
 
-        // Assign tasks to idle agents
+        // ---------------------------------------------------------------------
+        // 1. Process System Decisions (e.g. Auto-Spawn from T5-Planner)`
+        // ---------------------------------------------------------------------
+        const spawnDecisions = engine.getBlackboard().getByType('DECISION').filter(d => 
+             d.status === 'OPEN' && (d.content as any)?.action === 'SPAWN_AGENT'
+        );
+
+        for (const decision of spawnDecisions) {
+            const content = decision.content as any;
+            const name = `Worker-${content.suggestedType}-${Math.floor(Math.random()*1000)}`;
+             
+            // Perform the spawn
+            if (supabase) {
+                try {
+                     await supabase.createAgent({
+                        id: uuidv4(),
+                        name: name,
+                        type: content.suggestedType || 'WORKER',
+                        tier: content.suggestedTier || 2,
+                        status: 'IDLE',
+                        trust_score: 100,
+                        capabilities: ['general_task_execution'],
+                        skills: [],
+                        floor: 'OPERATIONS',
+                        room: 'GENERAL_WORKSPACE',
+                        parent_id: null
+                    });
+                    events.push(`✨ System auto-spawned ${name} based on planner request`);
+                } catch (e) {
+                    console.error('Auto-spawn failed:', e);
+                }
+            } else {
+                 // Demo mode spawn
+                 agents.push({
+                    id: uuidv4(),
+                    name: name,
+                    type: content.suggestedType || 'WORKER',
+                    tier: content.suggestedTier || 2,
+                    status: 'IDLE'
+                 });
+                 events.push(`✨ [DEMO] System auto-spawned ${name}`);
+            }
+
+            // Resolve the decision
+            engine.getBlackboard().resolve(decision.id, {
+                resolution: 'SPAWNED',
+                resolvedBy: 'SYSTEM_AUTOSCALER'
+            });
+        }
+
+
+        // ---------------------------------------------------------------------
+        // 2. Assign Tasks
+        // ---------------------------------------------------------------------
         const assignments: Array<{ taskId: string; taskTitle: string; agentId: string; agentName: string }> = [];
 
         for (const task of sortedTasks) {
             if (idleAgents.length === 0) break;
 
-            // Find best matching agent (prefer WORKER type, then by tier)
-            const agentIndex = idleAgents.findIndex(a =>
+            // Find best matching agent
+            // Logic: Must meet Tier requirement. 
+            // Prefer: specific role match > any role
+            
+            let agentIndex = -1;
+            
+            // Try specific match first
+            agentIndex = idleAgents.findIndex(a =>
                 a.tier >= (task.requiredTier || 2) &&
                 (a.type === 'WORKER' || a.type === 'ANALYST' || a.type === 'EXECUTOR')
             );
+            
+            // Fallback: Any agent of sufficient tier (Universal Assignment)
+            if (agentIndex === -1) {
+                 agentIndex = idleAgents.findIndex(a => a.tier >= (task.requiredTier || 2));
+            }
 
             if (agentIndex !== -1) {
                 const agent = idleAgents[agentIndex];
@@ -842,7 +919,9 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
             }
         }
 
-        // Simulate work completion for IN_PROGRESS tasks (demo mode)
+        // ---------------------------------------------------------------------
+        // 3. Simulate Work Progress
+        // ---------------------------------------------------------------------
         for (const task of inProgressTasks) {
             // 30% chance of completing on each tick (for demo purposes)
             if (Math.random() < 0.3) {
@@ -2850,6 +2929,11 @@ export async function startUnifiedWorkflowServer(port: number = 3002): Promise<{
         security,
         persistence
     );
+
+    // Initialize T5-Planner (The Architect)
+    const planner = new T5Planner();
+    await planner.initialize();
+    console.log('🏛️  T5-Planner (Architect) Initialized');
 
     // Start auto-save for file persistence
     persistence.startAutoSave();

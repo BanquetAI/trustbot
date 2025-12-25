@@ -100,6 +100,13 @@ export class SupabasePersistence extends EventEmitter<SupabaseEvents> {
         });
     }
 
+    /**
+     * Get the underlying Supabase client for health checks
+     */
+    getClient(): SupabaseClient {
+        return this.client;
+    }
+
     // -------------------------------------------------------------------------
     // Connection & Realtime
     // -------------------------------------------------------------------------

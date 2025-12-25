@@ -53,9 +53,12 @@ describe('API Routing Tree', () => {
             expect(res.status).toBe(200);
 
             const data = await res.json();
-            expect(data).toHaveProperty('status', 'ok');
+            // New health endpoint returns status as 'healthy', 'degraded', or 'unhealthy'
+            expect(['healthy', 'degraded', 'unhealthy']).toContain(data.status);
             expect(data).toHaveProperty('timestamp');
-            expect(data).toHaveProperty('database');
+            expect(data).toHaveProperty('version');
+            expect(data).toHaveProperty('uptime');
+            expect(data).toHaveProperty('checks');
         });
 
         it('GET /api/uptime - should return server uptime', async () => {
