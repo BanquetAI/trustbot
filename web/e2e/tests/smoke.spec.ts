@@ -103,8 +103,18 @@ test.describe('Smoke Tests', () => {
     });
 
     test.describe('API Health', () => {
-        test('health endpoint responds', async ({ page }) => {
-            const apiUrl = process.env.E2E_API_URL || 'http://localhost:3002';
+        // Determine API URL based on environment or baseURL
+        const getApiUrl = (baseURL: string | undefined): string => {
+            if (process.env.E2E_API_URL) return process.env.E2E_API_URL;
+            // If testing against production frontend, use production API
+            if (baseURL?.includes('vercel.app') || baseURL?.includes('trustbot-web')) {
+                return 'https://trustbot-api.fly.dev';
+            }
+            return 'http://localhost:3002';
+        };
+
+        test('health endpoint responds', async ({ page, baseURL }) => {
+            const apiUrl = getApiUrl(baseURL);
 
             const response = await page.request.get(`${apiUrl}/health`);
             expect(response.ok()).toBe(true);
@@ -113,8 +123,8 @@ test.describe('Smoke Tests', () => {
             expect(['healthy', 'degraded']).toContain(body.status);
         });
 
-        test('live endpoint responds', async ({ page }) => {
-            const apiUrl = process.env.E2E_API_URL || 'http://localhost:3002';
+        test('live endpoint responds', async ({ page, baseURL }) => {
+            const apiUrl = getApiUrl(baseURL);
 
             const response = await page.request.get(`${apiUrl}/live`);
             expect(response.ok()).toBe(true);
@@ -123,8 +133,8 @@ test.describe('Smoke Tests', () => {
             expect(body.alive).toBe(true);
         });
 
-        test('ready endpoint responds', async ({ page }) => {
-            const apiUrl = process.env.E2E_API_URL || 'http://localhost:3002';
+        test('ready endpoint responds', async ({ page, baseURL }) => {
+            const apiUrl = getApiUrl(baseURL);
 
             const response = await page.request.get(`${apiUrl}/ready`);
             // Ready might be 503 if no database, but should respond
