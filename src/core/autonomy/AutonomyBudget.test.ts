@@ -19,13 +19,14 @@ function createTestService(): AutonomyBudgetService {
 }
 
 function setupTestAgent(agentId: AgentId, tier: number): void {
-    // Map tier to appropriate trust score based on TRUST_LEVEL_THRESHOLDS
+    // Map tier to appropriate trust score based on TIER_THRESHOLDS from types/trust.ts
+    // FICO-style scoring: 300-1000 range
     const tierScores: Record<number, number> = {
-        0: 50,    // PASSIVE: 0-99
-        1: 200,   // WORKER: 100-299
-        2: 400,   // OPERATIONAL: 300-499
-        3: 600,   // TACTICAL: 500-699
-        4: 800,   // EXECUTIVE: 700-899
+        0: 150,   // PASSIVE: 0-299
+        1: 375,   // WORKER: 300-449
+        2: 525,   // OPERATIONAL: 450-599
+        3: 675,   // TACTICAL: 600-749
+        4: 825,   // EXECUTIVE: 750-899
         5: 950,   // SOVEREIGN: 900-1000
     };
     trustEngine.createTrust(agentId, {

@@ -19,6 +19,7 @@ import type {
     ValidationReport,
 } from '../types.js';
 import type { EnhancedTrustScore, TrustComponents } from './types/trust.js';
+import { TIER_THRESHOLDS } from './types/trust.js';
 import { TrustScoreCalculator } from './TrustScoreCalculator.js';
 import { FEATURES } from './config/features.js';
 
@@ -26,14 +27,8 @@ import { FEATURES } from './config/features.js';
 // Constants
 // ============================================================================
 
-const TRUST_LEVEL_THRESHOLDS: Record<TrustLevel, { min: number; max: number; tier: AgentTier }> = {
-    SOVEREIGN: { min: 900, max: 1000, tier: 5 },
-    EXECUTIVE: { min: 700, max: 899, tier: 4 },
-    TACTICAL: { min: 500, max: 699, tier: 3 },
-    OPERATIONAL: { min: 300, max: 499, tier: 2 },
-    WORKER: { min: 100, max: 299, tier: 1 },
-    PASSIVE: { min: 0, max: 99, tier: 0 },
-};
+// Use centralized tier thresholds from types/trust.ts for FICO-style scoring (300-1000 range)
+// TIER_THRESHOLDS is imported above and used in numericToLevel()
 
 const TRUST_INHERITANCE_RATE = 0.8; // Children inherit 80% of parent's trust
 const TRUST_PENALTY_PROPAGATION = 0.5; // 50% of child's penalty affects parent
@@ -428,7 +423,7 @@ export class TrustEngine extends EventEmitter<TrustEngineEvents> {
     // -------------------------------------------------------------------------
 
     private numericToLevel(numeric: number): TrustLevel {
-        for (const [level, threshold] of Object.entries(TRUST_LEVEL_THRESHOLDS)) {
+        for (const [level, threshold] of Object.entries(TIER_THRESHOLDS)) {
             if (numeric >= threshold.min && numeric <= threshold.max) {
                 return level as TrustLevel;
             }

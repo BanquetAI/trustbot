@@ -87,32 +87,32 @@ describe('TrustEngine', () => {
       expect(score.level).toBe('SOVEREIGN');
     });
 
-    it('assigns EXECUTIVE level for 700-899', () => {
-      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 875 });
+    it('assigns EXECUTIVE level for 750-899', () => {
+      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 825 });
       const parentScore = engine.getTrust('parent');
       expect(parentScore?.level).toBe('EXECUTIVE');
     });
 
-    it('assigns TACTICAL level for 500-699', () => {
-      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 600 });
+    it('assigns TACTICAL level for 600-749', () => {
+      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 675 });
       const score = engine.getTrust('parent');
       expect(score?.level).toBe('TACTICAL');
     });
 
-    it('assigns OPERATIONAL level for 300-499', () => {
-      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 400 });
+    it('assigns OPERATIONAL level for 450-599', () => {
+      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 525 });
       const score = engine.getTrust('parent');
       expect(score?.level).toBe('OPERATIONAL');
     });
 
-    it('assigns WORKER level for 100-299', () => {
-      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 200 });
+    it('assigns WORKER level for 300-449', () => {
+      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 375 });
       const score = engine.getTrust('parent');
       expect(score?.level).toBe('WORKER');
     });
 
-    it('assigns PASSIVE level for 0-99', () => {
-      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 50 });
+    it('assigns PASSIVE level for 0-299', () => {
+      engine.createTrust('parent', { tier: 5, parentId: null, initialTrust: 150 });
       const score = engine.getTrust('parent');
       expect(score?.level).toBe('PASSIVE');
     });
@@ -141,7 +141,8 @@ describe('TrustEngine', () => {
     });
 
     it('triggers level change event when crossing threshold', () => {
-      engine.createTrust('agent', { tier: 5, parentId: null, initialTrust: 695 });
+      // Start at 745 (TACTICAL: 600-749), reward 10 to get 755 (EXECUTIVE: 750-899)
+      engine.createTrust('agent', { tier: 5, parentId: null, initialTrust: 745 });
 
       const levelChangeSpy = vi.fn();
       engine.on('trust:level-changed', levelChangeSpy);
@@ -213,7 +214,8 @@ describe('TrustEngine', () => {
     });
 
     it('triggers level change event when dropping below threshold', () => {
-      engine.createTrust('agent', { tier: 5, parentId: null, initialTrust: 705 });
+      // Start at 755 (EXECUTIVE: 750-899), penalize 10 to get 745 (TACTICAL: 600-749)
+      engine.createTrust('agent', { tier: 5, parentId: null, initialTrust: 755 });
 
       const levelChangeSpy = vi.fn();
       engine.on('trust:level-changed', levelChangeSpy);
