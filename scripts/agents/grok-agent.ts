@@ -24,7 +24,7 @@ class GrokAgent extends BaseAIAgent {
         });
 
         this.xaiApiKey = process.env.XAI_API_KEY || '';
-        this.model = process.env.GROK_MODEL || 'grok-beta';
+        this.model = process.env.GROK_MODEL || 'grok-3';
 
         if (!this.xaiApiKey) {
             console.warn('⚠️  XAI_API_KEY not set - Grok calls will fail');
