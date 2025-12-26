@@ -26,6 +26,9 @@ import type { Agent, BlackboardEntry, ApprovalRequest, Task, ChatMessage, TaskRe
 // Re-export types for consumers that import from api.ts
 export type { Agent, BlackboardEntry, ApprovalRequest, Task, ChatMessage } from './types';
 
+// Export base URL for direct API access
+export const API_URL = WORKFLOW_API_BASE;
+
 // API Response type (matches actual API shape, differs from frontend SystemState)
 export interface APISystemState {
     agents: Array<Agent & { childIds?: string[]; skills?: string[] }>;

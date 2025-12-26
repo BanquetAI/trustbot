@@ -34,13 +34,15 @@ import { PendingActionsPanel } from './components/PendingActionsPanel';
 import { AgentTaskQueue } from './components/AgentTaskQueue';
 import { SpawnWizard, type SpawnConfig } from './components/SpawnWizard';
 import { InsightsPanel } from './components/InsightsPanel';
+import { ArtifactsView } from './components/ArtifactsView';
+import { ReassignAgentModal } from './components/ReassignAgentModal';
 import { ToastProvider } from './components/ui';
 import { useTrustBot } from './hooks';
 import { api } from './api';
 import type { HITLUser } from './types';
 
 // Modal state types - simplified for Console-first architecture
-type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms' | 'thoughtLog' | 'skillLibrary' | 'autonomyQuery' | 'requestGrant' | 'codeGovernance' | 'guidedOnboarding' | 'tutorial' | 'glossary' | 'pending' | 'permissions' | 'taskQueue' | 'spawnWizard' | 'insights';
+type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | 'integrations' | 'hitl' | 'agentList' | 'trustBreakdown' | 'metrics' | 'connectionStatus' | 'tasks' | 'adminSkills' | 'comms' | 'thoughtLog' | 'skillLibrary' | 'autonomyQuery' | 'requestGrant' | 'codeGovernance' | 'guidedOnboarding' | 'tutorial' | 'glossary' | 'pending' | 'permissions' | 'taskQueue' | 'spawnWizard' | 'insights' | 'artifacts' | 'reassign';
 
 // Inner app component that can use game context
 function AppContent() {
@@ -195,6 +197,9 @@ function AppContent() {
                 break;
             case 'glossary':
                 setActiveModal('glossary');
+                break;
+            case 'artifacts':
+                setActiveModal('artifacts');
                 break;
             case 'console':
             default:
@@ -399,9 +404,8 @@ function AppContent() {
                             console.error('Failed to delete agent:', e);
                         }
                     }}
-                    onReassignAgent={(agentId) => {
-                        // TODO: Open reassign modal
-                        console.log('Reassign agent:', agentId);
+                    onReassignAgent={() => {
+                        setActiveModal('reassign');
                     }}
                     onEditPermissions={() => {
                         setActiveModal('permissions');
@@ -810,6 +814,32 @@ function AppContent() {
                         console.log('Dismissed insight:', insightId);
                     }}
                 />
+            )}
+
+            {/* Reassign Agent Modal */}
+            {activeModal === 'reassign' && selectedAgent && (
+                <ReassignAgentModal
+                    agent={selectedAgent}
+                    allAgents={agents}
+                    onClose={closeModal}
+                    onReassign={async (agentId, updates) => {
+                        console.log('Reassigning agent:', agentId, updates);
+                        // TODO: Call API to reassign agent
+                        setShowAchievement({
+                            id: 'agent-reassigned',
+                            title: 'Agent Reassigned',
+                            description: `${selectedAgent.name} has been reassigned`,
+                            icon: '🔄',
+                            rarity: 'rare',
+                            xpReward: 50,
+                        });
+                    }}
+                />
+            )}
+
+            {/* Artifacts View */}
+            {activeModal === 'artifacts' && (
+                <ArtifactsView onClose={closeModal} />
             )}
 
             {/* Achievement Toast */}

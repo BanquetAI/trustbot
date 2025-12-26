@@ -219,12 +219,10 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                     onMouseOver={e => {
                         if (!disabled) {
                             e.currentTarget.style.background = style.hoverBg;
-                            e.currentTarget.style.transform = 'translateY(-2px)';
                         }
                     }}
                     onMouseOut={e => {
                         e.currentTarget.style.background = style.bg;
-                        e.currentTarget.style.transform = 'translateY(0)';
                     }}
                 >
                     <span style={{ fontSize: '1.25rem' }}>{icon}</span>

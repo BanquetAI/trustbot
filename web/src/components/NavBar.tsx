@@ -55,7 +55,7 @@ export function NavBar({
             if (!target.closest('.nav-more-menu') && !target.closest('.nav-more-btn')) {
                 setMoreMenuOpen(false);
             }
-            if (!target.closest('.nav-quick-menu') && !target.closest('.nav-fab')) {
+            if (!target.closest('.nav-quick-menu') && !target.closest('.nav-fab') && !target.closest('.nav-action-btn')) {
                 setQuickActionsOpen(false);
             }
         };
