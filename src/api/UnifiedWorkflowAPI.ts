@@ -67,6 +67,8 @@ import {
 // Memory system
 import { memoryRoutes } from './routes/memory.js';
 import { createHealthRoutes } from './routes/health.js';
+// Artifact system
+import { artifactRoutes } from './routes/artifacts.js';
 // Orchestrators and Time
 import { T5Planner } from '../orchestrators/T5-Planner.js';
 import { timeService } from '../core/TimeService.js';
@@ -2918,6 +2920,11 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     // Memory System Routes
     // ========================================================================
     app.route('/api/memory', memoryRoutes);
+
+    // ========================================================================
+    // Artifact System Routes
+    // ========================================================================
+    app.route('/api/artifacts', artifactRoutes);
 
     return app;
 }

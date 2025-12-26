@@ -65,6 +65,17 @@ async function main() {
    GET  /security/audit           - View audit log
    GET  /trust/stats              - Trust system statistics
 
+📦 ARTIFACTS:
+   GET  /api/artifacts            - List artifacts (with filters)
+   POST /api/artifacts            - Create artifact (JSON or multipart)
+   GET  /api/artifacts/:id        - Get artifact metadata
+   GET  /api/artifacts/:id/content - Download artifact content
+   PUT  /api/artifacts/:id        - Update artifact metadata
+   DELETE /api/artifacts/:id      - Delete artifact
+   POST /api/artifacts/:id/versions - Create new version
+   GET  /api/artifacts/:id/versions - Get version history
+   POST /api/artifacts/:id/review - Approve/reject artifact
+
 🔑 MASTER KEY: ${masterKey}
    (Use this to authenticate as human operator)
 

@@ -97,6 +97,9 @@ export class SupabasePersistence extends EventEmitter<SupabaseEvents> {
             auth: {
                 persistSession: false,
             },
+            db: {
+                schema: 'public',
+            },
         });
     }
 
