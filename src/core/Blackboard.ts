@@ -148,6 +148,21 @@ export class Blackboard extends EventEmitter<BlackboardEvents> {
         return entry;
     }
 
+    /**
+     * Update entry content (e.g., adding results to a task)
+     */
+    updateContent(entryId: string, content: unknown): BlackboardEntry | null {
+        const entry = this.entries.get(entryId);
+        if (!entry) return null;
+
+        entry.content = content;
+        entry.updatedAt = new Date();
+
+        this.emit('entry:updated', entry);
+
+        return entry;
+    }
+
     // -------------------------------------------------------------------------
     // Query Operations
     // -------------------------------------------------------------------------

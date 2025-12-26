@@ -169,6 +169,7 @@ export interface WorkflowTask {
     result?: unknown;
     approvalRequired: boolean;
     approvedBy?: string;
+    blackboardEntryId?: string;  // ID of the corresponding Blackboard entry for sync
 }
 
 export interface CompletedTodaySummary {
@@ -320,14 +321,15 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
 
         this.tasks.set(task.id, task);
 
-        // Post to blackboard
-        this.blackboard.post({
+        // Post to blackboard and store entry ID for sync
+        const blackboardEntry = this.blackboard.post({
             type: 'TASK',
             title: task.title,
             author: 'WORKFLOW_ENGINE',
             content: { taskId: task.id, description: task.description },
             priority: task.priority,
         });
+        task.blackboardEntryId = blackboardEntry.id;
 
         this.emit('task:created', task);
 
@@ -367,6 +369,21 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
         task.completedAt = new Date();
         task.result = result;
 
+        // Sync to Blackboard: update content with result and mark as RESOLVED
+        if (task.blackboardEntryId) {
+            this.blackboard.updateContent(task.blackboardEntryId, {
+                taskId: task.id,
+                description: task.description,
+                result: result,
+                completedAt: task.completedAt,
+                completedBy: task.assignedTo,
+            });
+            this.blackboard.resolve(task.blackboardEntryId, {
+                resolution: `Task completed successfully`,
+                resolvedBy: task.assignedTo ?? 'WORKFLOW_ENGINE',
+            });
+        }
+
         // Add to completed today
         this.checkDayReset();
         this.completedToday.push(task);
@@ -392,6 +409,18 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
         task.status = 'FAILED';
         task.completedAt = new Date();
         task.result = { error: reason };
+
+        // Sync to Blackboard: update content with failure info and mark as BLOCKED
+        if (task.blackboardEntryId) {
+            this.blackboard.updateContent(task.blackboardEntryId, {
+                taskId: task.id,
+                description: task.description,
+                error: reason,
+                failedAt: task.completedAt,
+                failedBy: task.assignedTo,
+            });
+            this.blackboard.updateStatus(task.blackboardEntryId, 'BLOCKED');
+        }
 
         // Penalize the agent
         if (task.assignedTo) {
