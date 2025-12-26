@@ -15,7 +15,15 @@ import type { ActionRequest } from './TrustGateEngine.js';
 // ============================================================================
 
 export type ExecutionStatus = 'queued' | 'executing' | 'completed' | 'failed' | 'cancelled' | 'timeout';
-export type ApprovalSource = 'auto_approval' | 'tribunal' | 'hitl';
+
+/**
+ * Source of execution approval.
+ * - auto_approval: Low-risk actions auto-approved by system
+ * - tribunal: Medium-high risk approved by multi-agent tribunal vote
+ * - council: Critical governance decisions approved by T4+ council
+ * - hitl: Human-in-the-loop approval by operator/supervisor
+ */
+export type ApprovalSource = 'auto_approval' | 'tribunal' | 'council' | 'hitl';
 
 export interface ExecutionRecord {
     id: string;
@@ -462,6 +470,7 @@ export class ExecutionTracker extends EventEmitter<TrackerEvents> {
         const byApprovalSource: Record<ApprovalSource, number> = {
             auto_approval: 0,
             tribunal: 0,
+            council: 0,
             hitl: 0,
         };
 

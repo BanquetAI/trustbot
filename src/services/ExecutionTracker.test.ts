@@ -516,6 +516,7 @@ describe('ExecutionTracker', () => {
             expect(stats.successRate).toBe(0.5);
             expect(stats.byApprovalSource.auto_approval).toBe(1);
             expect(stats.byApprovalSource.tribunal).toBe(1);
+            expect(stats.byApprovalSource.council).toBe(0); // No council approvals in this test
             expect(stats.byApprovalSource.hitl).toBe(1);
         });
     });
