@@ -558,3 +558,155 @@ export function getNextInstance(
 
   return Math.max(...matchingInstances) + 1;
 }
+
+// ============================================================================
+// CAPABILITY-TO-CATEGORY MAPPING (Single Source of Truth)
+// ============================================================================
+
+/**
+ * Maps agent capabilities to their corresponding category.
+ * This is the canonical mapping used by all ID generation functions.
+ */
+export const CAPABILITY_TO_CATEGORY: Record<string, AgentCategory> = {
+  // Research & Analysis (10-19)
+  research: AgentCategory.RESEARCH,
+  'market-research': AgentCategory.RESEARCH_MARKET,
+  'technical-research': AgentCategory.RESEARCH_TECHNICAL,
+  'competitive-research': AgentCategory.RESEARCH_COMPETITIVE,
+
+  // Content & Creative (20-29)
+  content: AgentCategory.CONTENT,
+  writing: AgentCategory.CONTENT_WRITING,
+  'content-writing': AgentCategory.CONTENT_WRITING,
+  'social-media': AgentCategory.CONTENT_SOCIAL,
+  design: AgentCategory.CONTENT_DESIGN,
+  video: AgentCategory.CONTENT_VIDEO,
+
+  // Development & Technical (30-39)
+  development: AgentCategory.DEVELOPMENT,
+  frontend: AgentCategory.DEVELOPMENT_FRONTEND,
+  'frontend-dev': AgentCategory.DEVELOPMENT_FRONTEND,
+  backend: AgentCategory.DEVELOPMENT_BACKEND,
+  'backend-dev': AgentCategory.DEVELOPMENT_BACKEND,
+  devops: AgentCategory.DEVELOPMENT_DEVOPS,
+  testing: AgentCategory.DEVELOPMENT_QA,
+  qa: AgentCategory.DEVELOPMENT_QA,
+  security: AgentCategory.DEVELOPMENT_SECURITY,
+
+  // Social & Community (40-49)
+  social: AgentCategory.SOCIAL,
+  monitoring: AgentCategory.SOCIAL_MONITORING,
+  'social-monitoring': AgentCategory.SOCIAL_MONITORING,
+  community: AgentCategory.SOCIAL_COMMUNITY,
+  engagement: AgentCategory.SOCIAL_ENGAGEMENT,
+
+  // Sales & Business Development (50-59)
+  sales: AgentCategory.SALES,
+  'lead-generation': AgentCategory.SALES_LEAD_GEN,
+  'lead-gen': AgentCategory.SALES_LEAD_GEN,
+  qualification: AgentCategory.SALES_QUALIFICATION,
+  outreach: AgentCategory.SALES_OUTREACH,
+
+  // Support & Service (60-69)
+  support: AgentCategory.SUPPORT,
+  'customer-support': AgentCategory.SUPPORT_CUSTOMER,
+  'technical-support': AgentCategory.SUPPORT_TECHNICAL,
+  'internal-support': AgentCategory.SUPPORT_INTERNAL,
+
+  // Operations & Administration (70-79)
+  operations: AgentCategory.OPERATIONS,
+  scheduling: AgentCategory.OPERATIONS_SCHEDULING,
+  inbox: AgentCategory.OPERATIONS_INBOX,
+  workflow: AgentCategory.OPERATIONS_WORKFLOW,
+
+  // Analytics & Intelligence (80-89)
+  analytics: AgentCategory.ANALYTICS,
+  metrics: AgentCategory.ANALYTICS_METRICS,
+  reporting: AgentCategory.ANALYTICS_REPORTING,
+  forecasting: AgentCategory.ANALYTICS_FORECASTING,
+
+  // Executive & Strategy (90-99)
+  executive: AgentCategory.EXECUTIVE,
+  coordination: AgentCategory.EXECUTIVE_COORDINATION,
+  strategy: AgentCategory.EXECUTIVE_STRATEGY,
+  governance: AgentCategory.EXECUTIVE_GOVERNANCE,
+};
+
+/**
+ * Maps agent type strings to their corresponding role.
+ * This is the canonical mapping used by all ID generation functions.
+ */
+export const TYPE_TO_ROLE: Record<string, AgentRole> = {
+  // Executor types
+  worker: AgentRole.EXECUTOR,
+  specialist: AgentRole.EXECUTOR,
+  executor: AgentRole.EXECUTOR,
+
+  // Planner types
+  planner: AgentRole.PLANNER,
+
+  // Validator types
+  validator: AgentRole.VALIDATOR,
+  auditor: AgentRole.VALIDATOR,
+
+  // Researcher types
+  researcher: AgentRole.RESEARCHER,
+  analyst: AgentRole.RESEARCHER,
+  analyzer: AgentRole.RESEARCHER,
+
+  // Communicator types
+  communicator: AgentRole.COMMUNICATOR,
+  messenger: AgentRole.COMMUNICATOR,
+
+  // Orchestrator types
+  orchestrator: AgentRole.ORCHESTRATOR,
+  coordinator: AgentRole.ORCHESTRATOR,
+  manager: AgentRole.ORCHESTRATOR,
+  executive: AgentRole.ORCHESTRATOR,
+  spawner: AgentRole.ORCHESTRATOR,
+  creator: AgentRole.ORCHESTRATOR,
+  evolver: AgentRole.ORCHESTRATOR,
+};
+
+/**
+ * Derive category from a list of capabilities.
+ * Returns the first matching category or OPERATIONS as default.
+ */
+export function getCategoryFromCapabilities(capabilities: string[]): AgentCategory {
+  for (const cap of capabilities) {
+    const category = CAPABILITY_TO_CATEGORY[cap.toLowerCase()];
+    if (category !== undefined) {
+      return category;
+    }
+  }
+  return AgentCategory.OPERATIONS;
+}
+
+/**
+ * Derive role from agent type string.
+ * Returns the matching role or EXECUTOR as default.
+ */
+export function getRoleFromType(type: string): AgentRole {
+  return TYPE_TO_ROLE[type.toLowerCase()] ?? AgentRole.EXECUTOR;
+}
+
+/**
+ * Generate a structured ID from agent metadata.
+ * This is the unified function that should be used by all services.
+ *
+ * @param tier - Agent tier (0-8)
+ * @param type - Agent type string (e.g., 'worker', 'planner')
+ * @param capabilities - Array of capability strings
+ * @param existingIds - Array of existing structured IDs for instance calculation
+ */
+export function generateStructuredIdFromMetadata(
+  tier: number,
+  type: string,
+  capabilities: string[],
+  existingIds: string[]
+): string {
+  const role = getRoleFromType(type);
+  const category = getCategoryFromCapabilities(capabilities);
+  const instance = getNextInstance(existingIds, tier, role, category);
+  return generateAgentId(tier, role, category, instance);
+}

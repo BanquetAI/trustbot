@@ -14,7 +14,13 @@
 import { randomBytes, createHmac, createHash } from 'crypto';
 import { getSupabasePersistence, hasSupabaseConfig, type Agent } from '../core/SupabasePersistence.js';
 import type { AgentId, AgentTier, AgentType } from '../types.js';
-import { AgentRole, AgentCategory } from '../types/agentId.js';
+import {
+    AgentRole,
+    AgentCategory,
+    generateAgentId,
+    getRoleFromType,
+    getCategoryFromCapabilities,
+} from '../types/agentId.js';
 
 // ============================================================================
 // Types
@@ -65,44 +71,6 @@ export interface AgentAPIKey {
 
 const API_KEY_EXPIRY_DAYS = 30;
 const API_KEY_PREFIX = 'tb_';
-
-// Map agent types to roles
-const TYPE_TO_ROLE: Record<string, AgentRole> = {
-    worker: AgentRole.EXECUTOR,
-    planner: AgentRole.PLANNER,
-    validator: AgentRole.VALIDATOR,
-    researcher: AgentRole.RESEARCHER,
-    communicator: AgentRole.COMMUNICATOR,
-    orchestrator: AgentRole.ORCHESTRATOR,
-    executor: AgentRole.EXECUTOR,
-};
-
-// Map capabilities to categories
-const CAPABILITY_TO_CATEGORY: Record<string, AgentCategory> = {
-    research: AgentCategory.RESEARCH,
-    'market-research': AgentCategory.RESEARCH_MARKET,
-    'technical-research': AgentCategory.RESEARCH_TECHNICAL,
-    content: AgentCategory.CONTENT,
-    writing: AgentCategory.CONTENT_WRITING,
-    'social-media': AgentCategory.CONTENT_SOCIAL,
-    development: AgentCategory.DEVELOPMENT,
-    frontend: AgentCategory.DEVELOPMENT_FRONTEND,
-    backend: AgentCategory.DEVELOPMENT_BACKEND,
-    devops: AgentCategory.DEVELOPMENT_DEVOPS,
-    testing: AgentCategory.DEVELOPMENT_QA,
-    security: AgentCategory.DEVELOPMENT_SECURITY,
-    social: AgentCategory.SOCIAL,
-    monitoring: AgentCategory.SOCIAL_MONITORING,
-    community: AgentCategory.SOCIAL_COMMUNITY,
-    sales: AgentCategory.SALES,
-    'lead-generation': AgentCategory.SALES_LEAD_GEN,
-    support: AgentCategory.SUPPORT,
-    'customer-support': AgentCategory.SUPPORT_CUSTOMER,
-    operations: AgentCategory.OPERATIONS,
-    scheduling: AgentCategory.OPERATIONS_SCHEDULING,
-    analytics: AgentCategory.ANALYTICS,
-    reporting: AgentCategory.ANALYTICS_REPORTING,
-};
 
 // ============================================================================
 // Agent Registry Service
@@ -188,44 +156,32 @@ export class AgentRegistryService {
     // -------------------------------------------------------------------------
 
     /**
-     * Generate structured ID in TRCCII format
+     * Generate structured ID in TRCCII format using unified identity utilities.
+     * Uses centralized CAPABILITY_TO_CATEGORY and TYPE_TO_ROLE mappings from agentId.ts.
+     *
      * T: Tier (0-8)
      * R: Role (1-9)
      * CC: Category (10-99)
      * II: Instance (00-99)
      */
     generateStructuredId(tier: number, type: string, capabilities: string[]): string {
-        // T: Tier (0-8)
+        // T: Tier (0-8) - clamp to valid range
         const t = Math.min(Math.max(tier, 0), 8);
 
-        // R: Role from type
-        const r = TYPE_TO_ROLE[type.toLowerCase()] ?? AgentRole.EXECUTOR;
+        // R: Role from type - uses centralized TYPE_TO_ROLE mapping
+        const r = getRoleFromType(type);
 
-        // CC: Category from primary capability
-        let cc = AgentCategory.OPERATIONS; // default
-        for (const cap of capabilities) {
-            const category = CAPABILITY_TO_CATEGORY[cap.toLowerCase()];
-            if (category) {
-                cc = category;
-                break;
-            }
-        }
+        // CC: Category from capabilities - uses centralized CAPABILITY_TO_CATEGORY mapping
+        const cc = getCategoryFromCapabilities(capabilities);
 
-        // II: Instance counter for this category
+        // II: Instance counter for this role-category combination
         const categoryKey = `${r}-${cc}`;
         const currentCount = this.agentCount.get(categoryKey) ?? 0;
         const ii = (currentCount + 1) % 100;
         this.agentCount.set(categoryKey, currentCount + 1);
 
-        // Format: TRCCII (6 digits)
-        const idParts = [
-            t.toString(),
-            r.toString(),
-            cc.toString().padStart(2, '0'),
-            ii.toString().padStart(2, '0'),
-        ];
-
-        return idParts.join('');
+        // Use centralized ID generation
+        return generateAgentId(t, r, cc, ii);
     }
 
     /**

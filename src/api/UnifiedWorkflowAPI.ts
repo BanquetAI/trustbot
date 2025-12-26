@@ -45,12 +45,14 @@ import { CouncilService } from '../core/council/CouncilService.js';
 import { CouncilMemberRegistry } from '../core/council/CouncilMemberRegistry.js';
 import { DelegationManager } from '../core/delegation/DelegationManager.js';
 import { AutonomyBudgetService } from '../core/autonomy/AutonomyBudget.js';
-import type { AgentId, AgentTier, AgentType, TrustLevel } from '../types.js';
+import type { AgentId, AgentTier, AgentType, TrustLevel, BlackboardEntry } from '../types.js';
 import {
     AgentRole,
     AgentCategory,
     generateAgentId,
     getNextInstance,
+    getRoleFromType,
+    getCategoryFromCapabilities,
 } from '../types/agentId.js';
 import type { CryptographicAuditEntry } from '../core/types/audit.js';
 // Skills library integration
@@ -390,6 +392,42 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
                 resolution: `Task completed successfully`,
                 resolvedBy: task.assignedTo ?? 'WORKFLOW_ENGINE',
             });
+        } else {
+            // No direct link - try to find matching Blackboard entry by title
+            const matchingEntry = this.findMatchingBlackboardEntry(task.title);
+            if (matchingEntry) {
+                // Link found - update it
+                task.blackboardEntryId = matchingEntry.id;
+                this.blackboard.updateContent(matchingEntry.id, {
+                    taskId: task.id,
+                    description: task.description,
+                    result: result,
+                    completedAt: task.completedAt,
+                    completedBy: task.assignedTo,
+                    linkedLate: true,  // Flag that link was made after task creation
+                });
+                this.blackboard.resolve(matchingEntry.id, {
+                    resolution: `Task completed successfully (linked retrospectively)`,
+                    resolvedBy: task.assignedTo ?? 'WORKFLOW_ENGINE',
+                });
+            } else {
+                // No matching entry - post a new SOLUTION entry for visibility
+                const resultEntry = this.blackboard.post({
+                    type: 'SOLUTION',
+                    title: `Completed: ${task.title}`,
+                    author: task.assignedTo ?? 'WORKFLOW_ENGINE',
+                    content: {
+                        taskId: task.id,
+                        description: task.description,
+                        result: result,
+                        completedAt: task.completedAt,
+                        completedBy: task.assignedTo,
+                        priority: task.priority,
+                    },
+                    priority: task.priority,
+                });
+                task.blackboardEntryId = resultEntry.id;
+            }
         }
 
         // Add to completed today
@@ -408,6 +446,18 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
         this.persistState();
 
         return task;
+    }
+
+    /**
+     * Find a matching Blackboard entry by task title.
+     * This enables late-linking of tasks that were created outside the workflow API.
+     */
+    private findMatchingBlackboardEntry(taskTitle: string): BlackboardEntry | null {
+        const taskEntries = this.blackboard.getByType('TASK');
+        // Look for open entries that match the title
+        return taskEntries.find(
+            entry => entry.status === 'OPEN' && entry.title.includes(taskTitle)
+        ) || null;
     }
 
     failTask(taskId: string, reason: string, tokenId: string): WorkflowTask | null {
@@ -725,29 +775,26 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // Structured ID generation for agents
     // Format: TRCCII where T=Tier, R=Role, CC=Category, II=Instance
-    // Map agent types to roles using centralized AgentRole enum from agentId.ts
-    const TYPE_TO_ROLE_MAP: Record<string, AgentRole> = {
-        worker: AgentRole.EXECUTOR,
-        specialist: AgentRole.EXECUTOR,
-        coordinator: AgentRole.ORCHESTRATOR,
-        manager: AgentRole.ORCHESTRATOR,
-        executive: AgentRole.ORCHESTRATOR,
-        executor: AgentRole.EXECUTOR,
-        orchestrator: AgentRole.ORCHESTRATOR,
-        evolver: AgentRole.ORCHESTRATOR,
-        validator: AgentRole.VALIDATOR,
-        researcher: AgentRole.RESEARCHER,
-        spawner: AgentRole.ORCHESTRATOR,
-        creator: AgentRole.ORCHESTRATOR,
-        planner: AgentRole.PLANNER,
-        analyzer: AgentRole.RESEARCHER,
-        communicator: AgentRole.COMMUNICATOR,
-    };
+    // Uses centralized TYPE_TO_ROLE and CAPABILITY_TO_CATEGORY from agentId.ts
 
-    // Generate structured ID using centralized utilities from agentId.ts
-    const generateStructuredId = (tier: number, type: string, existingAgents: Array<{ structuredId?: string; type: string; tier: number }>): string => {
-        const role = TYPE_TO_ROLE_MAP[type.toLowerCase()] ?? AgentRole.EXECUTOR;
-        const category = AgentCategory.OPERATIONS; // Default category
+    /**
+     * Generate structured ID using centralized utilities from agentId.ts.
+     * Now properly derives category from capabilities instead of hardcoding OPERATIONS.
+     *
+     * @param tier - Agent tier (0-8)
+     * @param type - Agent type string
+     * @param existingAgents - Existing agents for instance calculation
+     * @param capabilities - Optional agent capabilities for category derivation
+     */
+    const generateStructuredId = (
+        tier: number,
+        type: string,
+        existingAgents: Array<{ structuredId?: string; type: string; tier: number }>,
+        capabilities: string[] = []
+    ): string => {
+        // Use centralized mappings from agentId.ts
+        const role = getRoleFromType(type);
+        const category = getCategoryFromCapabilities(capabilities);
 
         // Get existing structured IDs for instance calculation
         const existingIds = existingAgents
@@ -1086,13 +1133,24 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // POST /api/spawn - Spawn a new agent
     app.post('/api/spawn', async (c) => {
-        const body = await c.req.json<{ name: string; type: string; tier: number }>();
+        const body = await c.req.json<{
+            name: string;
+            type: string;
+            tier: number;
+            capabilities?: string[];
+            skills?: string[];
+        }>();
+
+        // Capabilities now affect structured ID category derivation
+        const capabilities = body.capabilities || [];
+        const skills = body.skills || [];
 
         if (supabase) {
             try {
                 // Get existing agents to generate structured ID
                 const existingAgents = await supabase.getAgents();
-                const structuredId = generateStructuredId(body.tier, body.type, existingAgents);
+                // Pass capabilities for proper category derivation
+                const structuredId = generateStructuredId(body.tier, body.type, existingAgents, capabilities);
 
                 const agent = await supabase.createAgent({
                     id: uuidv4(),
@@ -1103,8 +1161,8 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
                     trust_score: body.tier * 150 + 100,
                     floor: body.tier >= 4 ? 'EXECUTIVE' : 'OPERATIONS',
                     room: 'SPAWN_BAY',
-                    capabilities: [],
-                    skills: [],
+                    capabilities,
+                    skills,
                     parent_id: null,
                 });
 
@@ -1120,7 +1178,8 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         }
 
         // Fallback to demo response with structured ID
-        const structuredId = generateStructuredId(body.tier, body.type, demoAgents);
+        // Pass capabilities for proper category derivation
+        const structuredId = generateStructuredId(body.tier, body.type, demoAgents, capabilities);
         const newAgent: APIAgent = {
             id: uuidv4(),
             structuredId,
@@ -1130,8 +1189,8 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
             status: 'IDLE',
             location: { floor: body.tier >= 4 ? 'EXECUTIVE' : 'OPERATIONS', room: 'SPAWN_BAY' },
             trustScore: body.tier * 150 + 100,
-            capabilities: [],
-            skills: [],
+            capabilities,
+            skills,
             parentId: null,
             childIds: [],
             createdAt: new Date().toISOString(),
