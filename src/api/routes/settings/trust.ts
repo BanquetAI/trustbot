@@ -412,6 +412,9 @@ trustSettingsRouter.post('/:orgId/preview', async (c) => {
                 (t) => currentScore >= t.minScore && currentScore <= t.maxScore
             ) || proposedTiers[0];
 
+            // Skip if no tier definition found (shouldn't happen with valid config)
+            if (!projectedTierDef) continue;
+
             const tierChange =
                 projectedTierDef.level === currentState.currentTier
                     ? 'same'

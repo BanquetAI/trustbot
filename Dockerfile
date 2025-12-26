@@ -10,11 +10,11 @@ COPY package*.json ./
 RUN npm ci
 
 # Copy source code
-COPY tsconfig.json ./
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 
-# Build TypeScript
-RUN npm run build
+# Build for production using esbuild (bundles into single file)
+RUN npm run build:prod
 
 # Production stage
 FROM node:20-alpine AS production

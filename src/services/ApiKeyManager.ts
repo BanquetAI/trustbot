@@ -295,7 +295,7 @@ export class ApiKeyManager extends EventEmitter<ManagerEvents> {
 
         // If not in memory, try database
         if (!apiKey && hasSupabaseConfig()) {
-            apiKey = await this.loadKeyFromDB(keyHash);
+            apiKey = await this.loadKeyFromDB(keyHash) ?? undefined;
         }
 
         if (!apiKey) {

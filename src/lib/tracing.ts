@@ -16,8 +16,10 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
     ATTR_SERVICE_NAME,
     ATTR_SERVICE_VERSION,
-    ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
 } from '@opentelemetry/semantic-conventions';
+
+// Define deployment environment attribute (not available in all versions)
+const ATTR_DEPLOYMENT_ENVIRONMENT = 'deployment.environment';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { BatchSpanProcessor, SimpleSpanProcessor, ConsoleSpanExporter } from '@opentelemetry/sdk-trace-node';
@@ -119,7 +121,7 @@ export function initTracing(config: TracingConfig = {}): void {
     const resource = resourceFromAttributes({
         [ATTR_SERVICE_NAME]: mergedConfig.serviceName,
         [ATTR_SERVICE_VERSION]: mergedConfig.serviceVersion,
-        [ATTR_DEPLOYMENT_ENVIRONMENT_NAME]: mergedConfig.environment,
+        [ATTR_DEPLOYMENT_ENVIRONMENT]: mergedConfig.environment,
     });
 
     const spanProcessors = [];

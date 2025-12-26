@@ -154,7 +154,7 @@ export class DecisionTimeoutHandler extends EventEmitter<HandlerEvents> {
         source: 'tribunal' | 'hitl',
         metadata?: Record<string, unknown>
     ): PendingDecision {
-        const rule = this.rules.get(urgency) || DEFAULT_RULES[2]; // Default to normal
+        const rule = this.rules.get(urgency) || DEFAULT_RULES.find(r => r.urgency === 'normal')!; // Default to normal
         const now = new Date();
 
         const decision: PendingDecision = {
@@ -506,7 +506,7 @@ export class DecisionTimeoutHandler extends EventEmitter<HandlerEvents> {
             low: 0,
         };
 
-        const bySource: Record<string, number> = {
+        const bySource: Record<'tribunal' | 'hitl', number> = {
             tribunal: 0,
             hitl: 0,
         };
@@ -514,8 +514,8 @@ export class DecisionTimeoutHandler extends EventEmitter<HandlerEvents> {
         let escalatedCount = 0;
 
         for (const d of decisions) {
-            byUrgency[d.urgency]++;
-            bySource[d.source]++;
+            byUrgency[d.urgency] = (byUrgency[d.urgency] ?? 0) + 1;
+            bySource[d.source] = (bySource[d.source] ?? 0) + 1;
             if (d.escalationLevel > 0) escalatedCount++;
         }
 

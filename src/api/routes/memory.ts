@@ -13,7 +13,7 @@ import {
     getEmbeddingService,
     getDecisionPatternService,
     getUserPreferencesService,
-} from '../../core/memory';
+} from '../../core/memory/index.js';
 import type {
     ConversationEntryInput,
     KnowledgeEntryInput,
@@ -22,7 +22,7 @@ import type {
     DecisionPatternType,
     DecisionOutcome,
     UserPreferencesInput,
-} from '../../core/memory/types';
+} from '../../core/memory/types.js';
 
 const memoryRoutes = new Hono();
 
@@ -431,6 +431,20 @@ memoryRoutes.get('/patterns/top', async (c) => {
 });
 
 /**
+ * Get pattern statistics
+ * NOTE: Must be before /:id to avoid matching "stats" as an ID
+ */
+memoryRoutes.get('/patterns/stats', async (c) => {
+    try {
+        const service = getDecisionPatternService();
+        const stats = await service.getStats();
+        return c.json(stats);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
+
+/**
  * Get pattern by ID
  */
 memoryRoutes.get('/patterns/:id', async (c) => {
@@ -462,22 +476,39 @@ memoryRoutes.patch('/patterns/:id/outcome', async (c) => {
     }
 });
 
+// ============================================================================
+// User Preferences Endpoints
+// ============================================================================
+
 /**
- * Get pattern statistics
+ * Get most active users
+ * NOTE: Must be before /:userId to avoid matching "active" as a userId
  */
-memoryRoutes.get('/patterns/stats', async (c) => {
+memoryRoutes.get('/preferences/active', async (c) => {
     try {
-        const service = getDecisionPatternService();
-        const stats = await service.getStats();
-        return c.json(stats);
+        const limit = parseInt(c.req.query('limit') || '10');
+        const service = getUserPreferencesService();
+        const users = await service.getMostActiveUsers(limit);
+        return c.json(users);
     } catch (error: any) {
         return c.json({ error: error.message }, 500);
     }
 });
 
-// ============================================================================
-// User Preferences Endpoints
-// ============================================================================
+/**
+ * Get all users for an organization
+ * NOTE: Must be before /:userId to avoid matching "org" as a userId
+ */
+memoryRoutes.get('/preferences/org/:orgId', async (c) => {
+    try {
+        const orgId = c.req.param('orgId');
+        const service = getUserPreferencesService();
+        const users = await service.getOrgUsers(orgId);
+        return c.json(users);
+    } catch (error: any) {
+        return c.json({ error: error.message }, 500);
+    }
+});
 
 /**
  * Get or create user preferences
@@ -578,34 +609,6 @@ memoryRoutes.get('/preferences/:userId/tendency', async (c) => {
         const service = getUserPreferencesService();
         const analysis = await service.analyzeApprovalTendency(userId);
         return c.json(analysis);
-    } catch (error: any) {
-        return c.json({ error: error.message }, 500);
-    }
-});
-
-/**
- * Get all users for an organization
- */
-memoryRoutes.get('/preferences/org/:orgId', async (c) => {
-    try {
-        const orgId = c.req.param('orgId');
-        const service = getUserPreferencesService();
-        const users = await service.getOrgUsers(orgId);
-        return c.json(users);
-    } catch (error: any) {
-        return c.json({ error: error.message }, 500);
-    }
-});
-
-/**
- * Get most active users
- */
-memoryRoutes.get('/preferences/active', async (c) => {
-    try {
-        const limit = parseInt(c.req.query('limit') || '10');
-        const service = getUserPreferencesService();
-        const users = await service.getMostActiveUsers(limit);
-        return c.json(users);
     } catch (error: any) {
         return c.json({ error: error.message }, 500);
     }

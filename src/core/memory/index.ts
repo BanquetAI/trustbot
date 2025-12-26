@@ -7,27 +7,27 @@
  */
 
 // Types
-export * from './types';
+export * from './types.js';
 
 // Services
-export { EmbeddingService, getEmbeddingService, resetEmbeddingService } from './EmbeddingService';
+export { EmbeddingService, getEmbeddingService, resetEmbeddingService } from './EmbeddingService.js';
 export {
     ConversationMemoryService,
     getConversationMemoryService,
     resetConversationMemoryService,
-} from './ConversationMemoryService';
+} from './ConversationMemoryService.js';
 export {
     KnowledgeStoreService,
     getKnowledgeStoreService,
     resetKnowledgeStoreService,
-} from './KnowledgeStoreService';
+} from './KnowledgeStoreService.js';
 export {
     DecisionPatternService,
     getDecisionPatternService,
     resetDecisionPatternService,
-} from './DecisionPatternService';
+} from './DecisionPatternService.js';
 export {
     UserPreferencesService,
     getUserPreferencesService,
     resetUserPreferencesService,
-} from './UserPreferencesService';
+} from './UserPreferencesService.js';
