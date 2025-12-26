@@ -1,254 +1,364 @@
-# 🏢 TrustBot: Governable AI Agent Orchestration
+# TrustBot Mission Control
 
 > **Build autonomous AI systems with provable oversight and progressive trust.**
 
-[![Tests](https://img.shields.io/badge/tests-105%20passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-1406%20passing-brightgreen)]()
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3-blue)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
+[![API](https://img.shields.io/badge/API-live-success)](https://trustbot-api.fly.dev)
+[![Web](https://img.shields.io/badge/Web-live-success)](https://trustbot-web.vercel.app)
 
-## Why TrustBot?
+## Overview
 
-The AI industry is building **capable** agents. Almost no one is building **governable** agents at scale.
+TrustBot is a multi-agent AI orchestration platform with trust-based governance, human-in-the-loop (HITL) oversight, and cryptographic accountability. It enables organizations to deploy, monitor, and govern fleets of AI agents with:
 
-TrustBot solves this with:
+- **Trust Scoring**: Dynamic trust levels (0-100) with 5-tier progression
+- **Decision Pipeline**: TrustGate, Bot Tribunal, and HITL oversight
+- **Cryptographic Audit**: Hash-chain verified accountability trails
+- **Multi-LLM Support**: Claude, Gemini, Grok, and extensible architecture
+- **Agent Communication**: Direct messaging, collaboration, and task delegation
 
-| Feature | What It Does | Why It Matters |
-|---------|--------------|----------------|
-| **6-Tier Trust Hierarchy** | Agents earn autonomy through verified performance | Prevents rogue agents, enables gradual capability expansion |
-| **Fading HITL Governance** | Human oversight starts at 100% and decreases as trust builds | Progressive autonomy with audit trails for compliance |
-| **Aggressiveness Slider** | Single control for system-wide autonomy level | Instant rollback, intuitive human control |
-| **"Completed Today" Dashboard** | Real-time view of agent activity and trust changes | Transparency for operators and stakeholders |
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- npm or pnpm
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/BanquetAI/trustbot.git
+cd trustbot
+
+# Install dependencies
+npm install
+cd web && npm install && cd ..
+
+# Run tests (1,406 passing)
+npm run test:run
+
+# Start API server
+npm run api
+
+# Start web frontend (separate terminal)
+cd web && npm run dev
+```
+
+### Production URLs
+
+| Environment | URL |
+|-------------|-----|
+| API | https://trustbot-api.fly.dev |
+| Web | https://trustbot-web.vercel.app |
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        HUMAN OPERATOR (Governing Agent)                  │
-│                    🎚️ Aggressiveness Slider (0-100%)                     │
-└──────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┴───────────────┐
-                    │     UNIFIED WORKFLOW ENGINE    │
-                    │  • Task Pipeline               │
-                    │  • HITL Gateway                │
-                    │  • Completed Today Dashboard   │
-                    └───────────────┬───────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        │                           │                           │
-   ┌────┴────┐                ┌─────┴─────┐               ┌─────┴─────┐
-   │SOVEREIGN│                │ EXECUTIVE │               │  TACTICAL │
-   │   T5    │◄───creates────►│    T4     │◄───creates───►│    T3     │
-   │ Trust:  │                │  Trust:   │               │  Trust:   │
-   │900-1000 │                │  700-899  │               │  500-699  │
-   └────┬────┘                └─────┬─────┘               └─────┬─────┘
-        │                           │                           │
-        │              ┌────────────┼────────────┐              │
-        │              │            │            │              │
-   ┌────┴────┐    ┌────┴────┐ ┌────┴────┐ ┌────┴────┐    ┌────┴────┐
-   │OPERATION│    │ WORKER  │ │ WORKER  │ │ PASSIVE │    │ PASSIVE │
-   │   T2    │    │   T1    │ │   T1    │ │   T0    │    │   T0    │
-   └─────────┘    └─────────┘ └─────────┘ └─────────┘    └─────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                     Mission Control (Web)                        │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐           │
+│  │  Agent   │ │  Task    │ │  Trust   │ │ Audit    │           │
+│  │ Overview │ │ Pipeline │ │ Metrics  │ │ Trail    │           │
+│  └──────────┘ └──────────┘ └──────────┘ └──────────┘           │
+└────────────────────────────┬────────────────────────────────────┘
+                             │ REST/WebSocket
+┌────────────────────────────┴────────────────────────────────────┐
+│                        TrustBot API                              │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                  Decision Pipeline                        │   │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐               │   │
+│  │  │ TrustGate│→ │ Tribunal │→ │   HITL   │               │   │
+│  │  └──────────┘  └──────────┘  └──────────┘               │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │     Services: Trust, Tasks, Agents, Governance           │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└────────────────────────────┬────────────────────────────────────┘
+                             │
+┌────────────────────────────┴────────────────────────────────────┐
+│                  Agent Coordinator                               │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Claude  │  │  Gemini  │  │   Grok   │  │  Custom  │        │
+│  │  Agent   │  │  Agent   │  │  Agent   │  │  Agent   │        │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘        │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Trust System
 
 ### Trust Tiers
 
-| Tier | Level | Trust Range | Capabilities |
-|------|-------|-------------|--------------|
-| T5 | SOVEREIGN | 900-1000 | Full autonomy, spawns all tiers, system modification |
-| T4 | EXECUTIVE | 700-899 | Domain autonomy, spawns T3 and below |
-| T3 | TACTICAL | 500-699 | Project scope, spawns T2 and below |
-| T2 | OPERATIONAL | 300-499 | Task execution, limited spawning |
-| T1 | WORKER | 100-299 | Single task focus |
-| T0 | PASSIVE | 0-99 | Observation only |
+| Tier | Range | Autonomy Level | Capabilities |
+|------|-------|----------------|--------------|
+| 1 | 0-20 | Fully supervised | Observation, basic tasks |
+| 2 | 21-40 | Low autonomy | Limited task execution |
+| 3 | 41-60 | Standard autonomy | Full task execution |
+| 4 | 61-80 | High autonomy | Task creation, delegation |
+| 5 | 81-100 | Full autonomy | System modification |
+
+### Decision Pipeline
+
+1. **TrustGate**: Evaluates agent trust vs task requirements
+2. **Bot Tribunal**: Peer agents vote on borderline decisions
+3. **HITL Queue**: Human operators review flagged actions
 
 ---
 
-## Quick Start
+## Connect AI Agents
+
+### Single Agent
 
 ```bash
-# Install dependencies
-npm install
+# Claude (Anthropic)
+ANTHROPIC_API_KEY=your_key npx tsx scripts/agents/claude-agent.ts
 
-# Run tests (105 passing)
-npm test
+# Gemini (Google)
+GOOGLE_API_KEY=your_key npx tsx scripts/agents/gemini-agent.ts
 
-# Start the Unified Workflow API
-npm run api
-
-# Start the Building UI (separate terminal)
-npm run web
+# Grok (X.AI)
+XAI_API_KEY=your_key npx tsx scripts/agents/grok-agent.ts
 ```
 
-### API Endpoints
+### Multi-Agent Fleet
 
 ```bash
-# Get today's completed tasks
-curl http://localhost:3002/dashboard/today
+ANTHROPIC_API_KEY=x GOOGLE_API_KEY=y XAI_API_KEY=z \
+  npx tsx scripts/agents/multi-agent-fleet.ts
+```
 
-# Get current aggressiveness setting
-curl http://localhost:3002/dashboard/aggressiveness
+### Agent Communication Demo
 
-# Create a task
-curl -X POST http://localhost:3002/tasks \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Analyze user data", "priority": "HIGH"}'
-
-# Authenticate as human operator
-curl -X POST http://localhost:3002/auth/human \
-  -H "Content-Type: application/json" \
-  -d '{"masterKey": "YOUR_MASTER_KEY"}'
-
-# Adjust aggressiveness (requires human token)
-curl -X POST http://localhost:3002/dashboard/aggressiveness \
-  -H "Content-Type: application/json" \
-  -d '{"level": 50, "tokenId": "YOUR_TOKEN"}'
+```bash
+npx tsx scripts/agents/collaborative-agents-demo.ts
 ```
 
 ---
 
-## Core Systems
+## API Reference
 
-### Trust Engine
+### Core Endpoints
 
-The trust engine is the foundation of TrustBot's governance model:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check |
+| GET | `/dashboard/today` | Daily dashboard metrics |
+| POST | `/auth/human` | Authenticate as operator |
+| POST | `/api/spawn` | Spawn new agent |
+| GET | `/tasks` | List tasks |
+| POST | `/tasks` | Create task |
+| POST | `/tasks/:id/assign` | Assign task to agent |
+| POST | `/tasks/:id/complete` | Complete task |
+| GET | `/approvals` | Pending approvals |
+| GET | `/trust/stats` | Trust statistics |
 
-```typescript
-import { SecureTrustEngine, createSecureTrustEngine } from './core';
+### Authentication
 
-// Create a secure engine with master key
-const { engine, masterKey } = createSecureTrustEngine();
-
-// Get human operator token
-const token = engine.issueHumanToken(masterKey);
-
-// Create trust for a new agent
-engine.createTrust('agent-1', { tier: 3, parentId: 't5-spawner' }, token.id);
-
-// Reward good performance
-engine.reward('agent-1', 50, 'Task completed successfully', token.id);
-
-// HITL level can ONLY be changed by human operators
-engine.setHITLLevel(75, token.id);  // Works
-engine.setHITLLevel(75, agentToken.id);  // Throws UnauthorizedError
+```bash
+# Get auth token
+curl -X POST https://trustbot-api.fly.dev/auth/human \
+  -H "Content-Type: application/json" \
+  -d '{"masterKey": "your-master-key"}'
 ```
 
-### Security Layer
+### Example: Complete Task Lifecycle
 
-All sensitive operations require authentication:
+```bash
+# 1. Authenticate
+TOKEN=$(curl -s -X POST https://trustbot-api.fly.dev/auth/human \
+  -H "Content-Type: application/json" \
+  -d '{"masterKey": "your-key"}' | jq -r '.tokenId')
 
-```typescript
-import { SecurityLayer } from './core';
+# 2. Spawn agent
+AGENT_ID=$(curl -s -X POST https://trustbot-api.fly.dev/api/spawn \
+  -H "Content-Type: application/json" \
+  -d '{"name": "MyAgent", "type": "WORKER", "tier": 3}' | jq -r '.agent.id')
 
-const security = new SecurityLayer();
+# 3. Create task
+TASK_ID=$(curl -s -X POST https://trustbot-api.fly.dev/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Test Task", "priority": "MEDIUM"}' | jq -r '.id')
 
-// Issue tokens
-const humanToken = security.issueHumanToken(masterKey);
-const agentToken = security.issueAgentToken('agent-1', 3);
+# 4. Assign and complete
+curl -X POST "https://trustbot-api.fly.dev/tasks/$TASK_ID/assign" \
+  -H "Content-Type: application/json" \
+  -d "{\"agentId\": \"$AGENT_ID\", \"tokenId\": \"$TOKEN\"}"
 
-// Permissions are tier-based
-humanToken.permissions;  // All permissions including HITL_MODIFY
-agentToken.permissions;  // BLACKBOARD_POST, TRUST_REWARD, SPAWN_AGENT
-
-// Audit trail for compliance
-const auditLog = security.getAuditLog({ limit: 100 });
-```
-
-### Unified Workflow Engine
-
-Single pipeline for all tasks:
-
-```typescript
-import { UnifiedWorkflowEngine } from './api/UnifiedWorkflowAPI';
-
-const engine = new UnifiedWorkflowEngine();
-
-// Create task - automatically checks if approval needed
-const task = engine.createTask({
-  title: 'Process customer data',
-  priority: 'HIGH',
-  requiredTier: 3
-});
-
-// If aggressiveness is low, high-tier tasks need approval
-console.log(task.status);  // 'PENDING_APPROVAL'
-
-// Human approves
-engine.approveTask(task.id, 'HUMAN_OPERATOR');
-
-// Get daily summary
-const summary = engine.getCompletedToday();
-console.log(summary.autonomyMetrics);
-// { autoApproved: 45, humanApproved: 12, humanRejected: 2 }
+curl -X POST "https://trustbot-api.fly.dev/tasks/$TASK_ID/complete" \
+  -H "Content-Type: application/json" \
+  -d "{\"result\": {\"summary\": \"Done\"}, \"tokenId\": \"$TOKEN\"}"
 ```
 
 ---
 
-## The 5 Supreme Orchestrators (T5)
+## Agent-to-Agent Communication
 
-TrustBot bootstraps with 5 sovereign agents:
+Agents can communicate directly via the AgentCoordinator:
 
-| Agent | Role | Responsibility |
-|-------|------|----------------|
-| **T5-Executor** 🎖️ | Supreme Commander | Final authority on all decisions |
-| **T5-Planner** 🧠 | Strategic Architect | Designs workforce structure |
-| **T5-Validator** 🛡️ | Trust Guardian | Validates spawn requests, monitors trust |
-| **T5-Evolver** 🧬 | Adaptive Intelligence | Continuously improves system |
-| **T5-Spawner** 🏭 | Agent Factory | Creates all lower-tier agents |
+```typescript
+import { ClaudeAgent } from './scripts/agents/claude-agent';
+import { getCoordinator } from './scripts/agents/agent-coordinator';
+
+const claude = new ClaudeAgent({ name: 'Claude-1' });
+await claude.initialize();
+claude.joinCoordinator();
+
+// Direct messaging
+await claude.sendMessage(targetId, 'QUERY', 'Question', 'What is the status?');
+
+// Request collaboration (skill-based matching)
+await claude.requestCollaboration('Data Analysis', 'Analyze metrics', ['data-analysis']);
+
+// Broadcast to all agents
+await claude.broadcast('Status Update', 'Task completed successfully');
+
+// Delegate task
+await claude.delegateTask(researcherId, 'Research', 'Find best practices');
+```
+
+### Communication Patterns
+
+| Pattern | Description |
+|---------|-------------|
+| `QUERY` | Ask another agent a question |
+| `REQUEST_HELP` | Request assistance |
+| `DELEGATE_TASK` | Assign work to another agent |
+| `SHARE_CONTEXT` | Share relevant data |
+| `BROADCAST` | Message all agents |
+| `COLLABORATION` | Skill-based matching |
 
 ---
 
 ## Project Structure
 
 ```
-trustbot-system/
-├── src/
-│   ├── core/                 # Core systems
-│   │   ├── TrustEngine.ts    # Trust scoring (96% coverage)
-│   │   ├── Blackboard.ts     # Stigmergic coordination (97% coverage)
-│   │   ├── SecurityLayer.ts  # Auth, authz, audit
-│   │   ├── SecureTrustEngine.ts  # Security-wrapped trust engine
-│   │   └── *.test.ts         # 105 unit tests
-│   │
-│   ├── api/
-│   │   ├── UnifiedWorkflowAPI.ts  # Hono REST API
-│   │   └── server.ts         # Legacy API
-│   │
-│   ├── orchestrators/        # T5 Supreme Orchestrators
-│   └── agents/               # Base agent classes
-│
-├── web/                      # React Building UI
-├── vitest.config.ts          # Test configuration
-└── package.json
+trustbot/
+├── src/                    # API source code
+│   ├── api/               # Express routes and middleware
+│   │   ├── routes/        # API route handlers
+│   │   ├── middleware/    # RBAC, auth, etc.
+│   │   └── ws/            # WebSocket hub
+│   ├── agents/            # Agent base classes
+│   ├── core/              # Trust scoring, blackboard
+│   ├── services/          # Business logic services
+│   │   ├── TribunalManager.ts
+│   │   ├── TaskAssignmentService.ts
+│   │   └── TrustAnomalyDetector.ts
+│   └── types.ts           # Type definitions
+├── web/                   # React frontend
+│   ├── src/
+│   │   ├── components/   # UI components
+│   │   │   └── mission-control/
+│   │   ├── stores/       # Zustand state
+│   │   └── hooks/        # Custom hooks
+│   └── dist/             # Production build
+├── scripts/
+│   └── agents/           # AI agent connectors
+│       ├── base-ai-agent.ts
+│       ├── claude-agent.ts
+│       ├── gemini-agent.ts
+│       ├── grok-agent.ts
+│       ├── agent-coordinator.ts
+│       ├── agent-protocol.ts
+│       └── multi-agent-fleet.ts
+├── supabase/
+│   └── migrations/       # Database migrations
+├── docs/                 # Documentation
+│   ├── PRODUCT_SPEC.md
+│   ├── DEMO_FLOW.md
+│   └── stories/          # Story documentation
+└── tests/                # E2E tests
 ```
 
 ---
 
-## Competitive Advantage
+## Development
 
-| Capability | TrustBot | AutoGen | CrewAI | LangGraph |
-|------------|----------|---------|--------|-----------|
-| Hierarchical trust | ✅ 6 tiers | ❌ | ❌ | ❌ |
-| Fading HITL | ✅ Progressive | ❌ | ❌ | ❌ |
-| Aggressiveness control | ✅ Single slider | ❌ | ❌ | ❌ |
-| Audit trails | ✅ Full | ❌ | ❌ | ❌ |
-| Trust inheritance | ✅ 80% cascade | ❌ | ❌ | ❌ |
-| Security layer | ✅ RBAC | ❌ | ❌ | ❌ |
+### Testing
 
-**TrustBot's moat: Governance and trust, not just capabilities.**
+```bash
+# Unit tests
+npm run test:run
+
+# Watch mode
+npm run test
+
+# Coverage
+npm run test:coverage
+
+# E2E tests
+npx playwright test
+```
+
+### Building
+
+```bash
+# API
+npm run build
+
+# Web
+cd web && npm run build
+```
 
 ---
 
-## Roadmap
+## Deployment
 
-- [x] Phase 1: Testing Foundation (105 tests, 96%+ coverage on core)
-- [x] Phase 2: Security Hardening (Auth, RBAC, Audit)
-- [x] Phase 3: Unified Workflow API (Hono, Completed Today, Aggressiveness)
-- [ ] Phase 4: Persistence Layer (Redis/KV)
-- [ ] Phase 5: Web Dashboard Integration
-- [ ] Phase 6: MCP Server Integration
+### API (Fly.io)
+
+```bash
+fly deploy --app trustbot-api
+```
+
+### Web (Vercel)
+
+```bash
+cd web && npx vercel --prod
+```
+
+### Environment Variables
+
+**API:**
+
+| Variable | Description |
+|----------|-------------|
+| `MASTER_KEY` | Authentication master key |
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Supabase anonymous key |
+| `ANTHROPIC_API_KEY` | Claude API key (optional) |
+
+**Web:**
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_URL` | API base URL |
+
+---
+
+## Completed Phases
+
+- [x] **Phase 1**: Mission Control Dashboard (8 epics, 41 stories)
+  - RBAC, real-time, agent visibility
+  - Decision queue, morning review
+  - Governance, tribunal transparency
+  - Cryptographic audit trail
+  - Compliance, evidence packages
+  - Investigation management
+  - Executive dashboards
+  - Onboarding, education
+
+- [x] **Phase 2**: Live Agent Integration (5 epics, 32 stories)
+  - Multi-LLM connectors (Claude, Gemini, Grok)
+  - Agent-to-agent communication
+  - Collaboration workflows
+  - Production deployment
 
 ---
 
@@ -258,17 +368,10 @@ MIT
 
 ---
 
-## Contributing
+## Support
 
-TrustBot is built for the future of governable AI. Contributions welcome.
-
-```bash
-# Run tests before submitting
-npm test
-
-# Check coverage
-npm run test:coverage
-```
+- Issues: https://github.com/BanquetAI/trustbot/issues
+- Documentation: See `/docs` folder
 
 ---
 
