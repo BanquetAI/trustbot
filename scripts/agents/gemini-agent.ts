@@ -117,5 +117,8 @@ Provide a structured summary with key recommendations.`,
 // Export for use as module
 export { GeminiAgent };
 
-// Run if executed directly
-main();
+// Run if executed directly (ESM entry point check)
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}

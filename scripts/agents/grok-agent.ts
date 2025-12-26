@@ -116,5 +116,8 @@ Be insightful and think outside the box.`,
 // Export for use as module
 export { GrokAgent };
 
-// Run if executed directly
-main();
+// Run if executed directly (ESM entry point check)
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    main();
+}
