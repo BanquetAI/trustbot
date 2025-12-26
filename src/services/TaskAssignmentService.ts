@@ -296,9 +296,9 @@ export class TaskAssignmentService extends EventEmitter<AssignmentServiceEvents>
             confidence += Math.min(matchingCaps.length * 5, 15);
         }
 
-        // Load penalty
+        // Load penalty (higher cap for heavily loaded agents)
         if (agent.currentLoad !== undefined && agent.currentLoad > 3) {
-            confidence -= Math.min(agent.currentLoad * 3, 20);
+            confidence -= Math.min(agent.currentLoad * 3, 30);
         }
 
         return Math.min(Math.max(confidence, 0), 100);
@@ -310,17 +310,18 @@ export class TaskAssignmentService extends EventEmitter<AssignmentServiceEvents>
     private calculateBaseConfidence(task: TaskContext, agent: AgentContext): number {
         let confidence = 30;  // Lower base for non-pattern recommendations
 
-        // Tier match
+        // Tier match - higher tiers get bonus, exact match gets small bonus
         const tierDiff = agent.agentTier - task.requiredTier;
         if (tierDiff >= 0) {
             confidence += 20;
-            if (tierDiff === 0) confidence += 10;  // Exact match preferred
+            // Bonus for being above required tier (up to 10 points)
+            confidence += Math.min(tierDiff * 3, 10);
         }
 
-        // Trust score
-        confidence += Math.min(agent.trustScore / 20, 25);
+        // Trust score (more granular influence)
+        confidence += Math.min(agent.trustScore / 20, 35);
 
-        return Math.min(confidence, 70);  // Cap at 70% for non-pattern recommendations
+        return Math.min(confidence, 90);  // Cap at 90% for non-pattern recommendations
     }
 
     /**

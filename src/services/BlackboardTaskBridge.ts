@@ -212,6 +212,11 @@ export class BlackboardTaskBridge extends EventEmitter<BridgeEvents> {
      * Manually bridge a specific Blackboard entry by ID
      */
     bridgeEntryById(entryId: string): BridgedTask | null {
+        // Check if already bridged
+        if (this.entryToTask.has(entryId)) {
+            return null;
+        }
+
         const entries = this.blackboard.getByType('TASK');
         const entry = entries.find(e => e.id === entryId);
 
