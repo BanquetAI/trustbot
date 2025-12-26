@@ -77,6 +77,8 @@ import { memoryRoutes } from './routes/memory.js';
 import { createHealthRoutes } from './routes/health.js';
 // Artifact system
 import { artifactRoutes } from './routes/artifacts.js';
+// Agent discovery system
+import { agentDiscoveryRoutes } from './routes/agent-discovery.js';
 // Orchestrators and Time
 import { T5Planner } from '../orchestrators/T5-Planner.js';
 import { timeService } from '../core/TimeService.js';
@@ -3025,6 +3027,11 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     // Artifact System Routes
     // ========================================================================
     app.route('/api/artifacts', artifactRoutes);
+
+    // ========================================================================
+    // Agent Discovery Routes (Fleet Management & Communication)
+    // ========================================================================
+    app.route('/api/agent-discovery', agentDiscoveryRoutes);
 
     return app;
 }
