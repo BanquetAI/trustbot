@@ -5,7 +5,7 @@
 import { useState, useEffect } from 'react';
 
 // Navigation view types
-export type NavView = 'console' | 'agents' | 'tasks' | 'council' | 'settings' | 'metrics' | 'help' | 'glossary';
+export type NavView = 'console' | 'agents' | 'tasks' | 'artifacts' | 'council' | 'settings' | 'metrics' | 'help' | 'glossary';
 
 interface NavBarProps {
     currentView: NavView;
@@ -28,6 +28,7 @@ const NAV_ITEMS: Array<{
     { id: 'console', label: 'Console', icon: '🏠', primary: true },
     { id: 'agents', label: 'Agents', icon: '👥', primary: true },
     { id: 'tasks', label: 'Tasks', icon: '📋', primary: true },
+    { id: 'artifacts', label: 'Artifacts', icon: '📦', primary: true },
     { id: 'council', label: 'Council', icon: '⚖️', minAuthority: 4 },
     { id: 'settings', label: 'Settings', icon: '⚙️' },
     { id: 'metrics', label: 'Metrics', icon: '📊' },

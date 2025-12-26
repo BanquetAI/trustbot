@@ -7,8 +7,10 @@ import { AppLayout } from './components/AppLayout';
 import { ConsolePage } from './pages/ConsolePage';
 import { AgentsPage } from './pages/AgentsPage';
 import { TasksPage } from './pages/TasksPage';
+import { CouncilPage } from './pages/CouncilPage';
 import { MetricsPage } from './pages/MetricsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ArtifactsPage } from './pages/ArtifactsPage';
 
 export const router = createBrowserRouter([
     {
@@ -32,12 +34,20 @@ export const router = createBrowserRouter([
                 element: <TasksPage />,
             },
             {
+                path: 'council',
+                element: <CouncilPage />,
+            },
+            {
                 path: 'metrics',
                 element: <MetricsPage />,
             },
             {
                 path: 'settings',
                 element: <SettingsPage />,
+            },
+            {
+                path: 'artifacts',
+                element: <ArtifactsPage />,
             },
         ],
     },

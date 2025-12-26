@@ -46,6 +46,12 @@ import { CouncilMemberRegistry } from '../core/council/CouncilMemberRegistry.js'
 import { DelegationManager } from '../core/delegation/DelegationManager.js';
 import { AutonomyBudgetService } from '../core/autonomy/AutonomyBudget.js';
 import type { AgentId, AgentTier, AgentType, TrustLevel } from '../types.js';
+import {
+    AgentRole,
+    AgentCategory,
+    generateAgentId,
+    getNextInstance,
+} from '../types/agentId.js';
 import type { CryptographicAuditEntry } from '../core/types/audit.js';
 // Skills library integration
 import {
@@ -719,34 +725,38 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
 
     // Structured ID generation for agents
     // Format: TRCCII where T=Tier, R=Role, CC=Category, II=Instance
-    const ROLE_CODES: Record<string, number> = {
-        WORKER: 1,
-        SPECIALIST: 2,
-        COORDINATOR: 3,
-        MANAGER: 4,
-        EXECUTIVE: 5,
-        EXECUTOR: 5,
-        ORCHESTRATOR: 6,
-        EVOLVER: 6,
-        VALIDATOR: 7,
-        RESEARCHER: 8,
-        SPAWNER: 8,
-        CREATOR: 9,
-        PLANNER: 3,
-        ANALYZER: 2,
-        COMMUNICATOR: 4,
+    // Map agent types to roles using centralized AgentRole enum from agentId.ts
+    const TYPE_TO_ROLE_MAP: Record<string, AgentRole> = {
+        worker: AgentRole.EXECUTOR,
+        specialist: AgentRole.EXECUTOR,
+        coordinator: AgentRole.ORCHESTRATOR,
+        manager: AgentRole.ORCHESTRATOR,
+        executive: AgentRole.ORCHESTRATOR,
+        executor: AgentRole.EXECUTOR,
+        orchestrator: AgentRole.ORCHESTRATOR,
+        evolver: AgentRole.ORCHESTRATOR,
+        validator: AgentRole.VALIDATOR,
+        researcher: AgentRole.RESEARCHER,
+        spawner: AgentRole.ORCHESTRATOR,
+        creator: AgentRole.ORCHESTRATOR,
+        planner: AgentRole.PLANNER,
+        analyzer: AgentRole.RESEARCHER,
+        communicator: AgentRole.COMMUNICATOR,
     };
 
-    const generateStructuredId = (tier: number, type: string, existingAgents: Array<{ type: string; tier: number }>): string => {
-        const roleCode = ROLE_CODES[type.toUpperCase()] || 0;
-        const category = '00'; // Default category, could be expanded
+    // Generate structured ID using centralized utilities from agentId.ts
+    const generateStructuredId = (tier: number, type: string, existingAgents: Array<{ structuredId?: string; type: string; tier: number }>): string => {
+        const role = TYPE_TO_ROLE_MAP[type.toLowerCase()] ?? AgentRole.EXECUTOR;
+        const category = AgentCategory.OPERATIONS; // Default category
 
-        // Count existing agents of same tier+type to determine instance number
-        const key = `${tier}-${type}`;
-        const existingCount = existingAgents.filter(a => a.tier === tier && a.type.toUpperCase() === type.toUpperCase()).length;
-        const instance = (existingCount + 1).toString().padStart(2, '0');
+        // Get existing structured IDs for instance calculation
+        const existingIds = existingAgents
+            .map(a => a.structuredId)
+            .filter((id): id is string => !!id);
 
-        return `${tier}${roleCode}${category}${instance}`;
+        const instance = getNextInstance(existingIds, tier, role, category);
+
+        return generateAgentId(tier, role, category, instance);
     };
 
     // Helper to convert Supabase agent to API format

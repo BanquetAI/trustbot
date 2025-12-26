@@ -664,6 +664,187 @@ export const workflowApi = {
 };
 
 // ============================================================================
+// Artifact Types
+// ============================================================================
+
+export type ArtifactType = 'CODE' | 'DOCUMENT' | 'IMAGE' | 'DATA' | 'REPORT' | 'CONFIG' | 'LOG' | 'ARCHIVE';
+export type ArtifactStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'ARCHIVED';
+
+export interface Artifact {
+    id: string;
+    name: string;
+    type: ArtifactType;
+    mimeType: string;
+    content?: string;
+    size: number;
+    checksum?: string;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    taskId?: string;
+    visibility: 'PUBLIC' | 'PRIVATE' | 'TASK_PARTICIPANTS' | 'TIER_RESTRICTED';
+    minTierRequired?: number;
+    status: ArtifactStatus;
+    tags: string[];
+    description?: string;
+    version: number;
+    isLatest: boolean;
+    parentArtifactId?: string;
+    previousVersionId?: string;
+    reviewedBy?: string;
+    reviewedAt?: string;
+    reviewNotes?: string;
+}
+
+export interface ArtifactStats {
+    total: number;
+    byType: Record<string, number>;
+    byStatus: Record<string, number>;
+    totalSizeBytes: number;
+}
+
+export interface ArtifactListResponse {
+    artifacts: Artifact[];
+    total: number;
+    hasMore: boolean;
+}
+
+// ============================================================================
+// Artifact API
+// ============================================================================
+
+async function fetchArtifactAPI<T>(path: string): Promise<T> {
+    const res = await fetch(`${API_BASE}/artifacts${path}`);
+    if (!res.ok) throw new Error(`Artifact API error: ${res.status}`);
+    return res.json();
+}
+
+async function postArtifactAPI<T>(path: string, data: unknown): Promise<T> {
+    const res = await fetch(`${API_BASE}/artifacts${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Artifact API error: ${res.status}`);
+    return res.json();
+}
+
+async function putArtifactAPI<T>(path: string, data: unknown): Promise<T> {
+    const res = await fetch(`${API_BASE}/artifacts${path}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(`Artifact API error: ${res.status}`);
+    return res.json();
+}
+
+async function deleteArtifactAPI<T>(path: string): Promise<T> {
+    const res = await fetch(`${API_BASE}/artifacts${path}`, {
+        method: 'DELETE',
+    });
+    if (!res.ok) throw new Error(`Artifact API error: ${res.status}`);
+    return res.json();
+}
+
+export const artifactApi = {
+    // List artifacts with optional filters
+    list: (params?: {
+        taskId?: string;
+        createdBy?: string;
+        type?: ArtifactType;
+        status?: ArtifactStatus;
+        tags?: string[];
+        latestOnly?: boolean;
+        limit?: number;
+        offset?: number;
+    }) => {
+        const searchParams = new URLSearchParams();
+        if (params?.taskId) searchParams.set('taskId', params.taskId);
+        if (params?.createdBy) searchParams.set('createdBy', params.createdBy);
+        if (params?.type) searchParams.set('type', params.type);
+        if (params?.status) searchParams.set('status', params.status);
+        if (params?.tags?.length) searchParams.set('tags', params.tags.join(','));
+        if (params?.latestOnly) searchParams.set('latestOnly', 'true');
+        if (params?.limit) searchParams.set('limit', String(params.limit));
+        if (params?.offset) searchParams.set('offset', String(params.offset));
+        const query = searchParams.toString();
+        return fetchArtifactAPI<ArtifactListResponse>(query ? `?${query}` : '');
+    },
+
+    // Get artifact by ID
+    get: (id: string) => fetchArtifactAPI<Artifact>(`/${id}`),
+
+    // Get artifact content (returns blob for binary, text for text)
+    getContent: async (id: string): Promise<{ content: string | Blob; mimeType: string }> => {
+        const res = await fetch(`${API_BASE}/artifacts/${id}/content`);
+        if (!res.ok) throw new Error(`Artifact API error: ${res.status}`);
+        const mimeType = res.headers.get('content-type') || 'application/octet-stream';
+        if (mimeType.startsWith('text/') || mimeType === 'application/json') {
+            return { content: await res.text(), mimeType };
+        }
+        return { content: await res.blob(), mimeType };
+    },
+
+    // Create artifact
+    create: (data: {
+        name: string;
+        type: ArtifactType;
+        content?: string;
+        mimeType?: string;
+        taskId?: string;
+        tags?: string[];
+        description?: string;
+        createdBy: string;
+    }) => postArtifactAPI<Artifact>('', data),
+
+    // Update artifact metadata
+    update: (id: string, data: {
+        name?: string;
+        tags?: string[];
+        description?: string;
+        visibility?: string;
+    }) => putArtifactAPI<Artifact>(`/${id}`, data),
+
+    // Delete artifact
+    delete: (id: string) => deleteArtifactAPI<{ success: boolean }>(`/${id}`),
+
+    // Get version history
+    getVersions: (id: string) => fetchArtifactAPI<{
+        artifactId: string;
+        versions: Artifact[];
+        count: number;
+    }>(`/${id}/versions`),
+
+    // Create new version
+    createVersion: (id: string, data: {
+        content?: string;
+        notes?: string;
+        createdBy: string;
+    }) => postArtifactAPI<Artifact>(`/${id}/versions`, data),
+
+    // Submit for review
+    submitForReview: (id: string) => postArtifactAPI<Artifact>(`/${id}/submit-review`, {}),
+
+    // Review artifact
+    review: (id: string, data: {
+        decision: 'APPROVE' | 'REJECT';
+        notes?: string;
+        reviewedBy: string;
+    }) => postArtifactAPI<Artifact>(`/${id}/review`, data),
+
+    // Get stats
+    getStats: () => fetchArtifactAPI<ArtifactStats>('/stats'),
+
+    // Get artifacts for a task
+    getByTask: (taskId: string) => fetchArtifactAPI<{
+        taskId: string;
+        artifacts: Artifact[];
+        count: number;
+    }>(`/task/${taskId}`),
+};
+
+// ============================================================================
 // React Hooks
 // ============================================================================
 
@@ -836,4 +1017,35 @@ export function useWorkflowApprovals(pollInterval = 2000) {
     }, [refresh, pollInterval]);
 
     return { approvals, loading, refresh };
+}
+
+export function useArtifacts(pollInterval = 5000) {
+    const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+    const [stats, setStats] = useState<ArtifactStats | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const refresh = useCallback(async () => {
+        try {
+            const [listData, statsData] = await Promise.all([
+                artifactApi.list({ latestOnly: true }),
+                artifactApi.getStats(),
+            ]);
+            setArtifacts(listData.artifacts);
+            setStats(statsData);
+            setError(null);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to load artifacts');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        refresh();
+        const interval = setInterval(refresh, pollInterval);
+        return () => clearInterval(interval);
+    }, [refresh, pollInterval]);
+
+    return { artifacts, stats, loading, error, refresh };
 }

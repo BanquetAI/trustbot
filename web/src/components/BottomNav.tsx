@@ -18,7 +18,7 @@ const NAV_ITEMS: NavItem[] = [
     { path: '/console', icon: '🏠', label: 'Home' },
     { path: '/agents', icon: '🤖', label: 'Agents' },
     { path: '/tasks', icon: '📋', label: 'Tasks' },
-    { path: '/metrics', icon: '📊', label: 'Metrics' },
+    { path: '/artifacts', icon: '📦', label: 'Artifacts' },
     { path: '/settings', icon: '⚙️', label: 'Settings' },
 ];
 
