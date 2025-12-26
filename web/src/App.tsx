@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
 import { Console } from './components/Console';
+import { NavBar, type NavView } from './components/NavBar';
 import { ControlPanel } from './components/ControlPanel';
 import { BlueprintSelector } from './components/BlueprintSelector';
 import { IntegrationConfig } from './components/IntegrationConfig';
@@ -65,6 +66,29 @@ function AppContent() {
 
     const [activeModal, setActiveModal] = useState<ModalType>('none');
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+    // Navigation state for NavBar
+    const [currentView, setCurrentView] = useState<NavView>('console');
+
+    // Auto-tick alarm clock state
+    const [autoTickEnabled, setAutoTickEnabled] = useState(false);
+    const [autoTickInterval, setAutoTickInterval] = useState(5000); // 5 seconds default
+
+    // Auto-tick effect
+    useEffect(() => {
+        if (!autoTickEnabled) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                await api.tick();
+                await refresh();
+            } catch (e) {
+                console.error('Auto-tick failed:', e);
+            }
+        }, autoTickInterval);
+
+        return () => clearInterval(intervalId);
+    }, [autoTickEnabled, autoTickInterval, refresh]);
 
     // User assistance state
     const [showGenesis, setShowGenesis] = useState(() => !isGenesisComplete());
@@ -146,6 +170,54 @@ function AppContent() {
         setActiveModal('none');
     };
 
+    // NavBar navigation handler
+    const handleNavigation = (view: NavView) => {
+        setCurrentView(view);
+        // Map views to modals where applicable
+        switch (view) {
+            case 'agents':
+                setActiveModal('agentList');
+                break;
+            case 'tasks':
+                setActiveModal('tasks');
+                break;
+            case 'council':
+                setActiveModal('pending'); // Council uses pending approvals
+                break;
+            case 'settings':
+                setActiveModal('controls');
+                break;
+            case 'metrics':
+                setActiveModal('metrics');
+                break;
+            case 'help':
+                setShowHelpPanel(true);
+                break;
+            case 'glossary':
+                setActiveModal('glossary');
+                break;
+            case 'console':
+            default:
+                setActiveModal('none');
+                break;
+        }
+    };
+
+    // NavBar quick action handler
+    const handleQuickAction = (action: 'spawn' | 'tick' | 'task') => {
+        switch (action) {
+            case 'spawn':
+                setActiveModal('spawnWizard');
+                break;
+            case 'tick':
+                api.tick().then(() => refresh());
+                break;
+            case 'task':
+                setActiveModal('tasks');
+                break;
+        }
+    };
+
     // API handlers - delegate to hook
     const handleSpawnAgent = async (name: string, type: string, tier: number) => {
         await spawnAgent(name, type, tier);
@@ -214,7 +286,7 @@ function AppContent() {
     };
 
     return (
-        <div className="app-container" style={{ height: '100vh', overflow: 'hidden' }}>
+        <div className="app-container app-container--with-nav">
             {/* Initial loading state */}
             {showInitialLoading && <LoadingOverlay />}
 
@@ -224,8 +296,20 @@ function AppContent() {
                     error={error}
                     onRetry={handleRetry}
                     onDismiss={() => setErrorDismissed(true)}
+                    onOpenSettings={() => setActiveModal('integrations')}
                 />
             )}
+
+            {/* Unified Navigation Bar */}
+            <NavBar
+                currentView={currentView}
+                onNavigate={handleNavigation}
+                user={currentUser}
+                userAuthority={hitlUser?.authority || 0}
+                pendingCount={approvals.length}
+                onLogout={handleLogout}
+                onQuickAction={handleQuickAction}
+            />
 
             {/* Aria Console - Primary Interface */}
             <Console
@@ -249,6 +333,10 @@ function AppContent() {
                 onOpenSpawnWizard={() => setActiveModal('spawnWizard')}
                 onOpenInsights={() => setActiveModal('insights')}
                 onLogout={handleLogout}
+                autoTickEnabled={autoTickEnabled}
+                autoTickInterval={autoTickInterval}
+                onToggleAutoTick={() => setAutoTickEnabled(!autoTickEnabled)}
+                onSetAutoTickInterval={setAutoTickInterval}
             />
 
             {/* Control Panel Modal */}
@@ -317,25 +405,6 @@ function AppContent() {
                     }}
                     onEditPermissions={() => {
                         setActiveModal('permissions');
-                    }}
-                    onAdjustTrust={async (agentId, delta, reason) => {
-                        try {
-                            const result = await api.adjustTrust(agentId, delta, reason);
-                            await refresh();
-                            // Show achievement for trust adjustment
-                            if (result.success) {
-                                setShowAchievement({
-                                    id: delta > 0 ? 'trust-increased' : 'trust-decreased',
-                                    title: delta > 0 ? 'Trust Increased' : 'Trust Decreased',
-                                    description: `${selectedAgent?.name}'s trust is now ${result.newScore}`,
-                                    icon: delta > 0 ? '📈' : '📉',
-                                    rarity: 'common',
-                                    xpReward: 15,
-                                });
-                            }
-                        } catch (e) {
-                            console.error('Failed to adjust trust:', e);
-                        }
                     }}
                     onOpenTaskQueue={() => setActiveModal('taskQueue')}
                 />

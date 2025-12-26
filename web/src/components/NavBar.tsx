@@ -188,7 +188,9 @@ export function NavBar({
                         <span className="nav-link__icon">{item.icon}</span>
                         <span className="nav-link__label">{item.label}</span>
                         {item.id === 'council' && pendingCount > 0 && (
-                            <span className="nav-badge">{pendingCount}</span>
+                            <span className="nav-badge" style={{ background: 'var(--accent-gold)', color: '#000' }}>
+                                {pendingCount}
+                            </span>
                         )}
                     </button>
                 ))}

@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../api';
+import { v4 as uuidv4 } from 'uuid';
 import {
     TIERS, AGENT_TYPES, AGENT_STATUS,
     CLI_COMMANDS, getHITLLevel, formatTime,
@@ -81,6 +82,11 @@ interface ConsoleProps {
     onOpenSpawnWizard?: () => void;
     onOpenInsights?: () => void;
     onLogout?: () => void;
+    // Auto-tick alarm clock props
+    autoTickEnabled?: boolean;
+    autoTickInterval?: number;
+    onToggleAutoTick?: () => void;
+    onSetAutoTickInterval?: (interval: number) => void;
 }
 
 interface ConsoleMessage {
@@ -112,22 +118,27 @@ export function Console({
     blackboardEntries,
     approvals,
     hitlLevel,
-    user,
+    user: _user,
     onSpawn,
     onSetHITL,
     onApprove,
     onSelectAgent,
-    onOpenControls,
-    onOpenAgentList,
-    onOpenMetrics,
-    onOpenTasks,
-    onOpenHelp,
-    onOpenTutorial,
-    onOpenGlossary,
+    onOpenControls: _onOpenControls,
+    onOpenAgentList: _onOpenAgentList,
+    onOpenMetrics: _onOpenMetrics,
+    onOpenTasks: _onOpenTasks,
+    onOpenHelp: _onOpenHelp,
+    onOpenTutorial: _onOpenTutorial,
+    onOpenGlossary: _onOpenGlossary,
     onOpenPending,
     onOpenSpawnWizard,
     onOpenInsights,
-    onLogout,
+    onLogout: _onLogout,
+    // Auto-tick props
+    autoTickEnabled = false,
+    autoTickInterval = 5000,
+    onToggleAutoTick,
+    onSetAutoTickInterval,
 }: ConsoleProps) {
     // Alias for compatibility
     const entries = blackboardEntries;
@@ -145,6 +156,64 @@ export function Console({
     const [isListening, setIsListening] = useState(false);
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
     const recognitionRef = useRef<any>(null);
+
+    // Memory session ID - persists for the browser session
+    const sessionId = useMemo(() => {
+        const stored = sessionStorage.getItem('aria-session-id');
+        if (stored) return stored;
+        const newId = uuidv4();
+        sessionStorage.setItem('aria-session-id', newId);
+        return newId;
+    }, []);
+
+    // Store conversation message to memory (async, non-blocking)
+    const storeToMemory = useCallback(async (role: 'user' | 'aria', content: string) => {
+        try {
+            await api.storeConversation({
+                sessionId,
+                role,
+                content,
+                userId: _user?.email,
+            });
+        } catch (err) {
+            // Silently fail - memory is optional enhancement
+            console.debug('Memory storage failed:', err);
+        }
+    }, [sessionId, _user?.email]);
+
+    // Retrieve memory context for RAG (async)
+    const getMemoryContext = useCallback(async (query: string): Promise<string> => {
+        try {
+            // Search relevant conversations and knowledge in parallel
+            const [convResults, knowledgeResults] = await Promise.all([
+                api.searchConversations(query, { userId: _user?.email, limit: 5 }).catch(() => []),
+                api.searchKnowledge(query, { limit: 5 }).catch(() => []),
+            ]);
+
+            const parts: string[] = [];
+
+            // Add relevant past conversations
+            if (convResults.length > 0) {
+                parts.push('**Recent relevant conversations:**');
+                convResults.slice(0, 3).forEach((r: any) => {
+                    parts.push(`- [${r.role}]: ${r.content.substring(0, 200)}${r.content.length > 200 ? '...' : ''}`);
+                });
+            }
+
+            // Add relevant knowledge
+            if (knowledgeResults.length > 0) {
+                parts.push('\n**Relevant knowledge:**');
+                knowledgeResults.slice(0, 3).forEach((k: any) => {
+                    parts.push(`- ${k.title}: ${k.content.substring(0, 200)}${k.content.length > 200 ? '...' : ''}`);
+                });
+            }
+
+            return parts.join('\n');
+        } catch (err) {
+            console.debug('Memory retrieval failed:', err);
+            return '';
+        }
+    }, [_user?.email]);
 
     // Initialize speech recognition
     useEffect(() => {
@@ -252,9 +321,13 @@ export function Console({
         scrollToBottom();
     }, [messages, scrollToBottom]);
 
-    // Show Aria intro on mount (and speak it if voice enabled)
+    // Show Aria intro on mount (and speak it if voice enabled) - Ensure only once
+    const hasGreeted = useRef(false);
     useEffect(() => {
-        addMessage('aria', ARIA_INTRO);
+        if (!hasGreeted.current && messages.length === 0) {
+            addMessage('aria', ARIA_INTRO);
+            hasGreeted.current = true;
+        }
     }, []);
 
     // Watch for new blackboard entries and show them
@@ -298,11 +371,15 @@ export function Console({
         };
         setMessages(prev => [...prev, msg]);
 
-        // Speak Aria messages
-        if (type === 'aria') {
+        // Store to memory (non-blocking)
+        if (type === 'user') {
+            storeToMemory('user', content);
+        } else if (type === 'aria') {
+            storeToMemory('aria', content);
+            // Speak Aria messages
             speakAria(content);
         }
-    }, [speakAria]);
+    }, [speakAria, storeToMemory]);
 
     const parseCommand = (input: string): { command: string; args: string[] } => {
         const parts = input.trim().match(/(?:[^\s"]+|"[^"]*")+/g) || [];
@@ -716,39 +793,58 @@ ${recentEntries}${onSelectAgent ? '\n\n_Click "Open Profile" below to see full d
 
         try {
             const result = await api.tick();
-            const events = result.events?.slice(0, 5).map(e => `  • ${e}`).join('\n') || '  (no events)';
+            const events = result.events?.slice(0, 8).map((e: string) => `  • ${e}`).join('\n') || '  (no events)';
 
-            // Check what's still pending after tick
-            const stillOpenTasks = entries.filter(e => e.type === 'TASK' && e.status === 'OPEN');
-            const stillInProgress = entries.filter(e => e.type === 'TASK' && e.status === 'IN_PROGRESS');
-            const stillPendingApprovals = approvals.length;
-
+            // Build comprehensive tick result
             let tickResult = `✅ **Tick completed!**
 
-📊 **Processed**: ${result.processed}
-📋 **Assigned**: ${result.assigned}
-✅ **Completed**: ${result.completed}
+📊 **Processed**: ${result.processed || 0}
+📋 **Assigned**: ${result.assigned || 0}
+✅ **Completed**: ${result.completed || 0}
+🤖 **Idle Agents**: ${result.idleAgentsAvailable ?? 'N/A'}
 
 **Events**:
 ${events}`;
 
-            // Show what's still pending
-            const hasPending = stillPendingApprovals > 0 || stillOpenTasks.length > 0;
+            // Show assignments if any
+            if (result.assignments && result.assignments.length > 0) {
+                tickResult += `\n\n---\n**📋 New Assignments:**`;
+                result.assignments.slice(0, 5).forEach((a: { agentName: string; taskTitle: string }) => {
+                    tickResult += `\n  • ${a.agentName} → "${a.taskTitle}"`;
+                });
+                if (result.assignments.length > 5) {
+                    tickResult += `\n  _(+${result.assignments.length - 5} more)_`;
+                }
+            }
+
+            // Show pending summary from API
+            const queue = result.queue || {};
+            const hasPending = (queue.pending || 0) > 0 || (queue.awaitingApproval || 0) > 0;
+
             if (hasPending) {
                 tickResult += `\n\n---\n**⏳ Still Pending:**`;
 
-                if (stillPendingApprovals > 0) {
-                    tickResult += `\n  🔐 ${stillPendingApprovals} approval(s) — _Waiting for your decision_`;
+                if (queue.awaitingApproval > 0) {
+                    tickResult += `\n  🔐 ${queue.awaitingApproval} awaiting approval — _Requires your decision_`;
                 }
-                if (stillOpenTasks.length > 0) {
-                    tickResult += `\n  📥 ${stillOpenTasks.length} unassigned task(s) — _No available agents or needs higher tier_`;
+                if (queue.pending > 0) {
+                    tickResult += `\n  📥 ${queue.pending} queued — _Waiting for idle agents_`;
                 }
-                if (stillInProgress.length > 0) {
-                    tickResult += `\n  🔄 ${stillInProgress.length} in-progress — _Agents working on these_`;
+                if (queue.inProgress > 0) {
+                    tickResult += `\n  🔄 ${queue.inProgress} in-progress — _Agents working_`;
                 }
 
-                tickResult += `\n\n💡 _Run \`tick\` again or adjust HITL to process more._`;
-            } else if (result.completed === 0 && result.processed === 0) {
+                // Show specific pending items if available
+                const pendingItems = result.pendingSummary?.items;
+                if (pendingItems && pendingItems.length > 0) {
+                    tickResult += `\n\n**Details:**`;
+                    pendingItems.slice(0, 3).forEach((item: { title: string; reason: string }) => {
+                        tickResult += `\n  • "${item.title}" — ${item.reason}`;
+                    });
+                }
+
+                tickResult += `\n\n💡 _Run \`tick\` again to process more._`;
+            } else if (result.completed === 0 && result.assigned === 0) {
                 tickResult += `\n\n✅ **All caught up!** No pending work.`;
             }
 
@@ -1515,26 +1611,35 @@ ${advisorList}
         addMessage('aria', '💭 Consulting my neural networks...');
 
         try {
-            // First, check Aria settings to see what mode we're in
-            const settingsResult = await api.getAriaSettings().catch(() => null);
+            // Retrieve memory context in parallel with settings check
+            const [settingsResult, memoryContext] = await Promise.all([
+                api.getAriaSettings().catch(() => null),
+                getMemoryContext(input),
+            ]);
+
             const mode = settingsResult?.settings?.mode || 'single';
             const availableProviders = settingsResult?.availableProviders || ['claude'];
 
             // If multiple providers available and mode is 'all', use collective intelligence
             if (mode === 'all' && availableProviders.length > 1) {
-                await handleCollectiveIntelligence(input, availableProviders);
+                await handleCollectiveIntelligence(input, availableProviders, memoryContext);
                 return;
             }
 
-            // Single provider mode - but still smart
-            const systemContext = `Current TrustBot context:
+            // Build context with memory
+            let systemContext = `Current TrustBot context:
 - ${agents.length} agents active (${agents.filter(a => a.status === 'WORKING').length} working)
 - ${approvals.length} pending approvals
 - HITL governance level: ${hitlLevel}%
 - Recent activity: ${entries.slice(-3).map(e => e.title).join(', ') || 'none'}`;
 
+            // Add memory context if available
+            if (memoryContext) {
+                systemContext += `\n\n--- Memory Context ---\n${memoryContext}`;
+            }
+
             const result = await api.consultProvider(input, 'claude',
-                'You are Aria, an advanced AI assistant for TrustBot HQ - like J.A.R.V.I.S. from Iron Man. You are intelligent, helpful, witty, and knowledgeable about everything. You can discuss any topic, answer any question, provide analysis, and engage in natural conversation. Be concise but thorough. Show personality.',
+                'You are Aria, an advanced AI assistant for TrustBot HQ - like J.A.R.V.I.S. from Iron Man. You are intelligent, helpful, witty, and knowledgeable about everything. You can discuss any topic, answer any question, provide analysis, and engage in natural conversation. Be concise but thorough. Show personality. You have access to memory of past conversations and system knowledge - use this context when relevant to provide continuity and personalized assistance.',
                 systemContext
             );
 
@@ -1552,16 +1657,19 @@ ${advisorList}
     };
 
     // Collective Intelligence - consult all AIs and synthesize the best answer
-    const handleCollectiveIntelligence = async (input: string, providers: string[]) => {
+    const handleCollectiveIntelligence = async (input: string, providers: string[], memoryContext?: string) => {
         setMessages(prev => prev.slice(0, -1)); // Remove old thinking
         addMessage('aria', `🧠 Consulting ${providers.length} AI minds: ${providers.join(', ')}...`);
 
         try {
-            const systemContext = `TrustBot system: ${agents.length} agents, ${approvals.length} pending approvals, HITL: ${hitlLevel}%`;
+            let systemContext = `TrustBot system: ${agents.length} agents, ${approvals.length} pending approvals, HITL: ${hitlLevel}%`;
+            if (memoryContext) {
+                systemContext += `\n\nMemory Context:\n${memoryContext}`;
+            }
 
             const result = await api.gatherPerspectives(
                 input,
-                `You are part of Aria's collective intelligence. ${systemContext}. Answer as a helpful, intelligent AI assistant.`,
+                `You are part of Aria's collective intelligence. ${systemContext}. Answer as a helpful, intelligent AI assistant with memory of past interactions.`,
                 true // synthesize
             );
 
@@ -1795,168 +1903,71 @@ ${advisorList}
             overflow: 'hidden',
             border: '1px solid var(--border-color)',
         }}>
-            {/* Header */}
-            <div className="console-header">
-                {/* Left: Branding */}
+            {/* Header - Simplified (NavBar handles main navigation) */}
+            <div className="console-header console-header--compact">
+                {/* Left: Aria Title + Stats */}
                 <div className="console-header-brand">
                     <span className="console-header-icon">✨</span>
-                    <div className="console-header-info">
-                        <h2>Aria Console</h2>
-                        <p>
-                            <span className="console-stat">{agents.length} agents</span>
-                            <span className="console-stat-divider">•</span>
-                            <span className="console-stat">{approvals.length} pending</span>
-                            <span className="console-stat-divider">•</span>
-                            <span className="console-stat">HITL {hitlLevel}%</span>
-                        </p>
+                    <span className="console-title">Aria Console</span>
+                    <div className="console-stats-inline">
+                        <span className="console-stat">{agents.length} agents</span>
+                        <span className="console-stat">{approvals.length} pending</span>
+                        <span className="console-stat">HITL {hitlLevel}%</span>
                     </div>
                 </div>
 
-                {/* Center: Actions */}
+                {/* Right: Console-specific quick actions */}
                 <div className="console-header-actions">
                     <Tooltip
                         content={TOOLTIP_CONTENT.ACTION_STATUS.content}
                         title={TOOLTIP_CONTENT.ACTION_STATUS.title}
                         position="bottom"
                     >
-                        <button className="console-btn" onClick={() => handleCommand('status')}>
-                            📊 Status
+                        <button className="console-btn console-btn--compact" onClick={() => handleCommand('status')}>
+                            📊
                         </button>
                     </Tooltip>
-                    {onOpenAgentList && (
-                        <Tooltip
-                            content="View and manage all active agents in your workforce."
-                            title="Agent Directory"
-                            position="bottom"
-                        >
-                            <button className="console-btn" onClick={onOpenAgentList}>
-                                🤖 Agents
-                            </button>
-                        </Tooltip>
-                    )}
-                    {onOpenControls && (
-                        <Tooltip
-                            content="Adjust HITL governance, spawn agents, and configure system settings."
-                            title="Control Panel"
-                            position="bottom"
-                        >
-                            <button className="console-btn" onClick={onOpenControls}>
-                                🎛️ Controls
-                            </button>
-                        </Tooltip>
-                    )}
-                    {onOpenTasks && (
-                        <Tooltip
-                            content="View task queue, assignments, and completion status across all agents."
-                            title="Task Board"
-                            position="bottom"
-                        >
-                            <button className="console-btn" onClick={onOpenTasks}>
-                                📋 Tasks
-                            </button>
-                        </Tooltip>
-                    )}
-                    {onOpenMetrics && (
-                        <Tooltip
-                            content="Analytics dashboard showing trust scores, performance, and system health."
-                            title="Metrics Dashboard"
-                            position="bottom"
-                        >
-                            <button className="console-btn" onClick={onOpenMetrics}>
-                                📈 Metrics
-                            </button>
-                        </Tooltip>
-                    )}
                     <Tooltip
                         content={TOOLTIP_CONTENT.ACTION_TICK.content}
                         title={TOOLTIP_CONTENT.ACTION_TICK.title}
                         position="bottom"
                     >
-                        <button className="console-btn console-btn-primary" onClick={() => handleCommand('tick')}>
+                        <button className="console-btn console-btn-primary console-btn--compact" onClick={() => handleCommand('tick')}>
                             ⚡ Tick
                         </button>
                     </Tooltip>
-                    {onOpenTutorial && (
-                        <Tooltip
-                            content="Interactive walkthrough of agent spawning, trust tiers, and HITL governance."
-                            title="Spawn Tutorial"
-                            position="bottom"
-                        >
-                            <button className="console-btn console-btn-tutorial" onClick={onOpenTutorial}>
-                                📚 Tutorial
-                            </button>
-                        </Tooltip>
-                    )}
-                    {onOpenGlossary && (
-                        <Tooltip
-                            content="Searchable reference of AI agent terminology and TrustBot concepts."
-                            title="AI Glossary"
-                            position="bottom"
-                        >
-                            <button className="console-btn console-btn-glossary" onClick={onOpenGlossary}>
-                                📖 Glossary
-                            </button>
-                        </Tooltip>
-                    )}
-                    {/* Pending Actions Indicator */}
-                    {onOpenPending && (
-                        <Tooltip
-                            content={approvals.length > 0
-                                ? `${approvals.length} item(s) awaiting your approval. Click to review.`
-                                : 'View pending tasks, approvals, and problems needing attention.'
-                            }
-                            title="Pending Actions"
-                            position="bottom"
-                        >
+                    {/* Auto-tick alarm clock toggle */}
+                    {onToggleAutoTick && (
+                        <div className="auto-tick-control">
                             <button
-                                className={`pending-indicator ${approvals.length > 0 ? 'pending-indicator-pulse' : ''}`}
-                                onClick={onOpenPending}
+                                className={`console-btn console-btn--compact auto-tick-btn ${autoTickEnabled ? 'auto-tick-btn--active' : ''}`}
+                                onClick={onToggleAutoTick}
+                                title={autoTickEnabled ? `Auto-tick ON (every ${autoTickInterval / 1000}s) - Click to stop` : 'Enable auto-tick'}
                             >
-                                ⏳ Pending
-                                {approvals.length > 0 && (
-                                    <span className="pending-indicator-count">{approvals.length}</span>
-                                )}
+                                ⏰ {autoTickEnabled ? 'ON' : 'Auto'}
                             </button>
-                        </Tooltip>
-                    )}
-                    {onOpenHelp && (
-                        <Tooltip
-                            content="Get help with commands, features, and best practices."
-                            title="Help & Support"
-                            position="bottom"
-                        >
-                            <button className="console-btn" onClick={onOpenHelp}>
-                                ❓ Help
-                            </button>
-                        </Tooltip>
-                    )}
-                </div>
-
-                {/* Right: User Profile */}
-                <div className="console-header-user">
-                    {user ? (
-                        <div className="console-user-profile">
-                            {user.picture ? (
-                                <img
-                                    src={user.picture}
-                                    alt={user.name}
-                                    className="console-user-avatar"
-                                    referrerPolicy="no-referrer"
-                                />
-                            ) : (
-                                <div className="console-user-avatar console-user-avatar-fallback">
-                                    {user.name?.charAt(0)?.toUpperCase() || '?'}
-                                </div>
+                            {autoTickEnabled && onSetAutoTickInterval && (
+                                <select
+                                    className="auto-tick-interval"
+                                    value={autoTickInterval}
+                                    onChange={(e) => onSetAutoTickInterval(Number(e.target.value))}
+                                    title="Auto-tick interval"
+                                >
+                                    <option value={3000}>3s</option>
+                                    <option value={5000}>5s</option>
+                                    <option value={10000}>10s</option>
+                                    <option value={30000}>30s</option>
+                                    <option value={60000}>1m</option>
+                                </select>
                             )}
-                            <div className="console-user-info">
-                                <span className="console-user-name">{user.name}</span>
-                                <span className="console-user-email">{user.email}</span>
-                            </div>
                         </div>
-                    ) : null}
-                    {onLogout && (
-                        <button className="console-btn console-btn-logout" onClick={onLogout}>
-                            🚪
+                    )}
+                    {onOpenPending && approvals.length > 0 && (
+                        <button
+                            className="pending-indicator pending-indicator-pulse pending-indicator--compact"
+                            onClick={onOpenPending}
+                        >
+                            ⏳ <span className="pending-indicator-count">{approvals.length}</span>
                         </button>
                     )}
                 </div>

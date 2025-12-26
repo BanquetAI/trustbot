@@ -711,7 +711,7 @@ missionControlRoutes.post('/decisions/:id/approve', requireRole('operator'), asy
         );
     }
 
-    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex];
+    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex]!;
 
     // Check if already decided
     if (actionRequest.status !== 'pending') {
@@ -810,7 +810,7 @@ missionControlRoutes.post('/decisions/:id/deny', requireRole('operator'), async 
         );
     }
 
-    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex];
+    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex]!;
 
     if (actionRequest.status !== 'pending') {
         return c.json(
@@ -952,6 +952,7 @@ missionControlRoutes.get('/decisions/:id/impact', requireRole('operator'), async
 // Masking utility functions
 function maskEmail(email: string): string {
     const [local, domain] = email.split('@');
+    if (!local || !domain) return '***@***.***';
     if (!domain) return '***@***.***';
     const domainParts = domain.split('.');
     return `${local[0]}***@***.${domainParts[domainParts.length - 1]}`;
@@ -1049,7 +1050,7 @@ missionControlRoutes.get('/decisions/:id/sample', requireRole('operator'), async
     }
 
     // Get sample data for this action type
-    const sampleConfig = MOCK_SAMPLE_DATA[actionRequest.actionType] || MOCK_SAMPLE_DATA.data_export;
+    const sampleConfig = MOCK_SAMPLE_DATA[actionRequest.actionType] || MOCK_SAMPLE_DATA.data_export!;
     const rawRecords = sampleConfig.records.slice(0, limit);
 
     // Apply masking to the records
@@ -1867,7 +1868,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
         );
     }
 
-    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex];
+    const actionRequest = MOCK_ACTION_REQUESTS[actionIndex]!;
 
     // Check if already decided
     if (actionRequest.status !== 'pending') {
@@ -2349,7 +2350,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
         );
     }
 
-    const rule = MOCK_GOVERNANCE_RULES[ruleIndex];
+    const rule = MOCK_GOVERNANCE_RULES[ruleIndex]!;
 
     // Check if rule is pending
     if (rule.status !== 'pending') {
@@ -2497,16 +2498,16 @@ const MOCK_AUDIT_ENTRIES: AuditEntry[] = Array.from({ length: 50 }, (_, i) => {
         id: `audit-${String(i + 1).padStart(3, '0')}`,
         orgId: 'demo-org',
         timestamp: new Date(Date.now() - i * 30 * 60 * 1000).toISOString(),
-        agentId: agentIds[agentIndex],
-        agentName: agents[agentIndex],
-        actionType,
-        actionDetails: `${actionType.replace(/_/g, ' ')} for request ${i + 1}`,
-        outcome: outcomes[i % outcomes.length],
+        agentId: agentIds[agentIndex]!,
+        agentName: agents[agentIndex]!,
+        actionType: actionType!,
+        actionDetails: `${actionType!.replace(/_/g, ' ')} for request ${i + 1}`,
+        outcome: outcomes[i % outcomes.length]!,
         hashStatus: i % 10 === 9 ? 'unverified' : 'verified',
         currentHash: generateMockHash(),
         previousHash: prevHash,
         hashAlgorithm: 'SHA-256',
-        actingAgentId: agentIds[agentIndex],
+        actingAgentId: agentIds[agentIndex]!,
         supervisingAgentId: i % 3 === 0 ? 'exec-1' : undefined,
         hitlReviewerId: i % 5 === 0 ? 'user-123' : undefined,
         tribunalIds: i % 7 === 0 ? ['validator-1', 'validator-2'] : undefined,

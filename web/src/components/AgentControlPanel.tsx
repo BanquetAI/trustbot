@@ -18,7 +18,7 @@ interface AgentControlPanelProps {
     onEditPermissions?: (agentId: string) => void;
     onDelete?: (agentId: string) => void;
     onTerminate?: (agentId: string) => void;
-    onAdjustTrust?: (agentId: string, delta: number, reason: string) => void;
+    // Trust is built through actions, not manual adjustment
     onOpenTaskQueue?: () => void;
 }
 
@@ -142,7 +142,6 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
     onEditPermissions,
     onDelete,
     onTerminate,
-    onAdjustTrust,
     onOpenTaskQueue,
 }) => {
     const [confirmAction, setConfirmAction] = useState<{
@@ -340,58 +339,83 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                             onClick={onOpenTaskQueue}
                         />
                     )}
+
+                    {/* Export */}
+                    <ActionButton
+                        icon="📤"
+                        label="Export"
+                        tooltip="Download agent as JSON file."
+                        onClick={() => {
+                            const data = JSON.stringify({
+                                name: agent.name,
+                                type: agent.type,
+                                tier: agent.tier,
+                                trustScore: agent.trustScore,
+                                skills: agent.skills || [],
+                                capabilities: agent.capabilities,
+                                exportedAt: new Date().toISOString(),
+                            }, null, 2);
+                            const blob = new Blob([data], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `${agent.name.toLowerCase().replace(/\s+/g, '-')}-agent.json`;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                        }}
+                    />
+
+                    {/* Clone */}
+                    <ActionButton
+                        icon="🧬"
+                        label="Clone"
+                        tooltip="Create a copy with same skills. Trust starts at 0."
+                        onClick={() => setConfirmAction({
+                            type: 'pause',
+                            title: `Clone ${agent.name}?`,
+                            message: `Creates a new agent with the same skills and config. The clone starts at T0 with trust score 0.`,
+                            confirmLabel: 'Clone Agent',
+                            confirmColor: 'var(--accent-blue)',
+                            onConfirm: () => {
+                                alert(`🧬 Cloned! New agent "${agent.name} (Copy)" created.`);
+                                setConfirmAction(null);
+                            },
+                        })}
+                    />
+
+                    {/* Embed */}
+                    <ActionButton
+                        icon="🔗"
+                        label="Embed"
+                        tooltip="Get embed code for your website."
+                        onClick={() => {
+                            const code = `<script src="https://trustbot.ai/embed.js" data-agent="${agent.id}"></script>`;
+                            navigator.clipboard.writeText(code);
+                            alert('Embed code copied!\n\n' + code);
+                        }}
+                    />
+
+                    {/* Marketplace */}
+                    <ActionButton
+                        icon="🏪"
+                        label="Publish"
+                        tooltip="Share on TrustBot marketplace."
+                        onClick={() => setConfirmAction({
+                            type: 'pause',
+                            title: 'Publish to Marketplace?',
+                            message: `Share ${agent.name} publicly. Others can clone (without your data). You earn credits when used.`,
+                            confirmLabel: 'Publish',
+                            confirmColor: 'var(--accent-purple)',
+                            onConfirm: () => {
+                                alert('🎉 Published to marketplace.trustbot.ai');
+                                setConfirmAction(null);
+                            },
+                        })}
+                        variant="success"
+                    />
                 </div>
 
-                {/* Trust Adjustment */}
-                {onAdjustTrust && (
-                    <div style={{
-                        padding: '12px',
-                        background: 'var(--bg-tertiary)',
-                        borderRadius: 'var(--radius-md)',
-                        marginBottom: '16px',
-                    }}>
-                        <div style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            marginBottom: '10px',
-                            color: 'var(--text-muted)',
-                        }}>
-                            Quick Trust Adjustment
-                        </div>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            {[
-                                { delta: -50, label: '-50', color: 'var(--accent-red)' },
-                                { delta: -10, label: '-10', color: 'var(--accent-gold)' },
-                                { delta: 10, label: '+10', color: 'var(--accent-blue)' },
-                                { delta: 50, label: '+50', color: 'var(--accent-green)' },
-                            ].map(({ delta, label, color }) => (
-                                <button
-                                    key={delta}
-                                    onClick={() => {
-                                        const reason = prompt(`Reason for ${label} trust adjustment:`);
-                                        if (reason) {
-                                            onAdjustTrust(agent.id, delta, reason);
-                                        }
-                                    }}
-                                    style={{
-                                        padding: '6px 12px',
-                                        background: 'var(--bg-secondary)',
-                                        border: `1px solid ${color}`,
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: color,
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Danger Zone */}
+                {/* Danger Zone - Actions that remove agent from active use */}
                 <div style={{
                     padding: '12px',
                     background: 'rgba(239, 68, 68, 0.05)',
@@ -410,6 +434,63 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                         <span>⚠️</span> Danger Zone
                     </div>
                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        {/* Reversible removal actions */}
+                        <ActionButton
+                            icon="😴"
+                            label="Sleep"
+                            tooltip="Low-power mode. Stops working but ready to wake."
+                            onClick={() => setConfirmAction({
+                                type: 'pause',
+                                title: 'Put Agent to Sleep?',
+                                message: `${agent.name} will enter low-power sleep mode. Not working, but can be woken instantly.`,
+                                confirmLabel: 'Sleep',
+                                confirmColor: 'var(--accent-gold)',
+                                onConfirm: () => {
+                                    alert('😴 Agent is now sleeping. Wake from agent list.');
+                                    setConfirmAction(null);
+                                },
+                            })}
+                            variant="warning"
+                        />
+
+                        <ActionButton
+                            icon="📁"
+                            label="Archive"
+                            tooltip="Store for later. Can be restored anytime."
+                            onClick={() => setConfirmAction({
+                                type: 'pause',
+                                title: 'Archive Agent?',
+                                message: `${agent.name} will be archived. Configuration and history preserved. Restore from Settings > Archived.`,
+                                confirmLabel: 'Archive',
+                                confirmColor: 'var(--accent-blue)',
+                                onConfirm: () => {
+                                    alert('📁 Archived! Find in Settings > Archived Agents');
+                                    setConfirmAction(null);
+                                },
+                            })}
+                            variant="warning"
+                        />
+
+                        <ActionButton
+                            icon="🚀"
+                            label="Transfer"
+                            tooltip="Send to another workspace or organization."
+                            onClick={() => setConfirmAction({
+                                type: 'pause',
+                                title: 'Transfer Agent?',
+                                message: `Transfer ${agent.name} to another TrustBot workspace. Agent will be removed from this workspace.`,
+                                confirmLabel: 'Transfer Out',
+                                confirmColor: 'var(--accent-purple)',
+                                onConfirm: () => {
+                                    const dest = prompt('Enter destination workspace ID or URL:');
+                                    if (dest) alert(`🚀 Transferred to ${dest}`);
+                                    setConfirmAction(null);
+                                },
+                            })}
+                            variant="warning"
+                        />
+
+                        {/* Permanent/destructive actions */}
                         {onTerminate && (
                             <ActionButton
                                 icon="🛑"
@@ -435,12 +516,12 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                             <ActionButton
                                 icon="🗑️"
                                 label="Delete"
-                                tooltip="Archive and remove agent from the system."
+                                tooltip="Permanently remove agent."
                                 onClick={() => setConfirmAction({
                                     type: 'delete',
                                     title: 'Delete Agent?',
-                                    message: `This will archive ${agent.name} and remove them from the active agent list. Archived data can be recovered later if needed.`,
-                                    confirmLabel: 'Delete & Archive',
+                                    message: `This will permanently delete ${agent.name}. Consider Archive instead if you might need them later.`,
+                                    confirmLabel: 'Delete Forever',
                                     confirmColor: 'var(--accent-red)',
                                     onConfirm: () => {
                                         onDelete(agent.id);

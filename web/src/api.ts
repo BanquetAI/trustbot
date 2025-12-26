@@ -11,12 +11,12 @@ const FLY_API_URL = 'https://trustbot-api.fly.dev';
 // Unified API Server - Hono (serves both legacy /api/* and workflow endpoints)
 const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? `${FLY_API_URL}/api`  // Production - Fly.io hosted API
-    : 'http://127.0.0.1:3010/api';  // Local dev - Unified Hono server (IPv4)
+    : 'http://127.0.0.1:3003/api';  // Local dev - Unified Hono server (IPv4)
 
 // Unified Workflow API - Same server, different path
 const WORKFLOW_API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
     ? FLY_API_URL  // Production - Fly.io hosted API
-    : 'http://127.0.0.1:3010';  // Local dev - Unified Hono server (IPv4)
+    : 'http://127.0.0.1:3003';  // Local dev - Unified Hono server (IPv4)
 
 // ============================================================================
 // Types
@@ -188,7 +188,7 @@ export const api = {
     getChatMessages: (channelId?: string) => fetchAPI<ChatMessage[]>((channelId ? `/chat?channelId=${channelId}` : '/chat')),
     sendChatMessage: (message: Partial<ChatMessage>) => postAPI<ChatMessage>('/chat', { message }),
 
-    // Agent Tick System - triggers the agent work loop
+    // Agent Tick System - triggers the agent work loop with task assignment
     tick: () => fetchAPI<{
         success: boolean;
         tick: number;
@@ -196,13 +196,20 @@ export const api = {
         processed: number;
         assigned: number;
         completed: number;
-        queue: { pending: number; inProgress: number; totalTasks: number };
+        queue: { pending: number; inProgress: number; awaitingApproval: number; totalTasks: number };
+        assignments?: Array<{ taskId: string; taskTitle: string; agentId: string; agentName: string }>;
+        pendingSummary?: {
+            queued: number;
+            awaitingApproval: number;
+            inProgress: number;
+            items: Array<{ id: string; title: string; status: string; reason: string }>;
+        };
         trustSystem?: {
             avgTrust: number;
             agentsByTier: Record<string, number>;
         };
         events: string[];
-        newBlackboardEntries: number;
+        idleAgentsAvailable?: number;
     }>('/tick'),
 
     // Create a new task for agents to work on
@@ -429,6 +436,117 @@ export const api = {
         councilName: string;
         councilAliases: string[];
     }>('/ai/aria/council', config),
+
+    // ========================================================================
+    // Memory API - Aria's persistent memory and knowledge system
+    // ========================================================================
+
+    // Store a conversation message
+    storeConversation: (message: {
+        sessionId: string;
+        role: 'user' | 'aria';
+        content: string;
+        userId?: string;
+        orgId?: string;
+        provider?: string;
+        model?: string;
+        metadata?: Record<string, unknown>;
+    }) => postAPI<{
+        id: string;
+        sessionId: string;
+        role: string;
+        content: string;
+        createdAt: string;
+    }>('/memory/conversations', message),
+
+    // Search conversations semantically
+    searchConversations: (query: string, options?: {
+        userId?: string;
+        sessionId?: string;
+        limit?: number;
+        similarityThreshold?: number;
+    }) => postAPI<Array<{
+        id: string;
+        sessionId: string;
+        role: string;
+        content: string;
+        similarity: number;
+        createdAt: string;
+    }>>('/memory/conversations/search', { query, ...options }),
+
+    // Get session history
+    getSessionHistory: (sessionId: string, limit?: number) =>
+        fetchAPI<Array<{
+            id: string;
+            role: string;
+            content: string;
+            createdAt: string;
+        }>>(`/memory/conversations/session/${sessionId}${limit ? `?limit=${limit}` : ''}`),
+
+    // Search knowledge semantically
+    searchKnowledge: (query: string, options?: {
+        categories?: string[];
+        minConfidence?: number;
+        limit?: number;
+    }) => postAPI<Array<{
+        id: string;
+        category: string;
+        title: string;
+        content: string;
+        confidence: number;
+        similarity: number;
+    }>>('/memory/knowledge/search', { query, ...options }),
+
+    // Store knowledge entry
+    storeKnowledge: (entry: {
+        category: string;
+        subcategory?: string;
+        title: string;
+        content: string;
+        sourceType?: string;
+        sourceId?: string;
+        confidence?: number;
+        tags?: string[];
+    }) => postAPI<{
+        id: string;
+        category: string;
+        title: string;
+        createdAt: string;
+    }>('/memory/knowledge', entry),
+
+    // Get knowledge by category
+    getKnowledgeByCategory: (category: string, subcategory?: string) =>
+        fetchAPI<Array<{
+            id: string;
+            title: string;
+            content: string;
+            confidence: number;
+        }>>(`/memory/knowledge/category/${category}${subcategory ? `?subcategory=${subcategory}` : ''}`),
+
+    // Verify knowledge entry (HITL)
+    verifyKnowledge: (id: string, verifiedBy: string) =>
+        postAPI<{
+            id: string;
+            verifiedBy: string;
+            verifiedAt: string;
+            confidence: number;
+        }>(`/memory/knowledge/${id}/verify`, { verifiedBy }),
+
+    // Seed system knowledge
+    seedKnowledge: () => postAPI<{ seeded: number }>('/memory/knowledge/seed', {}),
+
+    // Get memory system health
+    getMemoryHealth: () => fetchAPI<{
+        status: string;
+        services: { conversations: string; knowledge: string; embeddings: string };
+        timestamp: string;
+    }>('/memory/health'),
+
+    // Get embedding stats
+    getEmbeddingStats: () => fetchAPI<{
+        size: number;
+        memoryBytes: number;
+    }>('/memory/embed/stats'),
 };
 
 // ============================================================================
@@ -583,8 +701,20 @@ export function useApprovals(pollInterval = 3000) {
     useEffect(() => {
         const fetch = async () => {
             try {
-                const data = await api.getApprovals();
-                setApprovals(data);
+                // Fetch both action requests (legacy/governance) and workflow tasks
+                const [actionRequests, workflowApprovals] = await Promise.all([
+                    api.getApprovals(),
+                    workflowApi.getPendingApprovals()
+                ]);
+
+                // Map workflow approvals to the generic format if needed, or simply merge if compatible
+                // For now, let's just use the legacy ones as primary, but logged to see if we're missing connections
+                console.log('Action Requests:', actionRequests);
+                console.log('Workflow Approvals:', workflowApprovals);
+                
+                // TODO: Unify these types properly in a future refactor
+                // For now, we return the actionRequests which drives the main HITLExplanation
+                setApprovals(actionRequests);
             } catch {
                 // Ignore errors
             }

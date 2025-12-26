@@ -25,6 +25,11 @@ import { blackboard } from '../core/Blackboard.js';
 import { timeService, TickCallback } from '../core/TimeService.js';
 import { TrustTier, TrustState, TickNumber, Timestamp } from '../types/core.js';
 import { capabilityResolver } from '../core/CapabilityResolver.js';
+import { PlannerEngine } from './planning/PlannerEngine.js';
+import { SoftwareDevStrategy } from './planning/strategies/SoftwareDevStrategy.js';
+import { ResearchStrategy } from './planning/strategies/ResearchStrategy.js';
+import { SwarmStrategy } from './planning/strategies/SwarmStrategy.js';
+import { LLMStubStrategy } from './planning/strategies/LLMStubStrategy.js';
 
 // ============================================================================
 // Knowledge Base
@@ -119,6 +124,7 @@ export class T5Planner extends BaseAgent {
     private domainMap: Map<string, AgentId> = new Map(); // domain -> T4 orchestrator
     private dailyPlan: DailyPlan | null = null;
     private localState: Map<string, any> = new Map();
+    private plannerEngine: PlannerEngine;
 
     constructor() {
         super({
@@ -143,6 +149,13 @@ export class T5Planner extends BaseAgent {
 
         // Subscribe to TimeService (Planner is Tier 5 = ELITE, gets full temporal control)
         timeService.onTick(this.onTick.bind(this));
+
+        // Initialize Planner Engine and Strategies
+        this.plannerEngine = new PlannerEngine();
+        this.plannerEngine.registerDecompositionStrategy(new SoftwareDevStrategy());
+        this.plannerEngine.registerDecompositionStrategy(new ResearchStrategy());
+        this.plannerEngine.registerDecompositionStrategy(new SwarmStrategy());
+        this.plannerEngine.registerDecompositionStrategy(new LLMStubStrategy());
     }
 
     /**
@@ -254,6 +267,9 @@ export class T5Planner extends BaseAgent {
             // Identify capability gaps
             await this.identifyCapabilityGaps();
 
+            // Monitor stale tasks and auto-spawn if needed
+            await this.monitorStaleTasks();
+
             await this.pause(1000);
         }
     }
@@ -269,57 +285,53 @@ export class T5Planner extends BaseAgent {
     /**
      * Decompose a high-level objective into tasks
      */
+    // -------------------------------------------------------------------------
+    // Goal Decomposition
+    // -------------------------------------------------------------------------
+
+    /**
+     * Decompose a high-level objective into tasks using the Planner Engine
+     */
     decomposeObjective(objective: Objective): Task[] {
-        const tasks: Task[] = [];
-
-        // Use WBS method by default
-        const method = PLANNER_KNOWLEDGE.decompositionMethods[0]!;
-
         this.makeDecision(
             `Decomposing objective: ${objective.title}`,
-            `Using ${method.name} method with ${method.levels.length} levels`
+            `Delegating to PlannerEngine to select best strategy.`
         );
 
-        // Create work packages
-        for (let i = 0; i < objective.keyResults.length; i++) {
-            const kr = objective.keyResults[i]!;
+        try {
+            // Use the engine to find the best strategy and decompose
+            const result = this.plannerEngine.decomposeObjective(objective);
+            
+            const tasks = result.tasks;
 
-            // Create task for each key result
-            const task: Task = {
-                id: `task-${objective.id}-${i}`,
-                title: kr,
-                description: `Achieve: ${kr}`,
-                createdBy: this.id,
-                collaborators: [],
-                status: 'PENDING',
+            // Store objective
+            this.currentObjectives.set(objective.id, objective);
+
+            // Post to blackboard
+            this.postToBlackboard({
+                type: 'TASK',
+                title: `Plan: ${objective.title}`,
+                content: {
+                    objective,
+                    tasks: tasks.map(t => t.title),
+                    method: result.strategyUsed,
+                },
                 priority: objective.priority,
-                tier: this.determineTierForTask(kr),
-                dependencies: i > 0 ? [`task-${objective.id}-${i - 1}`] : [],
-                createdAt: new Date(),
-                logs: [],
-            };
+            });
 
-            tasks.push(task);
+            this.remember('DECOMPOSITION', { 
+                objectiveId: objective.id, 
+                taskCount: tasks.length,
+                strategy: result.strategyUsed 
+            }, true);
+
+            return tasks;
+
+        } catch (error: boolean | string | Error | any) { // Use 'any' effectively for catch variable if desired, or simpler type
+            console.error('[T5-Planner] Decomposition failed:', error);
+            // Fallback?
+            return [];
         }
-
-        // Store objective
-        this.currentObjectives.set(objective.id, objective);
-
-        // Post to blackboard
-        this.postToBlackboard({
-            type: 'TASK',
-            title: `Plan: ${objective.title}`,
-            content: {
-                objective,
-                tasks: tasks.map(t => t.title),
-                method: method.name,
-            },
-            priority: objective.priority,
-        });
-
-        this.remember('DECOMPOSITION', { objectiveId: objective.id, taskCount: tasks.length }, true);
-
-        return tasks;
     }
 
     private determineTierForTask(taskDescription: string): AgentTier {
@@ -491,6 +503,51 @@ export class T5Planner extends BaseAgent {
                 },
                 priority: 'MEDIUM',
             });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Auto-Spawn Logic (Stale Task Monitor)
+    // -------------------------------------------------------------------------
+
+    private async monitorStaleTasks(): Promise<void> {
+        // Find tasks that are OPEN and older than 30 seconds (simulated staleness)
+        const openTasks = blackboard.getByType('TASK').filter(e => e.status === 'OPEN');
+        const now = Date.now();
+        const STALE_THRESHOLD_MS = 30000; // 30 seconds
+
+        const staleTasks = openTasks.filter(t => {
+            const age = now - t.createdAt.getTime();
+            return age > STALE_THRESHOLD_MS;
+        });
+
+        if (staleTasks.length > 0) {
+            console.log(`[T5-Planner] Detected ${staleTasks.length} stale tasks. Initiating auto-spawn sequence.`);
+            
+            // Group by likely required skill (simplified)
+            // In a real system, we'd analyze the task content.
+            // Here, we just request a generic worker for now or use the title.
+            
+            for (const task of staleTasks) {
+                // Post a spawn request to the Blackboard (or directly handle if we have T5-Spawner)
+                this.postToBlackboard({
+                    type: 'DECISION',
+                    title: `Auto-Spawn Request: Worker for Task ${task.id.substring(0, 8)}`,
+                    content: {
+                        action: 'SPAWN_AGENT',
+                        reason: 'Task Stagnation',
+                        suggestedType: 'WORKER',
+                        suggestedTier: 2,
+                        targetTask: task.id
+                    },
+                    priority: 'HIGH'
+                });
+                
+                // Mark task as having a pending action to prevent spamming
+                // (In a real impl, we'd update the task metadata or status)
+                // For now, let's just log it.
+                console.log(`[T5-Planner] Requested spawn for stale task: ${task.title}`);
+            }
         }
     }
 

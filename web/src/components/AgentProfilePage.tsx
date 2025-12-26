@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { TrustTierBadge } from './TrustTierBadge';
 import { TrustScoreGauge } from './TrustScoreGauge';
 import { AgentControlPanel } from './AgentControlPanel';
-import type { Agent, BlackboardEntry } from '../types';
+import { Agent, BlackboardEntry, getAgentCapabilities, SKILLS } from '../types';
 
 /**
  * Agent Profile Page
@@ -30,7 +30,7 @@ interface AgentProfilePageProps {
     onDeleteAgent?: (agentId: string) => void;
     onReassignAgent?: (agentId: string) => void;
     onEditPermissions?: (agentId: string) => void;
-    onAdjustTrust?: (agentId: string, delta: number, reason: string) => void;
+    // Trust is built through actions, not manual adjustment
     onOpenTaskQueue?: () => void;
 }
 
@@ -67,7 +67,6 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     onDeleteAgent,
     onReassignAgent,
     onEditPermissions,
-    onAdjustTrust,
     onOpenTaskQueue,
 }) => {
     const [commandHistory, setCommandHistory] = useState<CommandResponse[]>([]);
@@ -82,8 +81,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
     // Get parent agent
     const parentAgent = agent.parentId ? allAgents.find(a => a.id === agent.parentId) : null;
 
-    // Get child agents
-    const childAgents = allAgents.filter(a => a.parentId === agent.id);
+    // Child agents - not displayed in profile (shown in spawn flows instead)
 
     // Get sibling agents (same parent)
     const siblingAgents = agent.parentId
@@ -150,6 +148,17 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                                 <TrustTierBadge tier={agent.tier} size="medium" />
                             </h2>
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                <span style={{
+                                    fontFamily: 'var(--font-mono)',
+                                    background: 'var(--bg-tertiary)',
+                                    padding: '2px 8px',
+                                    borderRadius: 'var(--radius-sm)',
+                                    color: 'var(--accent-cyan)',
+                                    fontSize: '0.75rem',
+                                    marginRight: '8px',
+                                }}>
+                                    ID: {agent.structuredId || agent.id.slice(0, 8)}
+                                </span>
                                 {agent.type} • {agent.location.floor} / {agent.location.room}
                             </div>
                             <div style={{
@@ -334,45 +343,7 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                                 )}
                             </div>
 
-                            {/* Children */}
-                            <div style={{
-                                padding: '12px',
-                                background: 'var(--bg-tertiary)',
-                                borderRadius: 'var(--radius-md)',
-                                borderLeft: '3px solid var(--accent-green)',
-                            }}>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                                    ⬇️ CHILDREN ({childAgents.length})
-                                </div>
-                                {childAgents.length > 0 ? (
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                        {childAgents.slice(0, 4).map(child => (
-                                            <span
-                                                key={child.id}
-                                                onClick={() => onViewAgent?.(child.id)}
-                                                style={{
-                                                    padding: '2px 8px',
-                                                    background: 'rgba(16, 185, 129, 0.2)',
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    fontSize: '0.7rem',
-                                                    cursor: onViewAgent ? 'pointer' : 'default',
-                                                }}
-                                            >
-                                                {AGENT_ICONS[child.type] || '🤖'} {child.name}
-                                            </span>
-                                        ))}
-                                        {childAgents.length > 4 && (
-                                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                                                +{childAgents.length - 4} more
-                                            </span>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                                        No children
-                                    </div>
-                                )}
-                            </div>
+                            {/* Children - removed from profile, shown in spawn flows instead */}
                         </div>
 
                         {/* Siblings */}
@@ -459,29 +430,84 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                                 </span>
                             </div>
 
-                            {/* Quick Stats */}
-                            <div style={{
-                                display: 'flex',
-                                gap: '12px',
-                                marginTop: '16px',
-                            }}>
-                                <div style={{
-                                    padding: '8px 12px',
-                                    background: 'rgba(16, 185, 129, 0.15)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.75rem',
-                                }}>
-                                    <span style={{ color: 'var(--accent-green)' }}>✓</span> Can Delegate: {agent.tier >= 3 ? 'Yes' : 'No'}
+                            {/* Capabilities Grid */}
+                            <div style={{ marginTop: '16px' }}>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                    🎮 Capabilities
                                 </div>
-                                <div style={{
-                                    padding: '8px 12px',
-                                    background: 'rgba(139, 92, 246, 0.15)',
-                                    borderRadius: 'var(--radius-sm)',
-                                    fontSize: '0.75rem',
-                                }}>
-                                    <span style={{ color: 'var(--accent-purple)' }}>⚡</span> Can Spawn: {agent.tier >= 4 ? 'Yes' : 'No'}
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                    {getAgentCapabilities(agent.tier, agent.trustScore).map(cap => (
+                                        <div
+                                            key={cap.id}
+                                            title={`${cap.name}: ${cap.description}${cap.enabled ? '' : ` (Requires T${cap.requiredTier}${cap.requiredTrust ? ` + Trust ${cap.requiredTrust}+` : ''})`}`}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                padding: '8px 12px',
+                                                background: cap.enabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                fontSize: '0.8rem',
+                                                opacity: cap.enabled ? 1 : 0.5,
+                                                border: cap.enabled ? '1px solid var(--accent-green)' : '1px solid var(--border-color)',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1rem' }}>{cap.icon}</span>
+                                            <span style={{ fontWeight: 500, color: cap.enabled ? 'var(--accent-green)' : 'var(--text-muted)' }}>
+                                                {cap.name}
+                                            </span>
+                                            <span style={{ fontSize: '0.7rem', color: cap.enabled ? 'var(--accent-green)' : 'var(--text-muted)' }}>
+                                                {cap.enabled ? '✓' : '✗'}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
+
+                            {/* Skills */}
+                            {agent.skills && agent.skills.length > 0 && (
+                                <div style={{ marginTop: '16px' }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                                        🎯 Skills & Specializations
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                        {agent.skills.map(skillId => {
+                                            const skill = SKILLS[skillId];
+                                            if (!skill) return null;
+                                            return (
+                                                <div
+                                                    key={skillId}
+                                                    title={skill.description}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px',
+                                                        padding: '6px 10px',
+                                                        background: 'rgba(139, 92, 246, 0.15)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        fontSize: '0.75rem',
+                                                        border: '1px solid var(--accent-purple)',
+                                                    }}
+                                                >
+                                                    <span>{skill.icon}</span>
+                                                    <span style={{ fontWeight: 500, color: 'var(--accent-purple)' }}>
+                                                        {skill.name}
+                                                    </span>
+                                                    <span style={{
+                                                        fontSize: '0.6rem',
+                                                        padding: '2px 4px',
+                                                        background: 'rgba(255,255,255,0.1)',
+                                                        borderRadius: '3px',
+                                                        color: 'var(--text-muted)',
+                                                    }}>
+                                                        {skill.category}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                         </div>
                     </div>
@@ -495,7 +521,6 @@ export const AgentProfilePage: React.FC<AgentProfilePageProps> = ({
                         onReassign={onReassignAgent}
                         onEditPermissions={onEditPermissions}
                         onDelete={onDeleteAgent}
-                        onAdjustTrust={onAdjustTrust}
                         onOpenTaskQueue={onOpenTaskQueue}
                     />
 

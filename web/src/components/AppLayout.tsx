@@ -9,6 +9,7 @@ import { useTrustBot } from '../hooks';
 import { api } from '../api';
 import { LoadingOverlay } from './LoadingOverlay';
 import { ErrorBanner } from './ErrorBanner';
+import { BottomNav } from './BottomNav';
 
 // Agent detail modal imports (keep as popup)
 import { AgentProfilePage } from './AgentProfilePage';
@@ -41,6 +42,9 @@ export function AppLayout() {
 
     // Modal state (for agent details popup)
     const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+    
+    // Error dismissal state
+    const [errorDismissed, setErrorDismissed] = useState(false);
 
     // Auto-tick
     const [autoTickEnabled, setAutoTickEnabled] = useState(false);
@@ -93,11 +97,11 @@ export function AppLayout() {
         <div className="app-container app-container--with-nav">
             {showInitialLoading && <LoadingOverlay />}
             
-            {error && (
+            {error && !errorDismissed && (
                 <ErrorBanner
                     error={error}
-                    onRetry={refresh}
-                    onDismiss={() => {}}
+                    onRetry={() => { setErrorDismissed(false); refresh(); }}
+                    onDismiss={() => setErrorDismissed(true)}
                     onOpenSettings={() => navigate('/settings?tab=connections')}
                 />
             )}
@@ -143,6 +147,9 @@ export function AppLayout() {
                     onOpenTaskQueue={() => {}}
                 />
             )}
+
+            {/* Mobile Bottom Navigation */}
+            <BottomNav pendingCount={approvals.length} />
         </div>
     );
 }
