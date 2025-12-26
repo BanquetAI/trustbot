@@ -51,6 +51,13 @@ export class EmbeddingService {
     }
 
     /**
+     * Check if embedding service is available (API keys configured)
+     */
+    isAvailable(): boolean {
+        return !!this.openaiApiKey;
+    }
+
+    /**
      * Generate embedding for a single text
      */
     async embed(text: string, useCache: boolean = true): Promise<EmbeddingResult> {

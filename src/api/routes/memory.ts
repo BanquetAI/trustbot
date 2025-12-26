@@ -27,6 +27,28 @@ import type {
 const memoryRoutes = new Hono();
 
 // ============================================================================
+// Helper: Check embedding service availability
+// ============================================================================
+
+/**
+ * Check if embedding service is available and return 503 if not
+ */
+function checkEmbeddingAvailability(c: any): Response | null {
+    const embeddingService = getEmbeddingService();
+    if (!embeddingService.isAvailable()) {
+        return c.json(
+            {
+                error: 'Embedding service not available',
+                message: 'Semantic search requires OPENAI_API_KEY to be configured',
+                code: 'EMBEDDING_SERVICE_UNAVAILABLE'
+            },
+            503
+        );
+    }
+    return null;
+}
+
+// ============================================================================
 // Conversation Endpoints
 // ============================================================================
 
@@ -78,6 +100,10 @@ memoryRoutes.get('/conversations/user/:userId', async (c) => {
  * Search conversations semantically
  */
 memoryRoutes.post('/conversations/search', async (c) => {
+    // Check if embedding service is available
+    const unavailableResponse = checkEmbeddingAvailability(c);
+    if (unavailableResponse) return unavailableResponse;
+
     try {
         const { query, userId, sessionId, limit, similarityThreshold } = await c.req.json();
         const service = getConversationMemoryService();
@@ -145,6 +171,10 @@ memoryRoutes.post('/knowledge', async (c) => {
  * Search knowledge semantically
  */
 memoryRoutes.post('/knowledge/search', async (c) => {
+    // Check if embedding service is available
+    const unavailableResponse = checkEmbeddingAvailability(c);
+    if (unavailableResponse) return unavailableResponse;
+
     try {
         const { query, ...options } = await c.req.json<{ query: string } & KnowledgeSearchOptions>();
         const service = getKnowledgeStoreService();
@@ -626,12 +656,15 @@ memoryRoutes.get('/health', async (c) => {
         getDecisionPatternService();
         getUserPreferencesService();
 
+        const embeddingService = getEmbeddingService();
+        const embeddingsAvailable = embeddingService.isAvailable();
+
         return c.json({
-            status: 'ok',
+            status: embeddingsAvailable ? 'ok' : 'degraded',
             services: {
                 conversations: 'ready',
                 knowledge: 'ready',
-                embeddings: 'ready',
+                embeddings: embeddingsAvailable ? 'ready' : 'unavailable (OPENAI_API_KEY not configured)',
                 patterns: 'ready',
                 preferences: 'ready',
             },
