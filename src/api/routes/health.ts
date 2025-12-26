@@ -12,6 +12,7 @@
  */
 
 import { Hono } from 'hono';
+import v8 from 'v8';
 
 // ============================================================================
 // Types
@@ -164,17 +165,20 @@ async function checkDatabase(supabase: any): Promise<HealthCheck> {
 
 /**
  * Check memory usage
+ * Uses V8 heap size limit for accurate percentage calculation
  */
 function checkMemory(): HealthCheck {
     const usageMB = getMemoryUsageMB();
-    const maxHeapMB = Math.round((process.memoryUsage().heapTotal / 1024 / 1024));
+    // Use V8's actual heap size limit, not the dynamic heapTotal
+    const heapStats = v8.getHeapStatistics();
+    const maxHeapMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
     const usagePercent = Math.round((usageMB / maxHeapMB) * 100);
 
     if (usagePercent > 90) {
         return {
             name: 'memory',
             status: 'fail',
-            message: `Critical memory usage: ${usageMB}MB (${usagePercent}%)`,
+            message: `Critical memory usage: ${usageMB}MB/${maxHeapMB}MB (${usagePercent}%)`,
         };
     }
 
@@ -182,14 +186,14 @@ function checkMemory(): HealthCheck {
         return {
             name: 'memory',
             status: 'warn',
-            message: `High memory usage: ${usageMB}MB (${usagePercent}%)`,
+            message: `High memory usage: ${usageMB}MB/${maxHeapMB}MB (${usagePercent}%)`,
         };
     }
 
     return {
         name: 'memory',
         status: 'pass',
-        message: `Memory usage: ${usageMB}MB (${usagePercent}%)`,
+        message: `Memory usage: ${usageMB}MB/${maxHeapMB}MB (${usagePercent}%)`,
     };
 }
 
