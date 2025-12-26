@@ -319,16 +319,31 @@ export abstract class BaseAgent extends EventEmitter<BaseAgentEvents> {
         this.remember('TASK', { action: 'started', task: task.title });
     }
 
-    protected completeTask(result?: unknown): void {
+    protected completeTask(result?: { summary: string; confidence?: number; data?: Record<string, unknown> }): void {
         if (this._currentTask) {
             this._currentTask.status = 'COMPLETED';
             this._currentTask.completedAt = new Date();
-            this._currentTask.result = result;
+
+            // Build structured TaskResult
+            const startTime = this._currentTask.startedAt ?? this._currentTask.createdAt;
+            const durationMs = Date.now() - startTime.getTime();
+            const durationStr = durationMs >= 60000
+                ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
+                : `${Math.floor(durationMs / 1000)}s`;
+
+            this._currentTask.result = {
+                summary: result?.summary ?? 'Task completed',
+                completedBy: this.id,
+                duration: durationStr,
+                confidence: result?.confidence ?? 100,
+                data: result?.data,
+            };
+
             this.emit('task:completed', this._currentTask);
             this.remember('TASK', {
                 action: 'completed',
                 task: this._currentTask.title,
-                result
+                result: this._currentTask.result
             }, true);
             this._currentTask = null;
         }

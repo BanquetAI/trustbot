@@ -326,6 +326,25 @@ export interface SystemState {
     persistenceMode?: 'postgres' | 'memory';
 }
 
+/**
+ * Structured task result for frontend/backend contract alignment.
+ * Supports both success and failure cases.
+ */
+export interface TaskResult {
+    /** Human-readable summary of what was accomplished */
+    summary: string;
+    /** Agent ID that completed the task */
+    completedBy: string;
+    /** Human-readable duration (e.g., "2m 30s") */
+    duration: string;
+    /** Confidence level 0-100 */
+    confidence: number;
+    /** Error message if task failed */
+    error?: string;
+    /** Additional result data (for extensibility) */
+    data?: Record<string, unknown>;
+}
+
 export interface Task {
     id: string;
     description: string;
@@ -345,12 +364,7 @@ export interface Task {
     currentDelegations?: number;
     delegationHistory?: Array<{ from: string; to: string; timestamp: string }>;
     // Execution results
-    result?: {
-        summary: string;
-        completedBy: string;
-        duration: string;
-        confidence: number;
-    };
+    result?: TaskResult;
     startedAt?: string;
     completedAt?: string;
 }

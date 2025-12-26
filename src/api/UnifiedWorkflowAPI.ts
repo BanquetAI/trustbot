@@ -45,7 +45,7 @@ import { CouncilService } from '../core/council/CouncilService.js';
 import { CouncilMemberRegistry } from '../core/council/CouncilMemberRegistry.js';
 import { DelegationManager } from '../core/delegation/DelegationManager.js';
 import { AutonomyBudgetService } from '../core/autonomy/AutonomyBudget.js';
-import type { AgentId, AgentTier, AgentType, TrustLevel, BlackboardEntry } from '../types.js';
+import type { AgentId, AgentTier, AgentType, TrustLevel, BlackboardEntry, TaskResult } from '../types.js';
 import {
     AgentRole,
     AgentCategory,
@@ -176,7 +176,7 @@ export interface WorkflowTask {
     createdAt: Date;
     startedAt?: Date;
     completedAt?: Date;
-    result?: unknown;
+    result?: TaskResult;
     approvalRequired: boolean;
     approvedBy?: string;
     blackboardEntryId?: string;  // ID of the corresponding Blackboard entry for sync
@@ -371,13 +371,30 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
         return task;
     }
 
-    completeTask(taskId: string, result: unknown, tokenId: string): WorkflowTask | null {
+    completeTask(taskId: string, result: Partial<TaskResult> | unknown, tokenId: string): WorkflowTask | null {
         const task = this.tasks.get(taskId);
         if (!task) return null;
 
         task.status = 'COMPLETED';
         task.completedAt = new Date();
-        task.result = result;
+
+        // Build structured TaskResult
+        const startTime = task.startedAt ?? task.createdAt;
+        const durationMs = Date.now() - startTime.getTime();
+        const durationStr = durationMs >= 60000
+            ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
+            : `${Math.floor(durationMs / 1000)}s`;
+
+        // Normalize result to TaskResult structure
+        const inputResult = result as Partial<TaskResult> | undefined;
+        task.result = {
+            summary: inputResult?.summary ?? 'Task completed successfully',
+            completedBy: inputResult?.completedBy ?? task.assignedTo ?? 'WORKFLOW_ENGINE',
+            duration: inputResult?.duration ?? durationStr,
+            confidence: inputResult?.confidence ?? 100,
+            error: inputResult?.error,
+            data: inputResult?.data,
+        };
 
         // Sync to Blackboard: update content with result and mark as RESOLVED
         if (task.blackboardEntryId) {
@@ -466,7 +483,21 @@ export class UnifiedWorkflowEngine extends EventEmitter<WorkflowEvents> {
 
         task.status = 'FAILED';
         task.completedAt = new Date();
-        task.result = { error: reason };
+
+        // Build structured TaskResult for failure
+        const startTime = task.startedAt ?? task.createdAt;
+        const durationMs = Date.now() - startTime.getTime();
+        const durationStr = durationMs >= 60000
+            ? `${Math.floor(durationMs / 60000)}m ${Math.floor((durationMs % 60000) / 1000)}s`
+            : `${Math.floor(durationMs / 1000)}s`;
+
+        task.result = {
+            summary: `Task failed: ${reason}`,
+            completedBy: task.assignedTo ?? 'WORKFLOW_ENGINE',
+            duration: durationStr,
+            confidence: 0,
+            error: reason,
+        };
 
         // Sync to Blackboard: update content with failure info and mark as BLOCKED
         if (task.blackboardEntryId) {

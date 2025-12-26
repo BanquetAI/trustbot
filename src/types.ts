@@ -398,6 +398,25 @@ export type TaskStatus =
     | 'COMPLETED'
     | 'FAILED';
 
+/**
+ * Structured task result for frontend/backend contract alignment.
+ * Supports both success and failure cases.
+ */
+export interface TaskResult {
+    /** Human-readable summary of what was accomplished */
+    summary: string;
+    /** Agent ID that completed the task */
+    completedBy: string;
+    /** Human-readable duration (e.g., "2m 30s") */
+    duration: string;
+    /** Confidence level 0-100 */
+    confidence: number;
+    /** Error message if task failed */
+    error?: string;
+    /** Additional result data (for extensibility) */
+    data?: Record<string, unknown>;
+}
+
 export interface Task {
     id: string;
     title: string;
@@ -413,7 +432,7 @@ export interface Task {
     createdAt: Date;
     startedAt?: Date;
     completedAt?: Date;
-    result?: unknown;
+    result?: TaskResult;
     logs: Array<{
         timestamp: Date;
         agent: AgentId;

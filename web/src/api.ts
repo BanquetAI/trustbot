@@ -21,7 +21,7 @@ const WORKFLOW_API_BASE = typeof window !== 'undefined' && window.location.hostn
 // ============================================================================
 // Types
 // ============================================================================
-import type { Agent, BlackboardEntry, ApprovalRequest, Task, ChatMessage } from './types';
+import type { Agent, BlackboardEntry, ApprovalRequest, Task, ChatMessage, TaskResult } from './types';
 
 // Re-export types for consumers that import from api.ts
 export type { Agent, BlackboardEntry, ApprovalRequest, Task, ChatMessage } from './types';
@@ -593,7 +593,7 @@ export interface WorkflowTask {
     createdAt: string;
     startedAt?: string;
     completedAt?: string;
-    result?: unknown;
+    result?: TaskResult;
     approvalRequired: boolean;
     approvedBy?: string;
 }
