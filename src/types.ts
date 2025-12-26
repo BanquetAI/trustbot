@@ -122,7 +122,8 @@ export type BlackboardEntryType =
     | 'ANTI_PATTERN'
     | 'OBSERVATION'
     | 'TASK'
-    | 'MEETING_REQUEST';
+    | 'MEETING_REQUEST'
+    | 'VOTING_SESSION';  // Tribunal peer review sessions
 
 export type BlackboardEntryStatus =
     | 'OPEN'
