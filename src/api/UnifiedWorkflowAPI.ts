@@ -77,6 +77,8 @@ import { memoryRoutes } from './routes/memory.js';
 import { createHealthRoutes } from './routes/health.js';
 // Artifact system
 import { artifactRoutes } from './routes/artifacts.js';
+// Work loop system (autonomous agent execution)
+import workLoopRoutes from './routes/work-loop.js';
 // Agent discovery system
 import { agentDiscoveryRoutes } from './routes/agent-discovery.js';
 // Orchestrators and Time
@@ -3032,6 +3034,11 @@ If the user's intent is unclear or just conversational, use action "CHAT" and re
     // Agent Discovery Routes (Fleet Management & Communication)
     // ========================================================================
     app.route('/api/agent-discovery', agentDiscoveryRoutes);
+
+    // ========================================================================
+    // Work Loop Routes (Autonomous Agent Execution)
+    // ========================================================================
+    app.route('/work-loop', workLoopRoutes);
 
     return app;
 }

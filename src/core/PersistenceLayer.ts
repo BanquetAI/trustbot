@@ -82,7 +82,8 @@ export class PersistenceLayer extends EventEmitter<PersistenceEvents> {
         super();
 
         this.config = {
-            dataDir: config?.dataDir ?? path.join(process.cwd(), 'aurais-data'),
+            // Use DATA_DIR env var (for Fly.io volumes), then fallback to cwd
+            dataDir: config?.dataDir ?? process.env.DATA_DIR ?? path.join(process.cwd(), 'aurais-data'),
             autoSaveIntervalMs: config?.autoSaveIntervalMs ?? 30000, // 30 seconds
             maxAuditEntriesInMemory: config?.maxAuditEntriesInMemory ?? 1000,
         };

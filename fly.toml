@@ -10,6 +10,11 @@ primary_region = "iad"  # US East (Washington DC) - change as needed
 [env]
   NODE_ENV = "production"
   PORT = "8080"
+  DATA_DIR = "/data"  # Persistent storage directory
+
+[mounts]
+  source = "aurais_data"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080
@@ -25,9 +30,12 @@ primary_region = "iad"  # US East (Washington DC) - change as needed
     soft_limit = 200
 
 [[vm]]
-  cpu_kind = "shared"
-  cpus = 1
-  memory_mb = 256  # Minimal memory for cost savings
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Only 1 machine when using volumes (volumes are per-machine)
+[deploy]
+  strategy = "immediate"
 
 [checks]
   [checks.health]

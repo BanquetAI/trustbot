@@ -76,6 +76,16 @@ async function main() {
    GET  /api/artifacts/:id/versions - Get version history
    POST /api/artifacts/:id/review - Approve/reject artifact
 
+🤖 WORK LOOP (Autonomous Execution):
+   GET  /work-loop/status         - Work loop status & agent stats
+   POST /work-loop/objective      - Submit objective for decomposition
+   POST /work-loop/task           - Submit direct task
+   GET  /work-loop/tasks          - View queued/active/completed tasks
+   GET  /work-loop/task/:id       - Get task details
+   POST /work-loop/worker         - Spawn a new worker agent
+   POST /work-loop/start          - Start the work loop
+   POST /work-loop/stop           - Stop the work loop
+
 🔑 MASTER KEY: ${masterKey}
    (Use this to authenticate as human operator)
 
