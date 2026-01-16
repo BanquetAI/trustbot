@@ -637,9 +637,9 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
                     let dep = this.completedTasks.get(depRef);
                     if (dep && dep.status === 'COMPLETED') return true;
 
-                    // Normalize for fuzzy matching (lowercase, remove special chars)
-                    const normalizeStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-                    const normalizedRef = normalizeStr(depRef);
+                    // Extract words for matching (split on non-alphanumeric, lowercase)
+                    const extractWords = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 0);
+                    const refWords = extractWords(depRef);
 
                     // Fallback: try by title with fuzzy matching
                     for (const completed of this.completedTasks.values()) {
@@ -648,12 +648,14 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
                         // Exact title match
                         if (completed.title === depRef) return true;
 
-                        // Normalized match (handles case + punctuation differences)
-                        const normalizedTitle = normalizeStr(completed.title);
-                        if (normalizedTitle === normalizedRef) return true;
-
-                        // Substring match (handles "research-haiku" matching "Research haiku structure")
-                        if (normalizedTitle.includes(normalizedRef) || normalizedRef.includes(normalizedTitle)) {
+                        // Word-based match: all ref words must appear in title
+                        const titleWords = extractWords(completed.title);
+                        const allWordsMatch = refWords.every(refWord =>
+                            titleWords.some(titleWord =>
+                                titleWord.includes(refWord) || refWord.includes(titleWord)
+                            )
+                        );
+                        if (allWordsMatch && refWords.length > 0) {
                             return true;
                         }
                     }
@@ -850,21 +852,23 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
         let dep = this.completedTasks.get(depRef);
         if (dep) return dep;
 
-        // Normalize for fuzzy matching
-        const normalizeStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
-        const normalizedRef = normalizeStr(depRef);
+        // Extract words for matching (split on non-alphanumeric, lowercase)
+        const extractWords = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 0);
+        const refWords = extractWords(depRef);
 
         // Try fuzzy matching
         for (const completed of this.completedTasks.values()) {
             // Exact title match
             if (completed.title === depRef) return completed;
 
-            // Normalized match
-            const normalizedTitle = normalizeStr(completed.title);
-            if (normalizedTitle === normalizedRef) return completed;
-
-            // Substring match
-            if (normalizedTitle.includes(normalizedRef) || normalizedRef.includes(normalizedTitle)) {
+            // Word-based match: all ref words must appear in title
+            const titleWords = extractWords(completed.title);
+            const allWordsMatch = refWords.every(refWord =>
+                titleWords.some(titleWord =>
+                    titleWord.includes(refWord) || refWord.includes(titleWord)
+                )
+            );
+            if (allWordsMatch && refWords.length > 0) {
                 return completed;
             }
         }
