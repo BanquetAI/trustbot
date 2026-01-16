@@ -15,7 +15,7 @@ async function main() {
     if (mode === 'legacy') {
         // Legacy API Server
         const PORT = 3001;
-        console.log('🌐 Starting Legacy TrustBot API Server...');
+        console.log('🌐 Starting Legacy Aurais API Server...');
         apiServer.start(PORT);
 
         console.log(`

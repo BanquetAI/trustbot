@@ -86,8 +86,8 @@ function createTestApp() {
 
 // Demo users for testing (must match DEMO_USER_ROLES in rbac.ts)
 const DEMO_USERS: Record<string, string> = {
-    'org-001': 'demo@trustbot.ai',      // demo-org
-    'demo-org': 'demo@trustbot.ai',     // demo-org
+    'org-001': 'demo@aurais.ai',      // demo-org
+    'demo-org': 'demo@aurais.ai',     // demo-org
     'other-org': 'other@company.com',   // other-org
 };
 

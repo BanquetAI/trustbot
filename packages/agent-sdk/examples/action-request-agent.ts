@@ -2,19 +2,19 @@
  * Action Request Agent Example
  *
  * Demonstrates how to request actions that require human approval
- * through the TrustBot governance system.
+ * through the Aurais governance system.
  *
  * Usage:
  *   TRUSTBOT_API_KEY=your_key npx ts-node examples/action-request-agent.ts
  */
 
-import { TrustBotAgent, type Task, type ActionDecision } from '../src/index.js';
+import { AuraisAgent, type Task, type ActionDecision } from '../src/index.js';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const agent = new TrustBotAgent({
+const agent = new AuraisAgent({
     apiKey: process.env.TRUSTBOT_API_KEY || 'your-api-key-here',
     capabilities: ['execute', 'external'],
     skills: ['data-processing', 'file-management'],
@@ -33,7 +33,7 @@ const pendingActions = new Map<string, {
 // ============================================================================
 
 agent.on('connected', () => {
-    console.log('✅ Connected to TrustBot Mission Control');
+    console.log('✅ Connected to Aurais Mission Control');
 });
 
 agent.on('error', (error) => {

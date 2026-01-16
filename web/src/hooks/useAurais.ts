@@ -1,7 +1,7 @@
 /**
- * Unified TrustBot Hook
+ * Unified Aurais Hook
  *
- * Single hook that provides all TrustBot state and actions.
+ * Single hook that provides all Aurais state and actions.
  * Consolidates useSystemState and useApprovals into one cohesive interface.
  */
 
@@ -13,7 +13,7 @@ import type { Agent, BlackboardEntry, ApprovalRequest } from '../types';
 // Types
 // =============================================================================
 
-export interface TrustBotState {
+export interface AuraisState {
     // Core data
     agents: Agent[];
     blackboardEntries: BlackboardEntry[];
@@ -31,7 +31,7 @@ export interface TrustBotState {
     persistenceMode?: 'postgres' | 'memory';
 }
 
-export interface TrustBotActions {
+export interface AuraisActions {
     // Refresh data
     refresh: () => Promise<void>;
 
@@ -52,7 +52,7 @@ export interface TrustBotActions {
     postToBlackboard: (type: string, title: string, content: string, priority?: string) => Promise<boolean>;
 }
 
-export interface UseTrustBotReturn extends TrustBotState, TrustBotActions {
+export interface UseAuraisReturn extends AuraisState, AuraisActions {
     // Computed values
     workingAgents: Agent[];
     idleAgents: Agent[];
@@ -64,7 +64,7 @@ export interface UseTrustBotReturn extends TrustBotState, TrustBotActions {
 // Default State
 // =============================================================================
 
-const defaultState: TrustBotState = {
+const defaultState: AuraisState = {
     agents: [],
     blackboardEntries: [],
     approvals: [],
@@ -80,12 +80,12 @@ const defaultState: TrustBotState = {
 // Hook Implementation
 // =============================================================================
 
-export function useTrustBot(pollInterval = 2000): UseTrustBotReturn {
-    const [state, setState] = useState<TrustBotState>(defaultState);
+export function useAurais(pollInterval = 2000): UseAuraisReturn {
+    const [state, setState] = useState<AuraisState>(defaultState);
     const [localUptime, setLocalUptime] = useState(0);
 
     // Transform API state to local format
-    const transformState = useCallback((apiState: APISystemState): Partial<TrustBotState> => {
+    const transformState = useCallback((apiState: APISystemState): Partial<AuraisState> => {
         return {
             agents: apiState.agents.map(a => ({
                 id: a.id,
@@ -302,4 +302,4 @@ export function useTrustBot(pollInterval = 2000): UseTrustBotReturn {
     };
 }
 
-export default useTrustBot;
+export default useAurais;

@@ -1,6 +1,6 @@
 /**
  * Skills Integration Module
- * Maps TrustBot agent types and trust levels to skills library
+ * Maps Aurais agent types and trust levels to skills library
  */
 
 import {
@@ -21,7 +21,7 @@ import type { AgentType, AgentTier, TrustLevel } from '../types.js';
 // Trust Level Mapping
 // ============================================================================
 
-/** Map TrustBot TrustLevel names to numeric skill trust levels */
+/** Map Aurais TrustLevel names to numeric skill trust levels */
 export const TRUST_LEVEL_MAP: Record<TrustLevel, SkillTrustLevel> = {
   SOVEREIGN: 5,   // T5 - Full autonomy
   EXECUTIVE: 4,   // T4 - Domain autonomy

@@ -1,7 +1,7 @@
-# Fly.io Configuration for TrustBot API
+# Fly.io Configuration for Aurais API
 # https://fly.io/docs/reference/configuration/
 
-app = "trustbot-api"
+app = "aurais-api"
 primary_region = "iad"  # US East (Washington DC) - change as needed
 
 [build]

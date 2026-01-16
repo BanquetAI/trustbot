@@ -92,7 +92,7 @@ export interface DecisionSpanAttributes {
 // ============================================================================
 
 const DEFAULT_CONFIG: TracingConfig = {
-    serviceName: process.env.SERVICE_NAME || 'trustbot-api',
+    serviceName: process.env.SERVICE_NAME || 'aurais-api',
     serviceVersion: process.env.SERVICE_VERSION || '1.0.0',
     environment: process.env.NODE_ENV || 'development',
     otlpEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT || 'http://localhost:4318/v1/traces',
@@ -183,7 +183,7 @@ export function isTracingInitialized(): boolean {
 // Tracer Access
 // ============================================================================
 
-const TRACER_NAME = 'trustbot-tracer';
+const TRACER_NAME = 'aurais-tracer';
 
 /**
  * Get the tracer instance

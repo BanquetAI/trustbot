@@ -14,8 +14,8 @@ const HELP_ARTICLES: HelpArticle[] = [
     {
         id: 'overview',
         category: 'Getting Started',
-        title: 'What is TrustBot?',
-        content: `TrustBot is an autonomous AI agent orchestration system. It manages a swarm of AI agents that work together, earn trust, and complete tasks.
+        title: 'What is Aurais?',
+        content: `Aurais is an autonomous AI agent orchestration system. It manages a swarm of AI agents that work together, earn trust, and complete tasks.
 
 Key concepts:
 • Agents have trust scores (0-1000)
@@ -42,7 +42,7 @@ The task enters PENDING status and will be picked up by a capable agent on the n
         id: 'running-ticks',
         category: 'Getting Started',
         title: 'Running the Agent Tick',
-        content: `The "tick" is the heartbeat of TrustBot. Each tick:
+        content: `The "tick" is the heartbeat of Aurais. Each tick:
 
 1. Routes PENDING tasks to capable agents
 2. Progresses IN_PROGRESS tasks
@@ -193,7 +193,7 @@ Or open Mission Control for the full view with threaded conversations.`,
         id: 'mcp-overview',
         category: 'MCP Integration',
         title: 'What is MCP?',
-        content: `MCP (Model Context Protocol) lets external AI clients control TrustBot.
+        content: `MCP (Model Context Protocol) lets external AI clients control Aurais.
 
 Supported clients:
 • Claude Desktop
@@ -209,18 +209,18 @@ This allows you to manage agents via natural language in other AI tools.`,
         id: 'mcp-tools',
         category: 'MCP Integration',
         title: 'Available MCP Tools',
-        content: `TrustBot exposes 10 MCP tools:
+        content: `Aurais exposes 10 MCP tools:
 
-• trustbot_get_state - World state
-• trustbot_list_agents - Agent list
-• trustbot_get_agent - Agent details
-• trustbot_create_task - New task
-• trustbot_list_tasks - Task list
-• trustbot_delegate_task - Delegate work
-• trustbot_spawn_agent - Create agent
-• trustbot_send_message - Inter-agent comms
-• trustbot_get_metrics - System stats
-• trustbot_run_tick - Process tick`,
+• aurais_get_state - World state
+• aurais_list_agents - Agent list
+• aurais_get_agent - Agent details
+• aurais_create_task - New task
+• aurais_list_tasks - Task list
+• aurais_delegate_task - Delegate work
+• aurais_spawn_agent - Create agent
+• aurais_send_message - Inter-agent comms
+• aurais_get_metrics - System stats
+• aurais_run_tick - Process tick`,
         keywords: ['mcp', 'tools', 'commands', 'api', 'list'],
     },
 

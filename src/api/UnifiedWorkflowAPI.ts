@@ -744,7 +744,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
         'https://web-626.vercel.app',
         'https://web-banquetai.vercel.app',
         'https://*.vercel.app',
-        'https://trustbot-api.fly.dev',
+        'https://aurais-api.fly.dev',
     ];
 
     app.use('*', requestIdMiddleware());
@@ -2411,7 +2411,7 @@ export function createWorkflowAPI(engine: UnifiedWorkflowEngine, supabase: Supab
                 contextParts.push(`HITL level: ${body.context.hitlLevel}%`);
             }
 
-            const systemPrompt = `You are Aria, an AI assistant for TrustBot - an autonomous agent orchestration system.
+            const systemPrompt = `You are Aria, an AI assistant for Aurais - an autonomous agent orchestration system.
 Your job is to interpret user messages and determine what action they want to take.
 
 Available actions:

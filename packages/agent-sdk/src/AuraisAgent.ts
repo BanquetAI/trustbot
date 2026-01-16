@@ -1,10 +1,10 @@
 /**
- * TrustBot Agent SDK - Main Agent Class
+ * Aurais Agent SDK - Main Agent Class
  *
  * Epic 10: Agent Connection Layer
  * Story 10.5: Agent SDK (TypeScript)
  *
- * Provides easy WebSocket connection to TrustBot Mission Control with:
+ * Provides easy WebSocket connection to Aurais Mission Control with:
  * - Auto-reconnection with exponential backoff
  * - Type-safe message handling
  * - Event emitter pattern
@@ -14,7 +14,7 @@
 import { EventEmitter } from 'eventemitter3';
 import WebSocket from 'ws';
 import {
-    type TrustBotAgentConfig,
+    type AuraisAgentConfig,
     type AgentEvents,
     type AgentStatus,
     type ConnectionState,
@@ -35,7 +35,7 @@ import {
 // Constants
 // ============================================================================
 
-const DEFAULT_SERVER_URL = 'wss://api.trustbot.ai/ws';
+const DEFAULT_SERVER_URL = 'wss://api.aurais.ai/ws';
 const DEFAULT_HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const DEFAULT_CONNECTION_TIMEOUT = 10000; // 10 seconds
 const DEFAULT_RECONNECT_BASE_DELAY = 1000; // 1 second
@@ -43,11 +43,11 @@ const DEFAULT_RECONNECT_MAX_DELAY = 30000; // 30 seconds
 const DEFAULT_MAX_RECONNECT_ATTEMPTS = 10;
 
 // ============================================================================
-// TrustBotAgent Class
+// AuraisAgent Class
 // ============================================================================
 
-export class TrustBotAgent extends EventEmitter<AgentEvents> {
-    private config: Required<TrustBotAgentConfig>;
+export class AuraisAgent extends EventEmitter<AgentEvents> {
+    private config: Required<AuraisAgentConfig>;
     private ws: WebSocket | null = null;
     private connectionState: ConnectionState = 'disconnected';
     private status: AgentStatus = 'IDLE';
@@ -70,7 +70,7 @@ export class TrustBotAgent extends EventEmitter<AgentEvents> {
         timeout: ReturnType<typeof setTimeout>;
     }> = new Map();
 
-    constructor(config: TrustBotAgentConfig) {
+    constructor(config: AuraisAgentConfig) {
         super();
 
         if (!config.apiKey) {
@@ -97,7 +97,7 @@ export class TrustBotAgent extends EventEmitter<AgentEvents> {
     // =========================================================================
 
     /**
-     * Connect to TrustBot Mission Control
+     * Connect to Aurais Mission Control
      */
     async connect(): Promise<void> {
         if (this.connectionState === 'connected' || this.connectionState === 'connecting') {
@@ -111,7 +111,7 @@ export class TrustBotAgent extends EventEmitter<AgentEvents> {
     }
 
     /**
-     * Disconnect from TrustBot Mission Control
+     * Disconnect from Aurais Mission Control
      */
     disconnect(): void {
         this.cleanup();

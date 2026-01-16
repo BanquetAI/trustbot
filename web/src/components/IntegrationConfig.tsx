@@ -327,7 +327,7 @@ export function IntegrationConfig({ onClose }: { onClose: () => void }) {
         const loadSettings = async () => {
             // 1. Integrations Local Storage
             try {
-                const stored = localStorage.getItem('trustbot_integrations');
+                const stored = localStorage.getItem('aurais_integrations');
                 if (stored) {
                     const parsed = JSON.parse(stored);
                     setIntegrations(prev => prev.map(i =>
@@ -378,10 +378,10 @@ export function IntegrationConfig({ onClose }: { onClose: () => void }) {
         setConnecting(true);
         // 1. Local Persistence
         try {
-            const stored = localStorage.getItem('trustbot_integrations');
+            const stored = localStorage.getItem('aurais_integrations');
             const parsed = stored ? JSON.parse(stored) : {};
             parsed[integration.id] = true;
-            localStorage.setItem('trustbot_integrations', JSON.stringify(parsed));
+            localStorage.setItem('aurais_integrations', JSON.stringify(parsed));
         } catch (e) { console.error(e); }
 
         // 2. Server Verification
@@ -399,11 +399,11 @@ export function IntegrationConfig({ onClose }: { onClose: () => void }) {
     };
 
     const handleDisconnect = (id: string) => {
-        const stored = localStorage.getItem('trustbot_integrations');
+        const stored = localStorage.getItem('aurais_integrations');
         if (stored) {
             const parsed = JSON.parse(stored);
             delete parsed[id];
-            localStorage.setItem('trustbot_integrations', JSON.stringify(parsed));
+            localStorage.setItem('aurais_integrations', JSON.stringify(parsed));
         }
         setIntegrations(prev => prev.map(i =>
             i.id === id ? { ...i, status: 'DISCONNECTED' as const } : i

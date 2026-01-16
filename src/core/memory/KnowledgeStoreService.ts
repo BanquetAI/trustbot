@@ -352,8 +352,8 @@ export class KnowledgeStoreService {
             {
                 category: 'system',
                 subcategory: 'architecture',
-                title: 'TrustBot Agent Hierarchy',
-                content: `TrustBot uses a 6-tier trust hierarchy (T0-T5):
+                title: 'Aurais Agent Hierarchy',
+                content: `Aurais uses a 6-tier trust hierarchy (T0-T5):
 - T5 (SOVEREIGN): System orchestrators with full autonomy
 - T4 (EXECUTIVE): Domain orchestrators with high autonomy
 - T3 (TACTICAL): Task orchestrators managing projects
@@ -411,7 +411,7 @@ Directors can adjust HITL level based on operational risk.`,
                 category: 'agent',
                 subcategory: 'types',
                 title: 'Core Agent Types',
-                content: `TrustBot includes specialized agent types:
+                content: `Aurais includes specialized agent types:
 - T5-Spawner: Creates new agents
 - T5-Validator: Quality assurance
 - T5-Executor: Task execution orchestration

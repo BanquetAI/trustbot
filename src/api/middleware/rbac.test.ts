@@ -52,7 +52,7 @@ describe('RFC 7807 Error Responses', () => {
         it('returns correct 401 structure', () => {
             const error = unauthorizedError();
             expect(error).toEqual({
-                type: 'https://trustbot.ai/errors/unauthorized',
+                type: 'https://aurais.ai/errors/unauthorized',
                 title: 'Unauthorized',
                 status: 401,
                 detail: 'Authentication required',
@@ -69,7 +69,7 @@ describe('RFC 7807 Error Responses', () => {
         it('returns correct 403 structure', () => {
             const error = forbiddenError();
             expect(error).toEqual({
-                type: 'https://trustbot.ai/errors/forbidden',
+                type: 'https://aurais.ai/errors/forbidden',
                 title: 'Forbidden',
                 status: 403,
                 detail: 'Insufficient permissions',
@@ -86,7 +86,7 @@ describe('RFC 7807 Error Responses', () => {
         it('returns correct 404 structure', () => {
             const error = notFoundError();
             expect(error).toEqual({
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Resource not found',
@@ -149,7 +149,7 @@ describe('requireAuth', () => {
 
         expect(res.status).toBe(401);
         const body = await res.json();
-        expect(body.type).toBe('https://trustbot.ai/errors/unauthorized');
+        expect(body.type).toBe('https://aurais.ai/errors/unauthorized');
         expect(body.title).toBe('Unauthorized');
         expect(body.status).toBe(401);
     });
@@ -163,13 +163,13 @@ describe('requireAuth', () => {
         });
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
         const body = await res.json();
         expect(body.ok).toBe(true);
-        expect(body.user.email).toBe('demo@trustbot.ai');
+        expect(body.user.email).toBe('demo@aurais.ai');
         expect(body.user.role).toBe('operator');
         expect(body.user.orgId).toBe('demo-org');
     });
@@ -186,7 +186,7 @@ describe('requireAuth', () => {
         });
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo supervisor@trustbot.ai' },
+            headers: { Authorization: 'Demo supervisor@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -223,7 +223,7 @@ describe('requireRole', () => {
 
         expect(res.status).toBe(401);
         const body = await res.json();
-        expect(body.type).toBe('https://trustbot.ai/errors/unauthorized');
+        expect(body.type).toBe('https://aurais.ai/errors/unauthorized');
     });
 
     it('returns 403 when role is insufficient', async () => {
@@ -231,12 +231,12 @@ describe('requireRole', () => {
         app.get('/test', requireRole('supervisor'), (c) => c.json({ ok: true }));
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' }, // operator role
+            headers: { Authorization: 'Demo demo@aurais.ai' }, // operator role
         });
 
         expect(res.status).toBe(403);
         const body = await res.json();
-        expect(body.type).toBe('https://trustbot.ai/errors/forbidden');
+        expect(body.type).toBe('https://aurais.ai/errors/forbidden');
         expect(body.detail).toContain('supervisor');
         expect(body.detail).toContain('operator');
     });
@@ -246,7 +246,7 @@ describe('requireRole', () => {
         app.get('/test', requireRole('operator'), (c) => c.json({ ok: true }));
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -257,7 +257,7 @@ describe('requireRole', () => {
         app.get('/test', requireRole('operator'), (c) => c.json({ ok: true }));
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo supervisor@trustbot.ai' },
+            headers: { Authorization: 'Demo supervisor@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -268,7 +268,7 @@ describe('requireRole', () => {
         app.get('/test', requireRole('supervisor', 'compliance'), (c) => c.json({ ok: true }));
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo compliance@trustbot.ai' },
+            headers: { Authorization: 'Demo compliance@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -279,7 +279,7 @@ describe('requireRole', () => {
         app.get('/test', requireRole('operator'), (c) => c.json({ ok: true }));
 
         const res = await makeRequest(app, '/test', {
-            headers: { Authorization: 'Demo viewer@trustbot.ai' },
+            headers: { Authorization: 'Demo viewer@aurais.ai' },
         });
 
         expect(res.status).toBe(403);
@@ -301,7 +301,7 @@ describe('requireOrgAccess', () => {
         );
 
         const res = await makeRequest(app, '/agents/123', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -317,12 +317,12 @@ describe('requireOrgAccess', () => {
         );
 
         const res = await makeRequest(app, '/agents/123', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(404);
         const body = await res.json();
-        expect(body.type).toBe('https://trustbot.ai/errors/not-found');
+        expect(body.type).toBe('https://aurais.ai/errors/not-found');
     });
 
     it('returns 404 when resource does not exist (null org_id)', async () => {
@@ -335,7 +335,7 @@ describe('requireOrgAccess', () => {
         );
 
         const res = await makeRequest(app, '/agents/123', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(404);
@@ -355,7 +355,7 @@ describe('requireOrgAccess', () => {
         );
 
         const res = await makeRequest(app, '/agents/123', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
 
         expect(res.status).toBe(200);
@@ -404,7 +404,7 @@ describe('Integration: Mission Control Routes', () => {
 
         // With operator auth - 200
         const res2 = await makeRequest(app, '/api/v1/mission-control/dashboard', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
         expect(res2.status).toBe(200);
         const body = await res2.json();
@@ -422,13 +422,13 @@ describe('Integration: Mission Control Routes', () => {
 
         // Operator - 403
         const res1 = await makeRequest(app, '/api/v1/mission-control/team', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
         expect(res1.status).toBe(403);
 
         // Supervisor - 200
         const res2 = await makeRequest(app, '/api/v1/mission-control/team', {
-            headers: { Authorization: 'Demo supervisor@trustbot.ai' },
+            headers: { Authorization: 'Demo supervisor@aurais.ai' },
         });
         expect(res2.status).toBe(200);
     });
@@ -457,13 +457,13 @@ describe('Integration: Mission Control Routes', () => {
 
         // demo-org user accessing demo-org agent - 200
         const res1 = await makeRequest(app, '/api/v1/mission-control/agents/agent-1', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
         expect(res1.status).toBe(200);
 
         // demo-org user accessing other-org agent - 404 (not 403!)
         const res2 = await makeRequest(app, '/api/v1/mission-control/agents/agent-2', {
-            headers: { Authorization: 'Demo demo@trustbot.ai' },
+            headers: { Authorization: 'Demo demo@aurais.ai' },
         });
         expect(res2.status).toBe(404);
     });

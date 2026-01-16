@@ -5,7 +5,7 @@
  * Universal skills library for intelligent agents - "Agents of the People"
  * 
  * Integrates with:
- * - TrustBot runtime
+ * - Aurais runtime
  * - AgentAnchor (A3I) certification & governance
  * - BAI Command Center (Advisors & Employees)
  * - Any agent framework requiring standardized skill definitions

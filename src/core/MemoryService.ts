@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Memory Service
+ * Aurais Infrastructure - Memory Service
  * 
  * Provides trust-gated access to memory primitives:
  * - Ephemeral (task-scoped) memory for UNTRUSTED

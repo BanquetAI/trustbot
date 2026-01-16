@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Message Bus Service
+ * Aurais Infrastructure - Message Bus Service
  * 
  * Trust-gated inter-agent communication:
  * - UNTRUSTED: Receive only, cannot initiate

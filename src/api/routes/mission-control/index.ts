@@ -433,7 +433,7 @@ missionControlRoutes.get('/agents/:id', requireRole('operator'), async (c) => {
     if (!agent) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Agent not found',
@@ -632,7 +632,7 @@ missionControlRoutes.get('/queue/:id', requireRole('operator'), async (c) => {
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Action request not found',
@@ -702,7 +702,7 @@ missionControlRoutes.post('/decisions/:id/approve', requireRole('operator'), asy
     if (actionIndex === -1) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -717,7 +717,7 @@ missionControlRoutes.post('/decisions/:id/approve', requireRole('operator'), asy
     if (actionRequest.status !== 'pending') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/conflict',
+                type: 'https://aurais.ai/errors/conflict',
                 title: 'Conflict',
                 status: 409,
                 detail: `Decision has already been ${actionRequest.status}`,
@@ -801,7 +801,7 @@ missionControlRoutes.post('/decisions/:id/deny', requireRole('operator'), async 
     if (actionIndex === -1) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -815,7 +815,7 @@ missionControlRoutes.post('/decisions/:id/deny', requireRole('operator'), async 
     if (actionRequest.status !== 'pending') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/conflict',
+                type: 'https://aurais.ai/errors/conflict',
                 title: 'Conflict',
                 status: 409,
                 detail: `Decision has already been ${actionRequest.status}`,
@@ -887,7 +887,7 @@ missionControlRoutes.get('/decisions/:id/impact', requireRole('operator'), async
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1040,7 +1040,7 @@ missionControlRoutes.get('/decisions/:id/sample', requireRole('operator'), async
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1290,7 +1290,7 @@ missionControlRoutes.get('/tasks/:id', requireRole('operator'), async (c) => {
     if (!task) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Task not found',
@@ -1492,7 +1492,7 @@ missionControlRoutes.get('/decisions/:id/tribunal', requireRole('operator'), asy
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1508,7 +1508,7 @@ missionControlRoutes.get('/decisions/:id/tribunal', requireRole('operator'), asy
         // Not all decisions go through tribunal - only high-risk ones
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'No tribunal record exists for this decision. Tribunal review is only required for high-risk actions.',
@@ -1719,7 +1719,7 @@ missionControlRoutes.get('/decisions/:id/trust-gate', requireRole('operator'), a
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1803,7 +1803,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     } catch {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/bad-request',
+                type: 'https://aurais.ai/errors/bad-request',
                 title: 'Bad Request',
                 status: 400,
                 detail: 'Invalid request body',
@@ -1816,7 +1816,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (!body.overrideType || !['approve', 'deny'].includes(body.overrideType)) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: 'overrideType must be either "approve" or "deny"',
@@ -1828,7 +1828,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (!body.rationale || typeof body.rationale !== 'string') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: 'Rationale is required for tribunal override',
@@ -1840,7 +1840,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (body.rationale.trim().length < MIN_RATIONALE_LENGTH) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: `Rationale must be at least ${MIN_RATIONALE_LENGTH} characters to provide meaningful justification`,
@@ -1859,7 +1859,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (actionIndex === -1) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1874,7 +1874,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (actionRequest.status !== 'pending') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/conflict',
+                type: 'https://aurais.ai/errors/conflict',
                 title: 'Conflict',
                 status: 409,
                 detail: `Decision has already been ${actionRequest.status}`,
@@ -1888,7 +1888,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (!tribunalRecord) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/bad-request',
+                type: 'https://aurais.ai/errors/bad-request',
                 title: 'Bad Request',
                 status: 400,
                 detail: 'No tribunal record exists for this decision. Override is only applicable to tribunal-reviewed decisions.',
@@ -1901,7 +1901,7 @@ missionControlRoutes.post('/decisions/:id/override', requireRole('operator'), as
     if (body.overrideType === tribunalRecord.finalRecommendation) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: `Cannot override to "${body.overrideType}" - tribunal already recommended "${tribunalRecord.finalRecommendation}". Use standard approve/deny endpoint instead.`,
@@ -1974,7 +1974,7 @@ missionControlRoutes.get('/decisions/:id/override', requireRole('operator'), asy
     if (!actionRequest) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Decision not found',
@@ -1988,7 +1988,7 @@ missionControlRoutes.get('/decisions/:id/override', requireRole('operator'), asy
     if (!overrideRecord) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'No override record exists for this decision',
@@ -2250,7 +2250,7 @@ missionControlRoutes.get('/rules/:id', requireRole('operator'), async (c) => {
     if (!rule) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Governance rule not found',
@@ -2285,7 +2285,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     } catch {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/bad-request',
+                type: 'https://aurais.ai/errors/bad-request',
                 title: 'Bad Request',
                 status: 400,
                 detail: 'Invalid request body',
@@ -2298,7 +2298,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     if (!body.action || !['approve', 'deny'].includes(body.action)) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: 'action must be either "approve" or "deny"',
@@ -2310,7 +2310,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     if (!body.reason || typeof body.reason !== 'string') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: 'Reason is required for governance rule decisions',
@@ -2322,7 +2322,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     if (body.reason.trim().length < MIN_DECISION_REASON_LENGTH) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/validation',
+                type: 'https://aurais.ai/errors/validation',
                 title: 'Validation Error',
                 status: 400,
                 detail: `Reason must be at least ${MIN_DECISION_REASON_LENGTH} characters`,
@@ -2341,7 +2341,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     if (ruleIndex === -1) {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/not-found',
+                type: 'https://aurais.ai/errors/not-found',
                 title: 'Not Found',
                 status: 404,
                 detail: 'Governance rule not found',
@@ -2356,7 +2356,7 @@ missionControlRoutes.post('/rules/:id/decide', requireRole('director'), async (c
     if (rule.status !== 'pending') {
         return c.json(
             {
-                type: 'https://trustbot.ai/errors/conflict',
+                type: 'https://aurais.ai/errors/conflict',
                 title: 'Conflict',
                 status: 409,
                 detail: `Rule has already been ${rule.status}`,
@@ -2569,7 +2569,7 @@ missionControlRoutes.get('/audit/:id', requireRole('operator'), async (c) => {
     const entry = MOCK_AUDIT_ENTRIES.find((e) => e.id === entryId && e.orgId === orgId);
 
     if (!entry) {
-        return c.json({ type: 'https://trustbot.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
+        return c.json({ type: 'https://aurais.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
     }
 
     return c.json(entry);
@@ -2587,7 +2587,7 @@ missionControlRoutes.get('/audit/:id/verify', requireRole('operator'), async (c)
     const entry = MOCK_AUDIT_ENTRIES.find((e) => e.id === entryId && e.orgId === orgId);
 
     if (!entry) {
-        return c.json({ type: 'https://trustbot.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
+        return c.json({ type: 'https://aurais.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
     }
 
     // Simulate verification (in production would actually verify hash chain)
@@ -2619,7 +2619,7 @@ missionControlRoutes.get('/audit/:id/accountability', requireRole('operator'), a
     const entry = MOCK_AUDIT_ENTRIES.find((e) => e.id === entryId && e.orgId === orgId);
 
     if (!entry) {
-        return c.json({ type: 'https://trustbot.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
+        return c.json({ type: 'https://aurais.ai/errors/not-found', title: 'Not Found', status: 404, detail: 'Audit entry not found' }, 404);
     }
 
     const agent = MOCK_AGENTS.find((a) => a.id === entry.actingAgentId);

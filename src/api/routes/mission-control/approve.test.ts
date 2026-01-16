@@ -97,7 +97,7 @@ describe('POST /api/v1/mission-control/decisions/:id/approve', () => {
 
             expect(res.status).toBe(404);
             const body = await res.json();
-            expect(body.type).toBe('https://trustbot.ai/errors/not-found');
+            expect(body.type).toBe('https://aurais.ai/errors/not-found');
             expect(body.detail).toBe('Decision not found');
         });
 
@@ -116,7 +116,7 @@ describe('POST /api/v1/mission-control/decisions/:id/approve', () => {
 
             expect(res.status).toBe(409);
             const body = await res.json();
-            expect(body.type).toBe('https://trustbot.ai/errors/conflict');
+            expect(body.type).toBe('https://aurais.ai/errors/conflict');
             expect(body.detail).toContain('already been approved');
         });
     });

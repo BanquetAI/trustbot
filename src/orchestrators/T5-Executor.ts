@@ -1,7 +1,7 @@
 /**
  * T5-Executor: Supreme Commander
  * 
- * The highest authority in the TrustBot system. Final decision-maker,
+ * The highest authority in the Aurais system. Final decision-maker,
  * coordinator of all T5 orchestrators, and interface with HITL governance.
  * 
  * Responsibilities:

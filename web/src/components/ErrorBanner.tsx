@@ -46,7 +46,7 @@ const ERROR_DEFINITIONS: Record<string, ErrorDefinition> = {
         steps: [
             'Open a terminal in the project root folder',
             'Run: npm run dev',
-            'Wait for "TrustBot System - ONLINE" message',
+            'Wait for "Aurais System - ONLINE" message',
             'Click Retry below'
         ],
         quickActions: [

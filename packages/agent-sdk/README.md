@@ -1,23 +1,23 @@
-# @trustbot/agent-sdk
+# @aurais/agent-sdk
 
-TypeScript SDK for connecting AI agents to TrustBot Mission Control.
+TypeScript SDK for connecting AI agents to Aurais Mission Control.
 
 ## Installation
 
 ```bash
-npm install @trustbot/agent-sdk
+npm install @aurais/agent-sdk
 # or
-yarn add @trustbot/agent-sdk
+yarn add @aurais/agent-sdk
 # or
-pnpm add @trustbot/agent-sdk
+pnpm add @aurais/agent-sdk
 ```
 
 ## Quick Start
 
 ```typescript
-import { TrustBotAgent } from '@trustbot/agent-sdk';
+import { AuraisAgent } from '@aurais/agent-sdk';
 
-const agent = new TrustBotAgent({
+const agent = new AuraisAgent({
     apiKey: process.env.TRUSTBOT_API_KEY,
     capabilities: ['execute', 'external'],
     skills: ['web-dev', 'api-integration'],
@@ -52,14 +52,14 @@ await agent.connect();
 ## Configuration
 
 ```typescript
-const agent = new TrustBotAgent({
+const agent = new AuraisAgent({
     // Required
     apiKey: 'your-api-key',
 
     // Optional
     capabilities: ['execute', 'external', 'delegate'],
     skills: ['web-dev', 'data-analysis'],
-    serverUrl: 'wss://api.trustbot.ai/ws',
+    serverUrl: 'wss://api.aurais.ai/ws',
     autoReconnect: true,
     maxReconnectAttempts: 10,
     reconnectBaseDelay: 1000,
@@ -132,7 +132,7 @@ agent.on('status:changed', (oldStatus, newStatus) => {
 
 ### `connect(): Promise<void>`
 
-Connect to TrustBot Mission Control.
+Connect to Aurais Mission Control.
 
 ### `disconnect(): void`
 

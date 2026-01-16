@@ -518,7 +518,7 @@ export class AIClient extends EventEmitter<AIProviderEvents> {
         decision: string;
         confidence: number;
     }> {
-        const systemPrompt = `You are ${params.agentName}, a ${params.agentRole} AI agent in TrustBot system.
+        const systemPrompt = `You are ${params.agentName}, a ${params.agentRole} AI agent in Aurais system.
 Your job is to analyze tasks and make decisions.
 Always respond in JSON format with: { "reasoning": "...", "decision": "...", "confidence": 0.0-1.0 }`;
 
@@ -634,7 +634,7 @@ Be direct and provide actionable information when applicable.`;
         if (synthesize && successfulPerspectives.length >= 2) {
             try {
                 // Use the default provider to synthesize
-                const synthesisPrompt = `You are Aria, the AI assistant for TrustBot. You have gathered perspectives from multiple AI providers and must now ascertain the truth.
+                const synthesisPrompt = `You are Aria, the AI assistant for Aurais. You have gathered perspectives from multiple AI providers and must now ascertain the truth.
 
 Here are the different perspectives on the question "${question}":
 

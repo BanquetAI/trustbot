@@ -1,7 +1,7 @@
 /**
  * GameUX - Video Game-Style UI Components
  *
- * Makes TrustBot feel like an engaging game:
+ * Makes Aurais feel like an engaging game:
  * - Achievement notifications
  * - Level-up celebrations
  * - XP progress bars

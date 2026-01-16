@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Orchestrator
+ * Aurais Infrastructure - Orchestrator
  * 
  * Coordinates all services for the bot-builds-bot earned trust system.
  * Manages the tick loop, event dispatch, and service integration.

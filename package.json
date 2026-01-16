@@ -1,7 +1,7 @@
 {
-  "name": "trustbot-system",
-  "version": "1.0.0",
-  "description": "Tier 5 TrustBot System - Holonic Swarm Intelligence with Fading HITL Governance",
+  "name": "aurais",
+  "version": "2.0.0",
+  "description": "Aurais - AI Agent Governance Platform powered by Vorion BASIS",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
@@ -21,12 +21,13 @@
   },
   "keywords": [
     "ai-agents",
-    "swarm-intelligence",
-    "holonic-systems",
-    "trustbot",
-    "orchestration"
+    "governance",
+    "trust-scoring",
+    "aurais",
+    "vorion",
+    "basis"
   ],
-  "author": "TrustBot System",
+  "author": "Vorion",
   "license": "MIT",
   "dependencies": {
     "@hono/node-server": "^1.19.7",

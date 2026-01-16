@@ -1,7 +1,7 @@
 /**
  * Backend API Server
  * 
- * Express server providing REST API and WebSocket for the TrustBot system.
+ * Express server providing REST API and WebSocket for the Aurais system.
  * Connects the web UI to the core systems.
  */
 
@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import { EventEmitter } from 'events';
 
-const DATA_FILE = path.join(process.cwd(), 'trustbot-data.json');
+const DATA_FILE = path.join(process.cwd(), 'aurais-data.json');
 
 // ============================================================================
 // Types

@@ -97,7 +97,7 @@ export function SpawnTutorial({ onClose, onSpawn }: SpawnTutorialProps) {
                 return (
                     <div className="tutorial-step">
                         <div className="tutorial-icon-large">🤖</div>
-                        <h2>Welcome to TrustBot Agents</h2>
+                        <h2>Welcome to Aurais Agents</h2>
                         <p className="tutorial-subtitle">
                             AI agents that work autonomously within trust boundaries you define.
                         </p>
@@ -397,7 +397,7 @@ export function SpawnTutorial({ onClose, onSpawn }: SpawnTutorialProps) {
 
                         <div className="tutorial-actions">
                             <button className="btn-tutorial-primary" onClick={onClose}>
-                                Start Using TrustBot →
+                                Start Using Aurais →
                             </button>
                         </div>
                     </div>

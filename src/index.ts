@@ -1,5 +1,5 @@
 /**
- * TrustBot System - Main Entry Point
+ * Aurais System - Main Entry Point
  * 
  * Bootstraps the Tier 5 Supreme Orchestrators and initializes the system.
  */
@@ -36,10 +36,10 @@ const state: SystemState = {
 // ============================================================================
 
 /**
- * Bootstrap the TrustBot system
+ * Bootstrap the Aurais system
  */
 export async function bootstrap(): Promise<void> {
-    console.log('🏢 TrustBot System - Initializing...');
+    console.log('🏢 Aurais System - Initializing...');
     console.log('');
 
     // Set initial HITL level to 100%
@@ -104,7 +104,7 @@ export async function bootstrap(): Promise<void> {
     state.isRunning = true;
     state.startedAt = new Date();
 
-    console.log('🏢 TrustBot System - ONLINE');
+    console.log('🏢 Aurais System - ONLINE');
     console.log(`   Started at: ${state.startedAt.toISOString()}`);
     console.log('');
 }
@@ -147,7 +147,7 @@ export function getMetrics() {
  * Shutdown the system
  */
 export async function shutdown(): Promise<void> {
-    console.log('🛑 TrustBot System - Shutting down...');
+    console.log('🛑 Aurais System - Shutting down...');
 
     if (state.spawner) await state.spawner.terminate();
     if (state.evolver) await state.evolver.terminate();

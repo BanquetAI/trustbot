@@ -1,7 +1,7 @@
 /**
  * Persistence Layer
  *
- * File-based persistence for TrustBot system state. Supports:
+ * File-based persistence for Aurais system state. Supports:
  * - Trust scores and policies
  * - Blackboard entries
  * - Workflow tasks
@@ -82,7 +82,7 @@ export class PersistenceLayer extends EventEmitter<PersistenceEvents> {
         super();
 
         this.config = {
-            dataDir: config?.dataDir ?? path.join(process.cwd(), 'trustbot-data'),
+            dataDir: config?.dataDir ?? path.join(process.cwd(), 'aurais-data'),
             autoSaveIntervalMs: config?.autoSaveIntervalMs ?? 30000, // 30 seconds
             maxAuditEntriesInMemory: config?.maxAuditEntriesInMemory ?? 1000,
         };

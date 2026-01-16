@@ -1,5 +1,5 @@
 /**
- * TrustBot 2.0 Integration Tests
+ * Aurais 2.0 Integration Tests
  *
  * End-to-end tests that verify the full flow across modules:
  * - Trust scoring with FICO components
@@ -60,7 +60,7 @@ function setupAgent(agentId: AgentId, tier: AgentTier): void {
 // Integration Test Suites
 // ============================================================================
 
-describe('TrustBot 2.0 Integration Tests', () => {
+describe('Aurais 2.0 Integration Tests', () => {
     // =========================================================================
     // Trust Scoring + Audit Integration
     // =========================================================================
@@ -115,7 +115,7 @@ describe('TrustBot 2.0 Integration Tests', () => {
             // Log initial trust
             await auditLogger.logEntry({
                 action: 'TRUST_INITIALIZED',
-                actor: { type: 'SYSTEM', id: 'trustbot', tier: 5 },
+                actor: { type: 'SYSTEM', id: 'aurais', tier: 5 },
                 target: { type: 'AGENT', id: agentId },
                 outcome: 'SUCCESS',
             });
@@ -413,7 +413,7 @@ describe('TrustBot 2.0 Integration Tests', () => {
 
             await auditLogger.logEntry({
                 action: 'AGENT_SPAWNED',
-                actor: { type: 'SYSTEM', id: 'trustbot', tier: 5 },
+                actor: { type: 'SYSTEM', id: 'aurais', tier: 5 },
                 target: { type: 'AGENT', id: agentId },
                 outcome: 'SUCCESS',
             });

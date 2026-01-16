@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Core Type Definitions
+ * Aurais Infrastructure - Core Type Definitions
  *
  * Foundational types for the bot-builds-bot earned trust system.
  * All agents operate within this type system regardless of tier.

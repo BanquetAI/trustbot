@@ -28,7 +28,7 @@ const features = [
 ] as const;
 
 const DEMO_USER = {
-    email: 'demo@trustbot.ai',
+    email: 'demo@aurais.ai',
     name: 'Demo User',
     picture: undefined,
 } as const;
@@ -38,8 +38,8 @@ export const LoginScreen = memo(function LoginScreen({ onLogin }: LoginScreenPro
 
     const handleEnter = useCallback(() => {
         setIsLoading(true);
-        sessionStorage.setItem('trustbot_user', JSON.stringify(DEMO_USER));
-        sessionStorage.setItem('trustbot_demo', 'true');
+        sessionStorage.setItem('aurais_user', JSON.stringify(DEMO_USER));
+        sessionStorage.setItem('aurais_demo', 'true');
         onLogin(DEMO_USER);
     }, [onLogin]);
 
@@ -54,7 +54,7 @@ export const LoginScreen = memo(function LoginScreen({ onLogin }: LoginScreenPro
                     muted
                     playsInline
                 >
-                    <source src="/trustbot-intro.mp4" type="video/mp4" />
+                    <source src="/aurais-intro.mp4" type="video/mp4" />
                 </video>
 
                 {/* Content overlaid on video */}
@@ -77,7 +77,7 @@ export const LoginScreen = memo(function LoginScreen({ onLogin }: LoginScreenPro
                                     onClick={handleEnter}
                                     className="login-demo-btn"
                                 >
-                                    Enter TrustBot
+                                    Enter Aurais
                                 </button>
                             )}
                         </div>

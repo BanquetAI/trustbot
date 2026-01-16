@@ -50,7 +50,7 @@ describe('Prometheus Metrics', () => {
             const registry = getMetricsRegistry();
             const output = await registry.getMetrics();
 
-            expect(output).toContain('trustbot_');
+            expect(output).toContain('aurais_');
             expect(output).toContain('http_requests_total');
         });
     });
@@ -65,7 +65,7 @@ describe('Prometheus Metrics', () => {
             registry.recordHttpRequest('GET', '/api/test', 200, 0.05);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_http_requests_total');
+            expect(output).toContain('aurais_http_requests_total');
             expect(output).toContain('method="GET"');
             expect(output).toContain('status_code="200"');
         });
@@ -92,7 +92,7 @@ describe('Prometheus Metrics', () => {
             registry.recordHttpRequest('GET', '/api/test', 200, 0.15);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_http_request_duration_seconds');
+            expect(output).toContain('aurais_http_request_duration_seconds');
             expect(output).toContain('_bucket');
         });
     });
@@ -111,7 +111,7 @@ describe('Prometheus Metrics', () => {
 
             const registry = getMetricsRegistry();
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_http_requests_total');
+            expect(output).toContain('aurais_http_requests_total');
         });
 
         it('should exclude /metrics path', async () => {
@@ -185,7 +185,7 @@ describe('Prometheus Metrics', () => {
             registry.setWsConnections('agent', 5);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_websocket_connections_current');
+            expect(output).toContain('aurais_websocket_connections_current');
             expect(output).toContain('type="agent"');
         });
 
@@ -198,7 +198,7 @@ describe('Prometheus Metrics', () => {
             registry.decWsConnections('agent');
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_websocket_connections_current');
+            expect(output).toContain('aurais_websocket_connections_current');
         });
 
         it('should record message counts', async () => {
@@ -208,7 +208,7 @@ describe('Prometheus Metrics', () => {
             registry.recordWsMessage('outbound', 'decision_request');
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_websocket_messages_total');
+            expect(output).toContain('aurais_websocket_messages_total');
             expect(output).toContain('direction="inbound"');
             expect(output).toContain('direction="outbound"');
         });
@@ -226,7 +226,7 @@ describe('Prometheus Metrics', () => {
             registry.recordTrustScoreChange('decrease', 'task_failed', 'org_1');
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_trust_score_changes_total');
+            expect(output).toContain('aurais_trust_score_changes_total');
             expect(output).toContain('direction="increase"');
             expect(output).toContain('direction="decrease"');
         });
@@ -237,7 +237,7 @@ describe('Prometheus Metrics', () => {
             registry.setTrustScore('agent_1', 'org_1', 850);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_trust_score_current');
+            expect(output).toContain('aurais_trust_score_current');
             expect(output).toContain('agent_id="agent_1"');
         });
 
@@ -247,7 +247,7 @@ describe('Prometheus Metrics', () => {
             registry.recordTierChange('TRUSTED', 'VERIFIED', 'org_1');
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_trust_tier_changes_total');
+            expect(output).toContain('aurais_trust_tier_changes_total');
             expect(output).toContain('from_tier="TRUSTED"');
             expect(output).toContain('to_tier="VERIFIED"');
         });
@@ -265,7 +265,7 @@ describe('Prometheus Metrics', () => {
             registry.recordDecisionProcessed('external', 'denied', 'tribunal', 'org_1');
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_decisions_processed_total');
+            expect(output).toContain('aurais_decisions_processed_total');
             expect(output).toContain('outcome="approved"');
             expect(output).toContain('source="auto_approval"');
         });
@@ -276,7 +276,7 @@ describe('Prometheus Metrics', () => {
             registry.recordDecisionDuration('execute', 'hitl', 5.5);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_decision_duration_seconds');
+            expect(output).toContain('aurais_decision_duration_seconds');
         });
 
         it('should track queue depth', async () => {
@@ -285,7 +285,7 @@ describe('Prometheus Metrics', () => {
             registry.setDecisionQueueDepth('high', 'org_1', 25);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_decision_queue_depth');
+            expect(output).toContain('aurais_decision_queue_depth');
             expect(output).toContain('urgency="high"');
         });
     });
@@ -302,7 +302,7 @@ describe('Prometheus Metrics', () => {
             registry.setAgentsConnected('offline', 'org_1', 2);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_agents_connected');
+            expect(output).toContain('aurais_agents_connected');
             expect(output).toContain('status="online"');
             expect(output).toContain('status="offline"');
         });
@@ -313,7 +313,7 @@ describe('Prometheus Metrics', () => {
             registry.recordHeartbeatLatency('agent_1', 0.05);
 
             const output = await registry.getMetrics();
-            expect(output).toContain('trustbot_agent_heartbeat_latency_seconds');
+            expect(output).toContain('aurais_agent_heartbeat_latency_seconds');
         });
     });
 

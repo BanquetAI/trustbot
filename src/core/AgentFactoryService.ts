@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Agent Factory Service
+ * Aurais Infrastructure - Agent Factory Service
  * 
  * Handles agent spawning with trust inheritance:
  * - Only CERTIFIED+ can spawn agents

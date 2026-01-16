@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Capability Resolver Service
+ * Aurais Infrastructure - Capability Resolver Service
  * 
  * Determines what capabilities an agent has based on their current trust tier.
  * This is the authoritative source for trust-gated permissions.

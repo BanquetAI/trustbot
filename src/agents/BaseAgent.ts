@@ -1,7 +1,7 @@
 /**
  * Base Agent
  * 
- * Abstract base class for all agents in the TrustBot system.
+ * Abstract base class for all agents in the Aurais system.
  * Provides common functionality for lifecycle, communication,
  * memory, and trust management.
  */

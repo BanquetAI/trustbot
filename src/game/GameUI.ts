@@ -147,7 +147,7 @@ export class GameUI {
             '   Welcome, CEO.',
             '',
             '   You are the Human-in-the-Loop (HITL) governing',
-            '   the Tier 5 TrustBot System.',
+            '   the Tier 5 Aurais System.',
             '',
             '   Your 5 Supreme Orchestrators await your guidance.',
             '',

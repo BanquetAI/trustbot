@@ -1,5 +1,5 @@
 /**
- * TrustBot System - Core Type Definitions
+ * Aurais System - Core Type Definitions
  *
  * These types define the fundamental structures used throughout
  * the holonic swarm intelligence system.

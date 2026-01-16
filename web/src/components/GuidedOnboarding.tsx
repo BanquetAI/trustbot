@@ -74,7 +74,7 @@ export function GuidedOnboarding({ onClose, onComplete }: GuidedOnboardingProps)
     const [step, setStep] = useState<Step>('intro');
     const [config, setConfig] = useState<IntegrationConfig>({
         mcp: { enabled: false, servers: [] },
-        rag: { enabled: false, provider: 'local', indexName: 'trustbot-index', embedModel: 'text-embedding-3-small' },
+        rag: { enabled: false, provider: 'local', indexName: 'aurais-index', embedModel: 'text-embedding-3-small' },
         apis: [],
     });
 
@@ -223,7 +223,7 @@ export function GuidedOnboarding({ onClose, onComplete }: GuidedOnboardingProps)
                                 maxWidth: '500px',
                                 margin: '0 auto 24px',
                             }}>
-                                This wizard will help you configure external integrations for your TrustBot agents.
+                                This wizard will help you configure external integrations for your Aurais agents.
                                 You can set up MCP servers for extended capabilities, RAG for knowledge retrieval,
                                 and connect to external APIs.
                             </p>

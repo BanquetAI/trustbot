@@ -8,7 +8,7 @@ interface LoadingOverlayProps {
     message?: string;
 }
 
-export function LoadingOverlay({ message = 'Connecting to TrustBot HQ...' }: LoadingOverlayProps) {
+export function LoadingOverlay({ message = 'Connecting to Aurais HQ...' }: LoadingOverlayProps) {
     return (
         <div
             className="loading-overlay"

@@ -29,7 +29,7 @@ const GENESIS_STEPS: GenesisStep[] = [
             color: '#8b5cf6', // purple
         },
         messages: [
-            "Welcome to TrustBot HQ, Founder.",
+            "Welcome to Aurais HQ, Founder.",
             "I am The Architect. I design the grand strategies that guide our collective intelligence.",
             "You've activated the Genesis Protocol - the awakening of your autonomous agent swarm.",
             "Let me introduce you to our team and show you how we work together."
@@ -140,7 +140,7 @@ const GENESIS_STEPS: GenesisStep[] = [
     },
 ];
 
-const STORAGE_KEY = 'trustbot_genesis_complete';
+const STORAGE_KEY = 'aurais_genesis_complete';
 
 interface GenesisProtocolProps {
     onComplete: () => void;

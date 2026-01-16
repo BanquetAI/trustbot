@@ -1,7 +1,7 @@
 /**
  * Security Layer
  *
- * Provides authentication, authorization, and audit logging for the TrustBot system.
+ * Provides authentication, authorization, and audit logging for the Aurais system.
  * This layer wraps sensitive operations to ensure proper access control and
  * maintains a complete audit trail for governance compliance.
  *

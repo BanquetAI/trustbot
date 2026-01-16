@@ -2,7 +2,7 @@
  * TrustEngine Unit Tests
  *
  * Critical tests for the trust scoring system - the foundation
- * of TrustBot's security and governance model.
+ * of Aurais's security and governance model.
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

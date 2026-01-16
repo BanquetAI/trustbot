@@ -1,7 +1,7 @@
 /**
  * Core Module Index
  *
- * Exports all core systems for the TrustBot System.
+ * Exports all core systems for the Aurais System.
  */
 
 export { Blackboard, blackboard } from './Blackboard.js';

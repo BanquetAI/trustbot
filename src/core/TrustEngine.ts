@@ -3,7 +3,7 @@
  *
  * Central trust verification and scoring system. Manages trust inheritance,
  * trust budget allocation, and trust score calculations. Trust is the
- * fundamental currency of the TrustBot system.
+ * fundamental currency of the Aurais system.
  *
  * TRUST-1.8: Enhanced with FICO-style scoring via TrustScoreCalculator.
  */

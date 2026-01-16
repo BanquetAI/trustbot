@@ -1,5 +1,5 @@
 /**
- * TrustBot Agent SDK
+ * Aurais Agent SDK
  *
  * Epic 10: Agent Connection Layer
  * Story 10.5: Agent SDK (TypeScript)
@@ -8,12 +8,12 @@
  */
 
 // Main class
-export { TrustBotAgent } from './TrustBotAgent.js';
+export { AuraisAgent } from './AuraisAgent.js';
 
 // All types
 export type {
     // Configuration
-    TrustBotAgentConfig,
+    AuraisAgentConfig,
     AgentCapability,
     AgentStatus,
     ConnectionState,

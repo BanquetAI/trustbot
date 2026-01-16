@@ -37,7 +37,7 @@ export interface MetricsConfig {
 // ============================================================================
 
 const DEFAULT_CONFIG: MetricsConfig = {
-    prefix: 'trustbot_',
+    prefix: 'aurais_',
     defaultLabels: {
         service: 'mission-control',
     },

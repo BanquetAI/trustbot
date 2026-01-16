@@ -175,7 +175,7 @@ export function NavBar({
             <header className="nav-bar nav-bar--desktop" role="navigation" aria-label="Desktop navigation">
             <div className="nav-brand">
                 <span className="nav-brand__icon">🤖</span>
-                <span className="nav-brand__title">TrustBot HQ</span>
+                <span className="nav-brand__title">Aurais HQ</span>
             </div>
 
             <div className="nav-links">

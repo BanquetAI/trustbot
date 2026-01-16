@@ -72,7 +72,7 @@ const DEFAULT_CORS_CONFIG: CORSConfig = {
         'https://web-banquetai.vercel.app',
         'https://*.vercel.app',
         // Production - Fly.io API (for same-origin)
-        'https://trustbot-api.fly.dev',
+        'https://aurais-api.fly.dev',
     ],
     allowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'X-API-Key'],

@@ -387,7 +387,7 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                         label="Embed"
                         tooltip="Get embed code for your website."
                         onClick={() => {
-                            const code = `<script src="https://trustbot.ai/embed.js" data-agent="${agent.id}"></script>`;
+                            const code = `<script src="https://aurais.ai/embed.js" data-agent="${agent.id}"></script>`;
                             navigator.clipboard.writeText(code);
                             alert('Embed code copied!\n\n' + code);
                         }}
@@ -397,7 +397,7 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                     <ActionButton
                         icon="🏪"
                         label="Publish"
-                        tooltip="Share on TrustBot marketplace."
+                        tooltip="Share on Aurais marketplace."
                         onClick={() => setConfirmAction({
                             type: 'pause',
                             title: 'Publish to Marketplace?',
@@ -405,7 +405,7 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                             confirmLabel: 'Publish',
                             confirmColor: 'var(--accent-purple)',
                             onConfirm: () => {
-                                alert('🎉 Published to marketplace.trustbot.ai');
+                                alert('🎉 Published to marketplace.aurais.ai');
                                 setConfirmAction(null);
                             },
                         })}
@@ -476,7 +476,7 @@ export const AgentControlPanel: React.FC<AgentControlPanelProps> = ({
                             onClick={() => setConfirmAction({
                                 type: 'pause',
                                 title: 'Transfer Agent?',
-                                message: `Transfer ${agent.name} to another TrustBot workspace. Agent will be removed from this workspace.`,
+                                message: `Transfer ${agent.name} to another Aurais workspace. Agent will be removed from this workspace.`,
                                 confirmLabel: 'Transfer Out',
                                 confirmColor: 'var(--accent-purple)',
                                 onConfirm: () => {

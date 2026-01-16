@@ -1,5 +1,5 @@
 /**
- * TrustBot Agent ID Schema
+ * Aurais Agent ID Schema
  *
  * Agent ID Format: T.R.CC.II (6 digits, displayed as TRCCII)
  * - T:  Operating Tier (0-8)

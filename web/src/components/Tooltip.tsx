@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, ReactNode } from 'react';
  * Contextual Tooltip Component
  *
  * Provides educational tooltips throughout the UI to help users
- * understand TrustBot concepts and functionality.
+ * understand Aurais concepts and functionality.
  */
 
 interface TooltipProps {
@@ -296,7 +296,7 @@ export const TOOLTIP_CONTENT = {
     },
     METRIC_UPTIME: {
         title: 'System Uptime',
-        content: 'How long the TrustBot system has been running continuously.',
+        content: 'How long the Aurais system has been running continuously.',
     },
     METRIC_PENDING: {
         title: 'Pending Approvals',

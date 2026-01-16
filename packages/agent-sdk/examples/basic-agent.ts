@@ -1,20 +1,20 @@
 /**
- * Basic TrustBot Agent Example
+ * Basic Aurais Agent Example
  *
- * Demonstrates how to use the @trustbot/agent-sdk to connect an AI agent
- * to TrustBot Mission Control.
+ * Demonstrates how to use the @aurais/agent-sdk to connect an AI agent
+ * to Aurais Mission Control.
  *
  * Usage:
  *   TRUSTBOT_API_KEY=your_key npx ts-node examples/basic-agent.ts
  */
 
-import { TrustBotAgent, type Task, type ActionRequest } from '../src/index.js';
+import { AuraisAgent, type Task, type ActionRequest } from '../src/index.js';
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const agent = new TrustBotAgent({
+const agent = new AuraisAgent({
     apiKey: process.env.TRUSTBOT_API_KEY || 'your-api-key-here',
     capabilities: ['execute', 'external'],
     skills: ['web-dev', 'api-integration', 'data-analysis'],
@@ -34,7 +34,7 @@ const agent = new TrustBotAgent({
 
 // Connection events
 agent.on('connected', () => {
-    console.log('✅ Connected to TrustBot Mission Control');
+    console.log('✅ Connected to Aurais Mission Control');
     console.log(`   Agent ID: ${agent.getAgentId()}`);
     console.log(`   Structured ID: ${agent.getStructuredId()}`);
 });
@@ -48,7 +48,7 @@ agent.on('reconnecting', (attempt, maxAttempts) => {
 });
 
 agent.on('reconnected', () => {
-    console.log('✅ Reconnected to TrustBot Mission Control');
+    console.log('✅ Reconnected to Aurais Mission Control');
 });
 
 agent.on('error', (error) => {
@@ -142,12 +142,12 @@ agent.on('config:updated', (config) => {
 // ============================================================================
 
 async function main() {
-    console.log('🤖 TrustBot Agent SDK Example');
+    console.log('🤖 Aurais Agent SDK Example');
     console.log('================================');
 
     try {
         // Connect to Mission Control
-        console.log('🔌 Connecting to TrustBot Mission Control...');
+        console.log('🔌 Connecting to Aurais Mission Control...');
         await agent.connect();
 
         // Keep the agent running

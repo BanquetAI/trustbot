@@ -1,12 +1,12 @@
 /**
- * TrustBot Agent SDK - Tests
+ * Aurais Agent SDK - Tests
  *
  * Epic 10: Agent Connection Layer
  * Story 10.5: Agent SDK (TypeScript)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { TrustBotAgent } from './TrustBotAgent.js';
+import { AuraisAgent } from './AuraisAgent.js';
 import type {
     AgentStatus,
     Task,
@@ -27,11 +27,11 @@ vi.mock('ws', () => {
     };
 });
 
-describe('TrustBotAgent', () => {
-    let agent: TrustBotAgent;
+describe('AuraisAgent', () => {
+    let agent: AuraisAgent;
 
     beforeEach(() => {
-        agent = new TrustBotAgent({
+        agent = new AuraisAgent({
             apiKey: 'test-api-key',
             capabilities: ['execute', 'external'],
             skills: ['web-dev'],
@@ -48,17 +48,17 @@ describe('TrustBotAgent', () => {
 
     describe('Configuration', () => {
         it('requires an API key', () => {
-            expect(() => new TrustBotAgent({ apiKey: '' })).toThrow('API key is required');
+            expect(() => new AuraisAgent({ apiKey: '' })).toThrow('API key is required');
         });
 
         it('uses default configuration when not specified', () => {
-            const defaultAgent = new TrustBotAgent({ apiKey: 'test' });
+            const defaultAgent = new AuraisAgent({ apiKey: 'test' });
             expect(defaultAgent).toBeDefined();
             expect(defaultAgent.getConnectionState()).toBe('disconnected');
         });
 
         it('accepts custom configuration', () => {
-            const customAgent = new TrustBotAgent({
+            const customAgent = new AuraisAgent({
                 apiKey: 'test',
                 capabilities: ['execute', 'delegate'],
                 skills: ['data-analysis'],
@@ -334,8 +334,8 @@ describe('Type Safety', () => {
         expect(true).toBe(true); // Type check passed
     });
 
-    it('TrustBotAgent implements EventEmitter', () => {
-        const agent = new TrustBotAgent({ apiKey: 'test' });
+    it('AuraisAgent implements EventEmitter', () => {
+        const agent = new AuraisAgent({ apiKey: 'test' });
 
         // Verify EventEmitter methods exist
         expect(typeof agent.on).toBe('function');

@@ -62,7 +62,7 @@ export interface Logger {
 // Configuration
 // ============================================================================
 
-const SERVICE_NAME = process.env.SERVICE_NAME || 'trustbot-api';
+const SERVICE_NAME = process.env.SERVICE_NAME || 'aurais-api';
 const LOG_LEVEL = (process.env.LOG_LEVEL || 'info') as LogLevel;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';

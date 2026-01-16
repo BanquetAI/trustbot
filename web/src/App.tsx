@@ -1,4 +1,4 @@
-// TrustBot HQ - Main Application with Aria Console
+// Aurais - AI Agent Governance Platform powered by Vorion BASIS
 import { useState, useEffect } from 'react';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { LoginScreen } from './components/LoginScreen';
@@ -37,7 +37,7 @@ import { InsightsPanel } from './components/InsightsPanel';
 import { ArtifactsView } from './components/ArtifactsView';
 import { ReassignAgentModal } from './components/ReassignAgentModal';
 import { ToastProvider } from './components/ui';
-import { useTrustBot } from './hooks';
+import { useAurais } from './hooks';
 import { api } from './api';
 import type { HITLUser } from './types';
 
@@ -46,7 +46,7 @@ type ModalType = 'none' | 'agent' | 'blackboard' | 'controls' | 'blueprints' | '
 
 // Inner app component that can use game context
 function AppContent() {
-    // Unified TrustBot hook - single source of truth
+    // Unified Aurais hook - single source of truth
     const {
         agents,
         blackboardEntries,
@@ -61,7 +61,7 @@ function AppContent() {
         setHITL,
         approve,
         refresh,
-    } = useTrustBot();
+    } = useAurais();
 
     // Game UX state (for achievements)
     const [showAchievement, setShowAchievement] = useState<Achievement | null>(null);
@@ -108,10 +108,10 @@ function AppContent() {
 
     // Auth state with user info
     const [authenticated, setAuthenticated] = useState(() => {
-        return sessionStorage.getItem('trustbot_auth') === 'true';
+        return sessionStorage.getItem('aurais_auth') === 'true';
     });
     const [currentUser, setCurrentUser] = useState<{ email: string; name: string; picture?: string } | null>(() => {
-        const stored = sessionStorage.getItem('trustbot_user');
+        const stored = sessionStorage.getItem('aurais_user');
         return stored ? JSON.parse(stored) : null;
     });
 
@@ -128,19 +128,19 @@ function AppContent() {
 
     const handleLogin = (user?: { email: string; name: string; picture?: string }) => {
         setAuthenticated(true);
-        sessionStorage.setItem('trustbot_auth', 'true');
+        sessionStorage.setItem('aurais_auth', 'true');
         if (user) {
             setCurrentUser(user);
-            sessionStorage.setItem('trustbot_user', JSON.stringify(user));
+            sessionStorage.setItem('aurais_user', JSON.stringify(user));
         }
     };
 
     const handleLogout = () => {
         setAuthenticated(false);
         setCurrentUser(null);
-        sessionStorage.removeItem('trustbot_auth');
-        sessionStorage.removeItem('trustbot_user');
-        sessionStorage.removeItem('trustbot_credential');
+        sessionStorage.removeItem('aurais_auth');
+        sessionStorage.removeItem('aurais_user');
+        sessionStorage.removeItem('aurais_credential');
     };
 
     // Keyboard accessibility - Escape to close modals

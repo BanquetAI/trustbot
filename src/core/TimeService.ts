@@ -1,5 +1,5 @@
 /**
- * TrustBot Infrastructure - Time Service
+ * Aurais Infrastructure - Time Service
  * 
  * Provides trust-gated access to time primitives.
  * Lower tiers receive only logical tick counts; higher tiers get full temporal control.

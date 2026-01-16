@@ -1,12 +1,12 @@
 /**
  * API Hooks for React
  *
- * Provides data fetching and mutation hooks for the TrustBot API.
+ * Provides data fetching and mutation hooks for the Aurais API.
  * Supports both legacy API (port 3001) and Unified Workflow API (port 3003).
  */
 
 // Fly.io API Server URL (auto-starts on request, scales to 0 when idle)
-const FLY_API_URL = 'https://trustbot-api.fly.dev';
+const FLY_API_URL = 'https://aurais-api.fly.dev';
 
 // Unified API Server - Hono (serves both legacy /api/* and workflow endpoints)
 const API_BASE = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
@@ -56,7 +56,7 @@ export interface APISystemState {
 
 function getAuthToken(): string | null {
     // Get the Google credential from session storage
-    const credential = sessionStorage.getItem('trustbot_credential');
+    const credential = sessionStorage.getItem('aurais_credential');
     return credential;
 }
 

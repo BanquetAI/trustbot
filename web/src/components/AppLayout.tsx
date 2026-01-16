@@ -5,7 +5,7 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { NavBar, type NavView } from './NavBar';
-import { useTrustBot } from '../hooks';
+import { useAurais } from '../hooks';
 import { api } from '../api';
 import { LoadingOverlay } from './LoadingOverlay';
 import { ErrorBanner } from './ErrorBanner';
@@ -26,17 +26,17 @@ export function AppLayout() {
         loading,
         error,
         refresh,
-    } = useTrustBot();
+    } = useAurais();
 
     // Current view derived from route
     const currentView = (location.pathname.split('/')[1] || 'console') as NavView;
 
     // Auth state
     const [_authenticated, setAuthenticated] = useState(() => {
-        return sessionStorage.getItem('trustbot_auth') === 'true';
+        return sessionStorage.getItem('aurais_auth') === 'true';
     });
     const [currentUser, setCurrentUser] = useState<{ email: string; name: string; picture?: string } | null>(() => {
-        const stored = sessionStorage.getItem('trustbot_user');
+        const stored = sessionStorage.getItem('aurais_user');
         return stored ? JSON.parse(stored) : null;
     });
 
@@ -66,8 +66,8 @@ export function AppLayout() {
     const handleLogout = () => {
         setAuthenticated(false);
         setCurrentUser(null);
-        sessionStorage.removeItem('trustbot_auth');
-        sessionStorage.removeItem('trustbot_user');
+        sessionStorage.removeItem('aurais_auth');
+        sessionStorage.removeItem('aurais_user');
     };
 
     // Navigation handler - uses real routing

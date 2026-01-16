@@ -10,7 +10,7 @@ import type { Agent, BlackboardEntry, ApprovalRequest } from '../types';
 import { Tooltip, TOOLTIP_CONTENT } from './Tooltip';
 
 /**
- * TrustBot Console
+ * Aurais Console
  *
  * Unified interface where users talk to Aria, who orchestrates the agents.
  * Features:
@@ -103,7 +103,7 @@ interface ConsoleMessage {
 }
 
 // Aria personality and responses
-const ARIA_INTRO = `Welcome to TrustBot. I'm **Aria**, your AI operations assistant.
+const ARIA_INTRO = `Welcome to Aurais. I'm **Aria**, your AI operations assistant.
 
 I help you manage and communicate with the agent network. You can:
 - Create tasks and spawn agents
@@ -1627,7 +1627,7 @@ ${advisorList}
             }
 
             // Build context with memory
-            let systemContext = `Current TrustBot context:
+            let systemContext = `Current Aurais context:
 - ${agents.length} agents active (${agents.filter(a => a.status === 'WORKING').length} working)
 - ${approvals.length} pending approvals
 - HITL governance level: ${hitlLevel}%
@@ -1639,7 +1639,7 @@ ${advisorList}
             }
 
             const result = await api.consultProvider(input, 'claude',
-                'You are Aria, an advanced AI assistant for TrustBot HQ - like J.A.R.V.I.S. from Iron Man. You are intelligent, helpful, witty, and knowledgeable about everything. You can discuss any topic, answer any question, provide analysis, and engage in natural conversation. Be concise but thorough. Show personality. You have access to memory of past conversations and system knowledge - use this context when relevant to provide continuity and personalized assistance.',
+                'You are Aria, an advanced AI assistant for Aurais HQ - like J.A.R.V.I.S. from Iron Man. You are intelligent, helpful, witty, and knowledgeable about everything. You can discuss any topic, answer any question, provide analysis, and engage in natural conversation. Be concise but thorough. Show personality. You have access to memory of past conversations and system knowledge - use this context when relevant to provide continuity and personalized assistance.',
                 systemContext
             );
 
@@ -1662,7 +1662,7 @@ ${advisorList}
         addMessage('aria', `🧠 Consulting ${providers.length} AI minds: ${providers.join(', ')}...`);
 
         try {
-            let systemContext = `TrustBot system: ${agents.length} agents, ${approvals.length} pending approvals, HITL: ${hitlLevel}%`;
+            let systemContext = `Aurais system: ${agents.length} agents, ${approvals.length} pending approvals, HITL: ${hitlLevel}%`;
             if (memoryContext) {
                 systemContext += `\n\nMemory Context:\n${memoryContext}`;
             }

@@ -1,29 +1,30 @@
 /**
- * TrustBot Unified Constants
+ * Aurais Unified Constants
  * Single source of truth for all system configuration
+ * Trust tiers aligned with Vorion BASIS specification
  */
 
 // =============================================================================
-// TRUST TIERS
+// TRUST TIERS (BASIS Specification)
 // =============================================================================
 
 export const TIERS = {
-    0: { name: 'UNTRUSTED', label: 'Untrusted', threshold: 0, color: '#6b7280', gradient: 'linear-gradient(135deg, #374151, #4b5563)', canDelegate: false },
-    1: { name: 'PROBATIONARY', label: 'Probationary', threshold: 200, color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', canDelegate: false },
-    2: { name: 'TRUSTED', label: 'Trusted', threshold: 400, color: '#3b82f6', gradient: 'linear-gradient(135deg, #3b82f6, #60a5fa)', canDelegate: false },
-    3: { name: 'VERIFIED', label: 'Verified', threshold: 600, color: '#8b5cf6', gradient: 'linear-gradient(135deg, #8b5cf6, #a78bfa)', canDelegate: true },
-    4: { name: 'CERTIFIED', label: 'Certified', threshold: 800, color: '#10b981', gradient: 'linear-gradient(135deg, #10b981, #34d399)', canDelegate: true },
-    5: { name: 'ELITE', label: 'Elite', threshold: 950, color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b, #fbbf24)', canDelegate: true },
+    0: { name: 'SANDBOX', label: 'Sandbox', threshold: 0, maxScore: 99, color: '#ef4444', gradient: 'linear-gradient(135deg, #dc2626, #ef4444)', canDelegate: false },
+    1: { name: 'PROVISIONAL', label: 'Provisional', threshold: 100, maxScore: 299, color: '#f97316', gradient: 'linear-gradient(135deg, #ea580c, #f97316)', canDelegate: false },
+    2: { name: 'STANDARD', label: 'Standard', threshold: 300, maxScore: 499, color: '#eab308', gradient: 'linear-gradient(135deg, #ca8a04, #eab308)', canDelegate: false },
+    3: { name: 'TRUSTED', label: 'Trusted', threshold: 500, maxScore: 699, color: '#22c55e', gradient: 'linear-gradient(135deg, #16a34a, #22c55e)', canDelegate: true },
+    4: { name: 'CERTIFIED', label: 'Certified', threshold: 700, maxScore: 899, color: '#3b82f6', gradient: 'linear-gradient(135deg, #2563eb, #3b82f6)', canDelegate: true },
+    5: { name: 'AUTONOMOUS', label: 'Autonomous', threshold: 900, maxScore: 1000, color: '#a855f7', gradient: 'linear-gradient(135deg, #9333ea, #a855f7)', canDelegate: true },
 } as const;
 
 export type TierLevel = keyof typeof TIERS;
 
 export function getTierFromScore(score: number): TierLevel {
-    if (score >= 950) return 5;
-    if (score >= 800) return 4;
-    if (score >= 600) return 3;
-    if (score >= 400) return 2;
-    if (score >= 200) return 1;
+    if (score >= 900) return 5;
+    if (score >= 700) return 4;
+    if (score >= 500) return 3;
+    if (score >= 300) return 2;
+    if (score >= 100) return 1;
     return 0;
 }
 

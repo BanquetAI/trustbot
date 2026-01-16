@@ -17,8 +17,8 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
     // TRUSTBOT-SPECIFIC TERMS
     // ============================================
 
-    // Core Concepts (TrustBot)
-    { term: 'AI Agent', definition: 'An autonomous software entity that can perceive its environment, make decisions, and take actions to achieve goals. In TrustBot, agents operate within defined trust boundaries.', category: 'Core Concepts', related: ['Autonomy', 'Trust Tier', 'Governance'], example: 'A T3-PLANNER agent that creates project schedules based on team capacity.' },
+    // Core Concepts (Aurais)
+    { term: 'AI Agent', definition: 'An autonomous software entity that can perceive its environment, make decisions, and take actions to achieve goals. In Aurais, agents operate within defined trust boundaries.', category: 'Core Concepts', related: ['Autonomy', 'Trust Tier', 'Governance'], example: 'A T3-PLANNER agent that creates project schedules based on team capacity.' },
     { term: 'Autonomy', definition: 'The degree to which an agent can operate independently without human intervention. Higher trust tiers grant more autonomy.', category: 'Core Concepts', related: ['Trust Tier', 'HITL', 'Delegation'], example: 'A T5 Elite agent has near-full autonomy, while a T0 agent requires approval for everything.' },
     { term: 'Trust', definition: "A measure of confidence in an agent's ability to act reliably and safely. Trust is earned through consistent, successful behavior over time.", category: 'Core Concepts', related: ['Trust Score', 'Trust Tier', 'Verification'], example: 'An agent that completes 100 tasks without errors builds trust and may be promoted to a higher tier.' },
     { term: 'Blackboard', definition: 'A shared communication space where agents post observations, tasks, decisions, and problems. Other agents and humans can see and respond to these entries.', category: 'Core Concepts', related: ['Agent', 'Task', 'Observation'], example: 'An agent posts "PROBLEM: API rate limit reached" to the blackboard for others to see.' },
@@ -49,11 +49,11 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
     { term: 'Guardrails', definition: 'Constraints that prevent agents from taking harmful actions. Include rate limits, scope restrictions, and safety checks.', category: 'Governance', related: ['Safety', 'Boundaries'], example: 'A guardrail prevents any agent from deleting more than 10 files without approval.' },
     { term: 'Escalation', definition: 'The process of routing a decision or problem to a higher authority (human or higher-tier agent) when it exceeds current permissions.', category: 'Governance', related: ['Approval', 'Trust Tier'], example: 'A T2 agent escalates a refund request over $1000 to human review.' },
 
-    // Technical (TrustBot)
+    // Technical (Aurais)
     { term: 'Tick', definition: 'A single cycle of agent activity. During a tick, agents observe, think, decide, and act. You can trigger ticks manually or let them run automatically.', category: 'Technical', related: ['Agent', 'Cycle'], example: 'Running "tick" causes all active agents to process their current tasks.' },
     { term: 'Spawn', definition: 'The act of creating a new agent. Requires specifying a name, type, and initial trust tier.', category: 'Technical', related: ['Agent', 'Trust Tier'], example: 'spawn worker "DataProcessor" tier=1 creates a new probationary worker agent.' },
 
-    // Risk & Safety (TrustBot)
+    // Risk & Safety (Aurais)
     { term: 'Risk Level', definition: 'A classification of how dangerous an action could be. Low, Medium, or High. Higher risk requires more oversight.', category: 'Risk & Safety', related: ['Approval', 'Guardrails'], example: 'Reading a file is Low risk. Deleting a database is High risk.' },
     { term: 'Boundary', definition: 'The scope within which an agent can operate. Defines what resources, data, and actions are accessible.', category: 'Risk & Safety', related: ['Guardrails', 'Permissions'], example: 'An agent\'s boundary might be "only access files in /data/reports/".' },
     { term: 'Demotion', definition: "Reducing an agent's trust tier due to poor performance, errors, or policy violations. Restricts autonomy.", category: 'Risk & Safety', related: ['Trust Tier', 'Penalty'], example: 'An agent that causes a data breach is demoted from T3 to T0.' },
@@ -234,7 +234,7 @@ const GLOSSARY_TERMS: GlossaryTerm[] = [
     { term: 'LLM', definition: 'Large Language Model. The cognitive engine (e.g., GPT-4, Claude, Llama).', category: 'Core Concepts', related: ['Agent', 'Token', 'Inference'], example: 'Claude 3.5 Sonnet is an LLM powering this agent.' },
     { term: 'Token', definition: 'The basic unit of text for an AI (roughly 0.75 words or 4 characters).', category: 'Core Concepts', related: ['Context Window', 'LLM'], example: '"Hello world" is 2 tokens. A 1000-word essay is ~1300 tokens.' },
     { term: 'Agentic AI', definition: 'AI systems designed to autonomously pursue goals with minimal human intervention.', category: 'Core Concepts', related: ['Agent', 'Autonomy', 'Multi-Agent'], example: 'An agentic system that researches, writes, and publishes articles.' },
-    { term: 'Compliance', definition: "Adherence to regulations, standards, and policies. TrustBot's audit trails support HIPAA, SOC2, and other frameworks.", category: 'Core Concepts', related: ['Audit Trail', 'PII Scrubbing', 'Governance'], example: 'Healthcare agents operate with HIPAA-compliant guardrails.' },
+    { term: 'Compliance', definition: "Adherence to regulations, standards, and policies. Aurais's audit trails support HIPAA, SOC2, and other frameworks.", category: 'Core Concepts', related: ['Audit Trail', 'PII Scrubbing', 'Governance'], example: 'Healthcare agents operate with HIPAA-compliant guardrails.' },
 
     // ============================================
     // ACTION VERBS (Instructional)
@@ -315,7 +315,7 @@ const CATEGORIES = [
     { id: 'Quality Modifiers', label: 'Quality', icon: '🎯' },
     { id: 'Best Practices', label: 'Tips', icon: '💡' },
     { id: 'Iteration', label: 'Iterate', icon: '🔄' },
-    // TrustBot-specific
+    // Aurais-specific
     { id: 'Core Concepts', label: 'Core', icon: '🌟' },
     { id: 'Trust Tiers', label: 'Tiers', icon: '🏆' },
     { id: 'Agent Types', label: 'Agents', icon: '🤖' },

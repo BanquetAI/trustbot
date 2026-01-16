@@ -1,5 +1,5 @@
 /**
- * TrustBot Agent SDK - Type Definitions
+ * Aurais Agent SDK - Type Definitions
  *
  * Epic 10: Agent Connection Layer
  * Story 10.5: Agent SDK (TypeScript)
@@ -9,14 +9,14 @@
 // Agent Configuration
 // ============================================================================
 
-export interface TrustBotAgentConfig {
+export interface AuraisAgentConfig {
     /** API key for authentication */
     apiKey: string;
     /** Agent capabilities (e.g., 'execute', 'external', 'delegate') */
     capabilities?: AgentCapability[];
     /** Agent skills (e.g., 'web-dev', 'api-integration') */
     skills?: string[];
-    /** WebSocket server URL (defaults to wss://api.trustbot.ai/ws) */
+    /** WebSocket server URL (defaults to wss://api.aurais.ai/ws) */
     serverUrl?: string;
     /** Enable auto-reconnection (default: true) */
     autoReconnect?: boolean;

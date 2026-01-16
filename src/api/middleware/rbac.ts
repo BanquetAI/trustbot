@@ -91,7 +91,7 @@ function problemDetails(
  */
 export function unauthorizedError(detail: string = 'Authentication required'): ProblemDetails {
     return problemDetails(
-        'https://trustbot.ai/errors/unauthorized',
+        'https://aurais.ai/errors/unauthorized',
         'Unauthorized',
         401,
         detail
@@ -103,7 +103,7 @@ export function unauthorizedError(detail: string = 'Authentication required'): P
  */
 export function forbiddenError(detail: string = 'Insufficient permissions'): ProblemDetails {
     return problemDetails(
-        'https://trustbot.ai/errors/forbidden',
+        'https://aurais.ai/errors/forbidden',
         'Forbidden',
         403,
         detail
@@ -115,7 +115,7 @@ export function forbiddenError(detail: string = 'Insufficient permissions'): Pro
  */
 export function notFoundError(detail: string = 'Resource not found'): ProblemDetails {
     return problemDetails(
-        'https://trustbot.ai/errors/not-found',
+        'https://aurais.ai/errors/not-found',
         'Not Found',
         404,
         detail
@@ -131,12 +131,12 @@ export function notFoundError(detail: string = 'Resource not found'): ProblemDet
  * In production, roles would come from Supabase user metadata or JWT claims
  */
 const DEMO_USER_ROLES: Record<string, { role: UserRole; orgId: string }> = {
-    'demo@trustbot.ai': { role: 'operator', orgId: 'demo-org' },
-    'admin@trustbot.ai': { role: 'admin', orgId: 'demo-org' },
-    'supervisor@trustbot.ai': { role: 'supervisor', orgId: 'demo-org' },
-    'director@trustbot.ai': { role: 'director', orgId: 'demo-org' },
-    'compliance@trustbot.ai': { role: 'compliance', orgId: 'demo-org' },
-    'viewer@trustbot.ai': { role: 'viewer', orgId: 'demo-org' },
+    'demo@aurais.ai': { role: 'operator', orgId: 'demo-org' },
+    'admin@aurais.ai': { role: 'admin', orgId: 'demo-org' },
+    'supervisor@aurais.ai': { role: 'supervisor', orgId: 'demo-org' },
+    'director@aurais.ai': { role: 'director', orgId: 'demo-org' },
+    'compliance@aurais.ai': { role: 'compliance', orgId: 'demo-org' },
+    'viewer@aurais.ai': { role: 'viewer', orgId: 'demo-org' },
     // Cross-org test user
     'other@company.com': { role: 'operator', orgId: 'other-org' },
 };

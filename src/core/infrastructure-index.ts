@@ -1,11 +1,11 @@
 /**
- * TrustBot Infrastructure
+ * Aurais Infrastructure
  * 
  * Complete earned-trust system for bot-builds-bot architectures.
  * 
  * @example
  * ```typescript
- * import { createOrchestrator, TrustTier } from 'trustbot-infra';
+ * import { createOrchestrator, TrustTier } from 'aurais-infra';
  * 
  * // Initialize the system
  * const orchestrator = createOrchestrator({

@@ -7,8 +7,8 @@ import { workflowApi } from '../api';
 import { HumanAuthModal } from '../components/HumanAuthModal';
 
 // Token storage keys
-const TOKEN_KEY = 'trustbot_human_token';
-const TOKEN_EXPIRY_KEY = 'trustbot_human_token_expiry';
+const TOKEN_KEY = 'aurais_human_token';
+const TOKEN_EXPIRY_KEY = 'aurais_human_token_expiry';
 
 function getStoredToken(): string | null {
     const token = sessionStorage.getItem(TOKEN_KEY);

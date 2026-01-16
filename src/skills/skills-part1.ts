@@ -9,7 +9,7 @@
  * - COMPOSITE: Orchestrated combinations of atomics  
  * - BEHAVIORAL: Long-running, goal-oriented skill sets
  * 
- * Integrates with: TrustBot, AgentAnchor (A3I), BAI Command Center
+ * Integrates with: Aurais, AgentAnchor (A3I), BAI Command Center
  * 
  * @version 1.0.0
  * @license Proprietary - AgentAnchor A3I Framework
