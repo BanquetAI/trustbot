@@ -546,6 +546,26 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
             || this.completedTasks.get(taskId);
     }
 
+    /**
+     * Clear all queued tasks (does not affect active or completed tasks)
+     */
+    clearQueue(): number {
+        const count = this.taskQueue.length;
+        this.taskQueue = [];
+        console.log(`[AgentWorkLoop] Cleared ${count} queued tasks`);
+        return count;
+    }
+
+    /**
+     * Clear completed tasks history
+     */
+    clearCompleted(): number {
+        const count = this.completedTasks.size;
+        this.completedTasks.clear();
+        console.log(`[AgentWorkLoop] Cleared ${count} completed tasks`);
+        return count;
+    }
+
     // -------------------------------------------------------------------------
     // Work Loop
     // -------------------------------------------------------------------------
@@ -740,7 +760,11 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
                 // Use fuzzy matching to find the dependency
                 const dep = this.findCompletedTask(depRef);
                 if (dep && dep.result) {
-                    const output = dep.result.output || 'Task completed successfully';
+                    // Ensure output is a string (could be object from AI response)
+                    let output = dep.result.output || 'Task completed successfully';
+                    if (typeof output !== 'string') {
+                        output = JSON.stringify(output);
+                    }
                     prompt += `- ${dep.title}: ${output.substring(0, 500)}${output.length > 500 ? '...' : ''}\n`;
                 }
             }

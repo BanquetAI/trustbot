@@ -333,6 +333,28 @@ app.post('/stop', (c) => {
     return c.json({ success: true, message: 'Work loop stopped' });
 });
 
+// DELETE /work-loop/queue - Clear all queued tasks
+app.delete('/queue', (c) => {
+    ensureInitialized();
+    const count = agentWorkLoop.clearQueue();
+    return c.json({
+        success: true,
+        message: `Cleared ${count} queued tasks`,
+        clearedCount: count,
+    });
+});
+
+// DELETE /work-loop/completed - Clear completed tasks history
+app.delete('/completed', (c) => {
+    ensureInitialized();
+    const count = agentWorkLoop.clearCompleted();
+    return c.json({
+        success: true,
+        message: `Cleared ${count} completed tasks`,
+        clearedCount: count,
+    });
+});
+
 // ============================================================================
 // Persistence Endpoints
 // ============================================================================
