@@ -981,6 +981,12 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
      * Queue a validation task for a completed subtask
      */
     private queueValidationTask(originalTask: WorkTask): void {
+        // Ensure output is a string (could be object from AI response)
+        let taskOutput = originalTask.result?.output || 'No output provided';
+        if (typeof taskOutput !== 'string') {
+            taskOutput = JSON.stringify(taskOutput, null, 2);
+        }
+
         const validationTask = this.submitTask({
             title: `Validate: ${originalTask.title}`,
             description: `Validate the output of task "${originalTask.title}".
@@ -989,7 +995,7 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
 ${originalTask.description}
 
 **Task Output to Validate:**
-${originalTask.result?.output || 'No output provided'}
+${taskOutput}
 
 Please verify:
 1. The output correctly addresses the task requirements
