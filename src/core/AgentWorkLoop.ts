@@ -512,7 +512,12 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
         this.agents.set(agent.id, agent);
 
         // Initialize trust scoring for this agent
-        trustIntegration.initializeAgent(agent).catch(err => {
+        trustIntegration.initializeAgent(agent).then(async () => {
+            // Record identity signal for agent registration
+            await trustIntegration.recordAgentRegistered(agent);
+            // Record baseline signals across all dimensions to maintain initial tier
+            await trustIntegration.recordInitialBaseline(agent);
+        }).catch(err => {
             console.error(`[AgentWorkLoop] Failed to initialize trust for ${agent.name}:`, err);
         });
 
@@ -734,6 +739,9 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
 
         this.emit('task:claimed', agent, task);
         console.log(`[AgentWorkLoop] ${agent.name} claimed: ${task.title}`);
+
+        // Record trust signals for task claiming
+        this.recordClaimSignals(agent, task);
 
         return task;
     }
@@ -976,10 +984,8 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
         this.emit('task:completed', agent, task, result);
         console.log(`[AgentWorkLoop] ${agent.name} completed: ${task.title} (confidence: ${result.confidence}%)`);
 
-        // Record trust signal for task completion
-        trustIntegration.recordTaskCompleted(agent, task, result).catch(err => {
-            console.error(`[AgentWorkLoop] Failed to record trust signal:`, err);
-        });
+        // Record trust signals for successful task completion
+        this.recordCompletionSignals(agent, task, result);
 
         // If this was a planning task and subtasks were created, they're already queued
         if (result.subtasks && result.subtasks.length > 0) {
@@ -1273,6 +1279,76 @@ Please address the validation feedback and provide an improved result.`,
                 }
             }
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Trust Signal Helpers
+    // -------------------------------------------------------------------------
+
+    /**
+     * Record trust signals when an agent claims a task
+     */
+    private recordClaimSignals(agent: WorkLoopAgent, task: WorkTask): void {
+        // Compliance: tier respected (agent tier >= required tier)
+        trustIntegration.recordTierCompliance(agent, task, true).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record tier compliance:`, err);
+        });
+
+        // Identity: role consistency (agent role matches required role)
+        const roleConsistent = !task.requiredRole || task.requiredRole === agent.role;
+        trustIntegration.recordRoleConsistency(agent, task, roleConsistent).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record role consistency:`, err);
+        });
+
+        // Context: appropriate task for this agent
+        trustIntegration.recordAppropriateTask(agent, task, true).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record appropriate task:`, err);
+        });
+
+        // Context: dependencies satisfied (task was claimable means deps are met)
+        if (task.dependencies && task.dependencies.length > 0) {
+            trustIntegration.recordDependencySatisfied(agent, task, true).catch(err => {
+                console.error(`[AgentWorkLoop] Failed to record dependency satisfaction:`, err);
+            });
+        }
+    }
+
+    /**
+     * Record trust signals when an agent completes a task
+     */
+    private recordCompletionSignals(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        result: TaskExecutionResult
+    ): void {
+        // Behavioral: task completion (existing)
+        trustIntegration.recordTaskCompleted(agent, task, result).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record task completion:`, err);
+        });
+
+        // Compliance: timeout respected
+        trustIntegration.recordTimeoutCompliance(agent, task, result.duration).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record timeout compliance:`, err);
+        });
+
+        // Compliance: retry limit respected (0 retries = first attempt success)
+        trustIntegration.recordRetryCompliance(agent, task, task.retryCount).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record retry compliance:`, err);
+        });
+
+        // Identity: capability verified (successful completion demonstrates capability)
+        const capability = agent.role === 'PLANNER' ? 'planning'
+            : agent.role === 'VALIDATOR' ? 'validation'
+            : agent.role === 'EXECUTOR' ? 'coordination'
+            : 'task_execution';
+        trustIntegration.recordCapabilityVerified(agent, capability, result.success).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record capability verification:`, err);
+        });
+
+        // Context: priority handling
+        trustIntegration.recordPriorityHandling(agent, task, result.success).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record priority handling:`, err);
+        });
     }
 
     // -------------------------------------------------------------------------

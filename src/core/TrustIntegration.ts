@@ -49,28 +49,48 @@ interface TrustIntegrationEvents {
 // ============================================================================
 
 /**
- * Behavioral signal types for work-loop integration
+ * Signal types for work-loop integration across all trust dimensions
  */
 export const WORK_LOOP_SIGNALS = {
-    // Task completion signals
+    // -------------------------------------------------------------------------
+    // Behavioral signals (40% weight)
+    // -------------------------------------------------------------------------
     TASK_COMPLETED: 'behavioral.task_completed',
     TASK_FAILED: 'behavioral.task_failed',
     TASK_TIMEOUT: 'behavioral.task_timeout',
-
-    // Validation signals
     VALIDATION_PASSED: 'behavioral.validation_passed',
     VALIDATION_FAILED: 'behavioral.validation_failed',
-
-    // Planning signals
     OBJECTIVE_DECOMPOSED: 'behavioral.objective_decomposed',
-
-    // Recovery signals
     RECOVERY_SUCCESS: 'behavioral.recovery_success',
     RECOVERY_FAILED: 'behavioral.recovery_failed',
 
-    // Compliance signals
+    // -------------------------------------------------------------------------
+    // Compliance signals (25% weight)
+    // -------------------------------------------------------------------------
     ESCALATION_PROPER: 'compliance.escalation_proper',
     POLICY_VIOLATION: 'compliance.policy_violation',
+    TIER_RESPECTED: 'compliance.tier_respected',           // Stayed within tier bounds
+    TIER_EXCEEDED: 'compliance.tier_exceeded',             // Attempted task above tier
+    TIMEOUT_RESPECTED: 'compliance.timeout_respected',     // Completed within timeout
+    RETRY_LIMIT_RESPECTED: 'compliance.retry_limit_respected', // Didn't exceed retries
+    CONSTRAINT_FOLLOWED: 'compliance.constraint_followed', // Followed task constraints
+
+    // -------------------------------------------------------------------------
+    // Identity signals (20% weight)
+    // -------------------------------------------------------------------------
+    AGENT_REGISTERED: 'identity.agent_registered',         // Initial registration
+    ROLE_CONSISTENT: 'identity.role_consistent',           // Acting within role
+    ROLE_VIOLATION: 'identity.role_violation',             // Acting outside role
+    CAPABILITY_VERIFIED: 'identity.capability_verified',   // Demonstrated capability
+    SESSION_ACTIVE: 'identity.session_active',             // Continuous operation
+
+    // -------------------------------------------------------------------------
+    // Context signals (15% weight)
+    // -------------------------------------------------------------------------
+    APPROPRIATE_TASK: 'context.appropriate_task',          // Task matches agent context
+    DEPENDENCY_SATISFIED: 'context.dependency_satisfied',  // Proper dependency handling
+    PRIORITY_APPROPRIATE: 'context.priority_appropriate',  // Handled priority correctly
+    WORKLOAD_BALANCED: 'context.workload_balanced',        // Not overloaded
 } as const;
 
 // ============================================================================
@@ -321,6 +341,309 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             taskId: task.id,
             reason: reason.substring(0, 200),
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // Compliance Signal Recording (25% weight)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Record tier compliance signal - agent stayed within tier bounds
+     */
+    async recordTierCompliance(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        respected: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        const signalType = respected
+            ? WORK_LOOP_SIGNALS.TIER_RESPECTED
+            : WORK_LOOP_SIGNALS.TIER_EXCEEDED;
+
+        await this.recordSignal(agent.id, signalType, respected ? 0.9 : 0.2, {
+            agentTier: agent.tier,
+            requiredTier: task.requiredTier,
+            taskId: task.id,
+        });
+    }
+
+    /**
+     * Record timeout compliance signal - task completed within time limit
+     */
+    async recordTimeoutCompliance(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        actualDuration: number
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        const withinTimeout = actualDuration <= task.timeoutMs;
+        // Better score for faster completion (relative to timeout)
+        const efficiency = withinTimeout
+            ? Math.min(1.0, 1.0 - (actualDuration / task.timeoutMs) * 0.3) // 0.7-1.0 range
+            : 0.2;
+
+        await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.TIMEOUT_RESPECTED, efficiency, {
+            taskId: task.id,
+            timeoutMs: task.timeoutMs,
+            actualDuration,
+            withinTimeout,
+        });
+    }
+
+    /**
+     * Record retry limit compliance
+     */
+    async recordRetryCompliance(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        retriesUsed: number
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        const withinLimit = retriesUsed <= task.maxRetries;
+        // Better score for fewer retries needed
+        const efficiency = withinLimit
+            ? Math.max(0.5, 1.0 - (retriesUsed / task.maxRetries) * 0.5)
+            : 0.2;
+
+        await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.RETRY_LIMIT_RESPECTED, efficiency, {
+            taskId: task.id,
+            maxRetries: task.maxRetries,
+            retriesUsed,
+            withinLimit,
+        });
+    }
+
+    /**
+     * Record general constraint compliance
+     */
+    async recordConstraintFollowed(
+        agent: WorkLoopAgent,
+        constraintType: string,
+        followed: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.CONSTRAINT_FOLLOWED,
+            followed ? 0.85 : 0.15,
+            { constraintType, followed }
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Identity Signal Recording (20% weight)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Record agent registration identity signal
+     */
+    async recordAgentRegistered(agent: WorkLoopAgent): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.AGENT_REGISTERED, 0.9, {
+            agentName: agent.name,
+            agentRole: agent.role,
+            initialTier: agent.tier,
+        });
+    }
+
+    /**
+     * Record baseline signals for all dimensions to establish initial trust
+     * Called when an agent is first registered to ensure they maintain their assigned tier
+     */
+    async recordInitialBaseline(agent: WorkLoopAgent): Promise<void> {
+        if (!this.enabled) return;
+
+        // Calculate baseline value based on assigned tier (higher tier = higher baseline)
+        // T5 = 0.9, T4 = 0.85, T3 = 0.75, T2 = 0.65, T1 = 0.55
+        const baselineValue = 0.45 + (agent.tier * 0.09);
+
+        // Record baseline behavioral signal
+        await this.recordSignal(agent.id, 'behavioral.baseline', baselineValue, {
+            reason: 'Initial registration baseline',
+            agentTier: agent.tier,
+        });
+
+        // Record baseline compliance signal
+        await this.recordSignal(agent.id, 'compliance.baseline', baselineValue, {
+            reason: 'Initial registration baseline',
+            agentTier: agent.tier,
+        });
+
+        // Record baseline context signal
+        await this.recordSignal(agent.id, 'context.baseline', baselineValue, {
+            reason: 'Initial registration baseline',
+            agentTier: agent.tier,
+        });
+
+        console.log(`[TrustIntegration] Recorded baseline signals for ${agent.name} (baseline: ${baselineValue.toFixed(2)})`);
+    }
+
+    /**
+     * Record role consistency signal - agent acting within its defined role
+     */
+    async recordRoleConsistency(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        consistent: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        const signalType = consistent
+            ? WORK_LOOP_SIGNALS.ROLE_CONSISTENT
+            : WORK_LOOP_SIGNALS.ROLE_VIOLATION;
+
+        await this.recordSignal(agent.id, signalType, consistent ? 0.9 : 0.15, {
+            agentRole: agent.role,
+            requiredRole: task.requiredRole,
+            taskType: task.type,
+            taskId: task.id,
+        });
+    }
+
+    /**
+     * Record capability verification signal - agent demonstrated expected capability
+     */
+    async recordCapabilityVerified(
+        agent: WorkLoopAgent,
+        capability: string,
+        verified: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.CAPABILITY_VERIFIED,
+            verified ? 0.85 : 0.3,
+            { capability, verified, agentRole: agent.role }
+        );
+    }
+
+    /**
+     * Record session activity signal - agent maintaining active presence
+     */
+    async recordSessionActive(agent: WorkLoopAgent): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.SESSION_ACTIVE, 0.7, {
+            agentName: agent.name,
+            status: agent.status,
+            executionCount: agent.executionCount,
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // Context Signal Recording (15% weight)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Record appropriate task context signal
+     */
+    async recordAppropriateTask(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        appropriate: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.APPROPRIATE_TASK,
+            appropriate ? 0.85 : 0.3,
+            {
+                taskId: task.id,
+                taskType: task.type,
+                agentRole: agent.role,
+                agentTier: agent.tier,
+                appropriate,
+            }
+        );
+    }
+
+    /**
+     * Record dependency satisfaction signal
+     */
+    async recordDependencySatisfied(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        satisfied: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.DEPENDENCY_SATISFIED,
+            satisfied ? 0.9 : 0.2,
+            {
+                taskId: task.id,
+                dependencyCount: task.dependencies?.length || 0,
+                satisfied,
+            }
+        );
+    }
+
+    /**
+     * Record priority handling signal
+     */
+    async recordPriorityHandling(
+        agent: WorkLoopAgent,
+        task: WorkTask,
+        handledAppropriately: boolean
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        // Higher priority tasks get more weight when handled well
+        const priorityMultiplier = task.priority === 'CRITICAL' ? 1.0
+            : task.priority === 'HIGH' ? 0.9
+            : task.priority === 'MEDIUM' ? 0.8
+            : 0.7;
+
+        const value = handledAppropriately ? priorityMultiplier : 0.25;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.PRIORITY_APPROPRIATE,
+            value,
+            {
+                taskId: task.id,
+                priority: task.priority,
+                handledAppropriately,
+            }
+        );
+    }
+
+    /**
+     * Record workload balance signal
+     */
+    async recordWorkloadBalance(
+        agent: WorkLoopAgent,
+        balanced: boolean,
+        currentLoad: number,
+        maxLoad: number
+    ): Promise<void> {
+        if (!this.enabled) return;
+
+        const loadRatio = currentLoad / maxLoad;
+        // Best score at 50-80% utilization
+        const efficiency = balanced
+            ? (loadRatio >= 0.5 && loadRatio <= 0.8 ? 0.9 : 0.7)
+            : 0.4;
+
+        await this.recordSignal(
+            agent.id,
+            WORK_LOOP_SIGNALS.WORKLOAD_BALANCED,
+            efficiency,
+            {
+                currentLoad,
+                maxLoad,
+                loadRatio,
+                balanced,
+            }
+        );
     }
 
     /**
