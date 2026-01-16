@@ -8,6 +8,7 @@
 import { Hono } from 'hono';
 import { agentWorkLoop, AgentRole } from '../../core/AgentWorkLoop.js';
 import { workLoopPersistence } from '../../core/WorkLoopPersistence.js';
+import { trustIntegration } from '../../core/TrustIntegration.js';
 
 const app = new Hono();
 
@@ -423,6 +424,116 @@ app.post('/validation', async (c) => {
         success: true,
         message: 'Validation loop config updated',
         config: agentWorkLoop.getValidationConfig(),
+    });
+});
+
+// ============================================================================
+// Trust Integration Endpoints (ATSF-Core)
+// ============================================================================
+
+// GET /work-loop/trust - Get trust summary for all agents
+app.get('/trust', async (c) => {
+    ensureInitialized();
+
+    try {
+        const summary = await trustIntegration.getTrustSummary();
+        const agents = agentWorkLoop.getAllAgents();
+
+        // Merge trust data with agent info
+        const agentTrust = agents.map(agent => {
+            const trust = summary.find(t => t.agentId === agent.id);
+            return {
+                agentId: agent.id,
+                name: agent.name,
+                role: agent.role,
+                currentTier: agent.tier,
+                trustScore: trust?.score ?? null,
+                trustTier: trust?.tier ?? null,
+                trustTierName: trust?.tierName ?? 'Unknown',
+                acceleratedDecay: trust?.acceleratedDecay ?? false,
+                failureCount: trust?.failureCount ?? 0,
+                status: agent.status,
+                executionCount: agent.executionCount,
+                successCount: agent.successCount,
+                successRate: agent.executionCount > 0
+                    ? Math.round((agent.successCount / agent.executionCount) * 100)
+                    : 100,
+            };
+        });
+
+        return c.json({
+            enabled: trustIntegration.isEnabled(),
+            agents: agentTrust,
+            summary: {
+                totalAgents: agents.length,
+                trackedAgents: summary.length,
+                agentsWithAcceleratedDecay: summary.filter(t => t.acceleratedDecay).length,
+            },
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to get trust summary',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
+// GET /work-loop/trust/:agentId - Get trust details for specific agent
+app.get('/trust/:agentId', async (c) => {
+    ensureInitialized();
+
+    const agentId = c.req.param('agentId');
+    const agent = agentWorkLoop.getAgent(agentId);
+
+    if (!agent) {
+        return c.json({ error: 'Agent not found' }, 404);
+    }
+
+    try {
+        const trust = await trustIntegration.getAgentTrust(agentId);
+        const effectiveTier = await trustIntegration.getEffectiveTier(agentId);
+
+        return c.json({
+            agent: {
+                id: agent.id,
+                name: agent.name,
+                role: agent.role,
+                assignedTier: agent.tier,
+            },
+            trust: trust ? {
+                score: trust.score,
+                level: trust.level,
+                levelName: trustIntegration.getTrustLevelName(trust.level),
+                threshold: trustIntegration.getTrustThreshold(trust.level),
+                effectiveTier,
+                acceleratedDecay: trustIntegration.isAcceleratedDecayActive(agentId),
+                failureCount: trustIntegration.getFailureCount(agentId),
+            } : null,
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to get agent trust',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
+// POST /work-loop/trust/enable - Enable/disable trust integration
+app.post('/trust/enable', async (c) => {
+    ensureInitialized();
+
+    const body = await c.req.json() as { enabled: boolean };
+
+    if (typeof body.enabled !== 'boolean') {
+        return c.json({ error: 'enabled (boolean) required' }, 400);
+    }
+
+    trustIntegration.setEnabled(body.enabled);
+
+    return c.json({
+        success: true,
+        message: `Trust integration ${body.enabled ? 'enabled' : 'disabled'}`,
+        enabled: trustIntegration.isEnabled(),
     });
 });
 

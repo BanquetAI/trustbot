@@ -3,8 +3,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy atsf-core local package first
+COPY packages/atsf-core ./packages/atsf-core
+
+# Copy package files (package.json references ./packages/atsf-core)
+COPY package.json ./
+COPY package-lock.json ./
 
 # Install all dependencies (including dev for build)
 RUN npm ci
@@ -21,8 +25,12 @@ FROM node:20-alpine AS production
 
 WORKDIR /app
 
+# Copy atsf-core local package
+COPY packages/atsf-core ./packages/atsf-core
+
 # Copy package files
-COPY package*.json ./
+COPY package.json ./
+COPY package-lock.json ./
 
 # Install production dependencies only
 RUN npm ci --omit=dev

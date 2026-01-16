@@ -15,6 +15,7 @@
 import { EventEmitter } from 'eventemitter3';
 import { getAIClient, AICompletionResult } from './AIProvider.js';
 import { WorkLoopPersistence, workLoopPersistence, type WorkLoopState } from './WorkLoopPersistence.js';
+import { trustIntegration, TrustIntegration } from './TrustIntegration.js';
 
 // ============================================================================
 // Types
@@ -409,6 +410,9 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
             this.restoreState();
         }
 
+        // Set up trust event listeners for tier changes
+        this.setupTrustEventListeners();
+
         // Start work loops for all registered agents
         for (const agent of this.agents.values()) {
             this.startAgentLoop(agent);
@@ -416,6 +420,50 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
 
         // Start auto-save
         this.startAutoSave();
+    }
+
+    /**
+     * Set up listeners for trust tier change events
+     */
+    private setupTrustEventListeners(): void {
+        // Listen for agent promotions
+        trustIntegration.on('trust:agent_promoted', (agentId, newTier, previousTier) => {
+            const agent = this.agents.get(agentId);
+            if (agent) {
+                const oldTier = agent.tier;
+                agent.tier = newTier;
+                console.log(`[AgentWorkLoop] Trust promotion: ${agent.name} T${oldTier} -> T${newTier} (trust-based)`);
+            }
+        });
+
+        // Listen for agent demotions
+        trustIntegration.on('trust:agent_demoted', (agentId, newTier, previousTier) => {
+            const agent = this.agents.get(agentId);
+            if (agent) {
+                const oldTier = agent.tier;
+                agent.tier = newTier;
+                console.log(`[AgentWorkLoop] Trust demotion: ${agent.name} T${oldTier} -> T${newTier} (trust-based)`);
+
+                // If agent was executing a task above their new tier, move to blocked
+                if (agent.currentTaskId) {
+                    const task = this.activeTasks.get(agent.currentTaskId);
+                    if (task && task.requiredTier > newTier) {
+                        agent.status = 'BLOCKED';
+                        this.emit('agent:blocked', agent, `Trust tier dropped below task requirement (T${newTier} < T${task.requiredTier})`);
+                    }
+                }
+            }
+        });
+
+        // Listen for failure detection (accelerated decay warning)
+        trustIntegration.on('trust:failure_detected', (agentId, failureCount) => {
+            const agent = this.agents.get(agentId);
+            if (agent) {
+                console.log(`[AgentWorkLoop] Trust failure alert: ${agent.name} has ${failureCount} failures (accelerated decay may be active)`);
+            }
+        });
+
+        console.log('[AgentWorkLoop] Trust event listeners configured');
     }
 
     stop(): void {
@@ -462,7 +510,13 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
         };
 
         this.agents.set(agent.id, agent);
-        console.log(`[AgentWorkLoop] Registered agent: ${agent.name} (${agent.role})`);
+
+        // Initialize trust scoring for this agent
+        trustIntegration.initializeAgent(agent).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to initialize trust for ${agent.name}:`, err);
+        });
+
+        console.log(`[AgentWorkLoop] Registered agent: ${agent.name} (${agent.role}, T${agent.tier})`);
 
         if (this.running) {
             this.startAgentLoop(agent);
@@ -922,9 +976,18 @@ export class AgentWorkLoop extends EventEmitter<WorkLoopEvents> {
         this.emit('task:completed', agent, task, result);
         console.log(`[AgentWorkLoop] ${agent.name} completed: ${task.title} (confidence: ${result.confidence}%)`);
 
+        // Record trust signal for task completion
+        trustIntegration.recordTaskCompleted(agent, task, result).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record trust signal:`, err);
+        });
+
         // If this was a planning task and subtasks were created, they're already queued
         if (result.subtasks && result.subtasks.length > 0) {
             console.log(`[AgentWorkLoop] ${result.subtasks.length} subtasks queued for execution`);
+            // Record decomposition signal for planners
+            trustIntegration.recordObjectiveDecomposed(agent, task, result.subtasks.length).catch(err => {
+                console.error(`[AgentWorkLoop] Failed to record decomposition signal:`, err);
+            });
         }
 
         // =====================================================================
@@ -1040,6 +1103,14 @@ Assign a score (0-100) and provide specific feedback.`,
             // Validation passed
             this.emit('validation:passed', originalTask, score);
             console.log(`[ValidationLoop] ✓ Validation PASSED for: ${originalTask.title}`);
+
+            // Record trust signal for validation pass (for the original task's agent)
+            const originalAgent = originalTask.assignedTo ? this.agents.get(originalTask.assignedTo) : null;
+            if (originalAgent) {
+                trustIntegration.recordValidationPassed(originalAgent, originalTask, score).catch(err => {
+                    console.error(`[AgentWorkLoop] Failed to record validation pass signal:`, err);
+                });
+            }
         } else {
             // Validation failed - check if we should re-execute
             const attempts = (originalTask.validationAttempts || 0) + 1;
@@ -1050,6 +1121,14 @@ Assign a score (0-100) and provide specific feedback.`,
 
             this.emit('validation:failed', originalTask, score, feedback);
             console.log(`[ValidationLoop] ✗ Validation FAILED for: ${originalTask.title} (attempt ${attempts}/${this.config.maxValidationAttempts})`);
+
+            // Record trust signal for validation failure (for the original task's agent)
+            const originalAgent = originalTask.assignedTo ? this.agents.get(originalTask.assignedTo) : null;
+            if (originalAgent) {
+                trustIntegration.recordValidationFailed(originalAgent, originalTask, score).catch(err => {
+                    console.error(`[AgentWorkLoop] Failed to record validation fail signal:`, err);
+                });
+            }
 
             if (attempts < this.config.maxValidationAttempts) {
                 // Re-queue the original task for re-execution
@@ -1107,6 +1186,11 @@ Please address the validation feedback and provide an improved result.`,
 
         this.emit('task:failed', agent, task, error);
 
+        // Record trust signal for task failure
+        trustIntegration.recordTaskFailed(agent, task, error).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record failure signal:`, err);
+        });
+
         // Check if we should retry
         if (task.retryCount < task.maxRetries) {
             console.log(`[AgentWorkLoop] Retrying task (${task.retryCount}/${task.maxRetries})`);
@@ -1146,6 +1230,12 @@ Please address the validation feedback and provide an improved result.`,
         console.log(`[AgentWorkLoop] ${agent.name} timeout: ${task.title}`);
 
         this.emit('task:timeout', agent, task);
+
+        // Record trust signal for timeout (separate from failure)
+        trustIntegration.recordTaskTimeout(agent, task).catch(err => {
+            console.error(`[AgentWorkLoop] Failed to record timeout signal:`, err);
+        });
+
         await this.handleFailure(agent, task, `Execution timeout (${task.timeoutMs}ms)`);
     }
 
