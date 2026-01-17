@@ -116,10 +116,11 @@ export class SupabasePersistence extends EventEmitter<SupabaseEvents> {
 
     async connect(): Promise<boolean> {
         try {
-            // Test connection with a simple query
-            const { error } = await this.client.from('system_config').select('key').limit(1);
+            // Test connection with a simple query to artifacts table
+            const { error } = await this.client.from('artifacts').select('id').limit(1);
 
-            if (error) {
+            // PGRST116 means table exists but no rows - that's fine
+            if (error && error.code !== 'PGRST116') {
                 throw error;
             }
 
