@@ -1,20 +1,23 @@
-# TrustBot: Enterprise AI Agent Governance Platform
+# Aurais: Enterprise AI Agent Governance Platform
 
-## Product Specification v2.0
+## Product Specification v3.0
+
+> **Aurais** - Governed Intelligence | Formerly TrustBot
 
 ---
 
 ## Executive Summary
 
-TrustBot is an enterprise-grade governance platform for autonomous AI agents. As organizations deploy AI agents for mission-critical tasks, TrustBot provides the control plane that enables safe, auditable, and scalable autonomy.
+Aurais is an enterprise-grade governance platform for autonomous AI agents, implementing the **BASIS (Behavioral AI Safety and Integrity Standard)** specification. As organizations deploy AI agents for mission-critical tasks, Aurais provides the control plane that enables safe, auditable, and scalable autonomy.
 
 **The Problem**: AI agents are becoming increasingly capable, but enterprises lack tools to:
 - Control what agents can and cannot do
 - Audit agent decisions and actions
 - Gradually increase autonomy based on demonstrated competence
 - Maintain human oversight without bottlenecking operations
+- Recover trust after agent failures
 
-**Our Solution**: A FICO-like trust scoring system for AI agents, combined with hierarchical governance, skill management, and human-in-the-loop controls.
+**Our Solution**: A BASIS-compliant trust scoring system for AI agents, combined with Cognigate governance integration, multi-dimensional trust signals, complexity-aware scoring, and recovery paths for demoted agents.
 
 ---
 
@@ -39,7 +42,7 @@ TrustBot is an enterprise-grade governance platform for autonomous AI agents. As
 | CrewAI | Basic roles, no tier-based permissions |
 | OpenAI Assistants | Vendor lock-in, no self-hosted option |
 
-**TrustBot Differentiator**: First platform with FICO-style trust scoring + tier-based permissions + enterprise governance.
+**Aurais Differentiator**: First platform with BASIS-compliant trust scoring + Cognigate governance + recovery paths + multi-dimensional trust signals.
 
 ---
 
@@ -47,35 +50,49 @@ TrustBot is an enterprise-grade governance platform for autonomous AI agents. As
 
 ### Core Concepts
 
-#### 1. Trust Tier System (T0-T5)
-A 6-tier hierarchy inspired by security clearance models:
+#### 1. Trust Tier System (BASIS-Compliant)
+A 6-tier hierarchy per the BASIS specification:
 
-| Tier | Name | Trust Score | Capabilities |
+| Tier | Name | Score Range | Capabilities |
 |------|------|-------------|--------------|
-| T0 | UNTRUSTED | 0-149 | Read-only, no actions |
-| T1 | PROVISIONAL | 150-349 | Basic queries, logging |
-| T2 | VERIFIED | 350-549 | Execute sandboxed tasks |
-| T3 | TRUSTED | 550-749 | Modify non-critical resources |
-| T4 | SENIOR | 750-899 | Full autonomy, oversee juniors |
-| T5 | ELITE | 900-1000 | System administration, spawn agents |
+| T0 | Sandbox | 0-99 | Isolated testing only |
+| T1 | Provisional | 100-299 | Limited, monitored actions |
+| T2 | Standard | 300-499 | Normal operations |
+| T3 | Trusted | 500-699 | Elevated privileges |
+| T4 | Certified | 700-899 | High-trust operations |
+| T5 | Autonomous | 900-1000 | Minimal oversight |
 
-#### 2. Trust Score (0-1000)
-FICO-like scoring based on:
-- **Success Rate**: Task completion accuracy
-- **Error Frequency**: Mistakes and rollbacks needed
-- **Time Efficiency**: Speed vs. quality balance
-- **Delegation Quality**: How well spawned agents perform
-- **Compliance**: Adherence to policies and guardrails
-- **Human Feedback**: HITL approval patterns
+#### 2. Multi-Dimensional Trust Score (0-1000)
+Trust is calculated from four weighted signal components:
 
-#### 3. Human-in-the-Loop (HITL) Levels
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| **Behavioral** | 40% | Task success/failure patterns |
+| **Compliance** | 25% | Policy adherence, rule following |
+| **Identity** | 20% | Identity verification strength |
+| **Context** | 15% | Environmental appropriateness |
+
+#### 3. Complexity-Aware Decay
+Trust decay is adjusted based on task complexity:
+- High-complexity tasks earn up to 50% decay reduction
+- Accelerated decay (3x) activates after repeated failures
+- Minimum decay protects tier floor scores
+
+#### 4. Recovery Path System
+Demoted agents can earn their way back through sustained performance:
+- Progressive tier recovery (T3→T4→T5, not direct jumps)
+- Point accumulation: `complexity × 10` per successful task
+- Consecutive success requirements (5-15 depending on tier)
+- 70% minimum success rate during recovery
+
+#### 5. Human-in-the-Loop (HITL) Levels
 Configurable oversight from 0% (full autonomy) to 100% (approval required):
 - **0-25%**: Only critical actions need approval
 - **25-50%**: Major decisions reviewed post-hoc
 - **50-75%**: Most actions require approval
 - **75-100%**: All actions require human confirmation
 
-#### 4. Skill Block System
+#### 6. Skill Block System
 Composable capabilities with tier requirements:
 ```typescript
 {
@@ -174,19 +191,28 @@ Connect to existing systems:
 ### Frontend
 - **React 18** with TypeScript
 - **Vite** for fast development
-- **CSS-in-JS** with design tokens
-- **Real-time updates** via SSE
+- **Tailwind CSS** with design tokens
+- **Real-time updates** via WebSocket/SSE
 
 ### Backend
-- **Node.js/Express** API
-- **Vercel KV** for persistence
-- **Claude API** for agent reasoning
-- **MCP servers** for tool access
+- **Node.js/Hono** API framework
+- **@vorionsys/atsf-core** - Trust engine (npm package)
+- **Cognigate** integration for production governance
+- **File-based + Supabase** persistence
+- **Claude/GPT** for agent reasoning
+
+### Trust Engine (@vorionsys/atsf-core)
+- 6-tier BASIS-compliant trust system
+- Multi-dimensional trust signals
+- Complexity-aware decay
+- Recovery path management
+- Event-driven architecture
+- LangChain integration tools
 
 ### Deployment
-- **Vercel** serverless deployment
-- **Edge functions** for low latency
-- **WebSocket fallback** for older browsers
+- **Vercel** for web frontend
+- **Local/Fly.io** for API backend
+- **Supabase** for PostgreSQL database
 
 ---
 
@@ -211,25 +237,33 @@ Connect to existing systems:
 ## Roadmap
 
 ### Phase 1: Foundation (Completed)
-- [x] Trust tier system
+- [x] Trust tier system (6-tier BASIS-compliant)
 - [x] HITL approval workflow
 - [x] Agent visualization
 - [x] Skill management
 - [x] Code governance
 
-### Phase 2: Enterprise (Q1 2025)
+### Phase 2: Advanced Trust (Completed - January 2026)
+- [x] Multi-dimensional trust signals
+- [x] Complexity-aware decay system
+- [x] Recovery path for demoted agents
+- [x] @vorionsys/atsf-core npm package
+- [x] Cognigate integration architecture
+
+### Phase 3: Production (Q1 2026)
+- [ ] Full Cognigate API integration
+- [ ] Aurais deployment to aurais.agentanchorai.com
+- [ ] Cross-site ecosystem updates
 - [ ] SSO/SAML integration
 - [ ] Audit log exports
-- [ ] Role-based access control
-- [ ] Compliance templates (SOC2, HIPAA)
 
-### Phase 3: Scale (Q2 2025)
+### Phase 4: Enterprise (Q2 2026)
 - [ ] Multi-tenant architecture
-- [ ] Global agent deployment
+- [ ] Compliance templates (SOC2, HIPAA)
 - [ ] Skills marketplace
 - [ ] Custom trust algorithms
 
-### Phase 4: Intelligence (Q3 2025)
+### Phase 5: Intelligence (Q3 2026)
 - [ ] Predictive trust scoring
 - [ ] Anomaly detection
 - [ ] Cross-org learning
@@ -304,6 +338,15 @@ Video game-style progression
 
 ## Contact
 
-**TrustBot** - Governance for Autonomous AI
+**Aurais** - Governed Intelligence
+
+Part of the Vorion AI Safety Ecosystem:
+- **Cognigate** (cognigate.dev) - Governance engine
+- **Agent Anchor AI** (agentanchorai.com) - Agent platform
+- **Vorion** (vorion.org) - Parent organization
 
 *"Trust, but verify - at scale."*
+
+---
+
+*Last updated: January 2026*
