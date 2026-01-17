@@ -15,7 +15,7 @@ import type {
     NotificationPreferences,
     LearnedPreferences,
     VerbosityLevel,
-} from './types';
+} from './types.js';
 
 // ============================================================================
 // User Preferences Service

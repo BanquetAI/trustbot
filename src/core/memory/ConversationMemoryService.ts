@@ -8,12 +8,12 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { EmbeddingService, getEmbeddingService } from './EmbeddingService';
+import { EmbeddingService, getEmbeddingService } from './EmbeddingService.js';
 import type {
     ConversationEntry,
     ConversationEntryInput,
     ConversationSearchResult,
-} from './types';
+} from './types.js';
 
 // ============================================================================
 // Types

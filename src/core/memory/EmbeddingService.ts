@@ -9,7 +9,7 @@
  */
 
 import { createHash } from 'crypto';
-import type { EmbeddingConfig } from './types';
+import type { EmbeddingConfig } from './types.js';
 
 // ============================================================================
 // Types

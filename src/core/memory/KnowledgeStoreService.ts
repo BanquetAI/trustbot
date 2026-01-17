@@ -8,14 +8,14 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { EmbeddingService, getEmbeddingService } from './EmbeddingService';
+import { EmbeddingService, getEmbeddingService } from './EmbeddingService.js';
 import type {
     KnowledgeEntry,
     KnowledgeEntryInput,
     KnowledgeSearchResult,
     KnowledgeSearchOptions,
     KnowledgeCategory,
-} from './types';
+} from './types.js';
 
 // ============================================================================
 // Knowledge Store Service

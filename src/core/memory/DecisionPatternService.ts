@@ -10,14 +10,14 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { createHash } from 'crypto';
-import { EmbeddingService, getEmbeddingService } from './EmbeddingService';
+import { EmbeddingService, getEmbeddingService } from './EmbeddingService.js';
 import type {
     DecisionPattern,
     DecisionPatternInput,
     DecisionPatternSearchResult,
     DecisionPatternType,
     DecisionOutcome,
-} from './types';
+} from './types.js';
 
 // ============================================================================
 // Decision Pattern Service
