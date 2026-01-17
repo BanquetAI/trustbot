@@ -2,6 +2,7 @@
  * Artifacts Page - View and manage agent-produced artifacts
  */
 import { useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { useArtifacts, artifactApi, type Artifact, type ArtifactType, type ArtifactStatus } from '../api';
 import './ArtifactsPage.css';
 
@@ -129,6 +130,11 @@ export function ArtifactsPage() {
                     <button className="btn-refresh" onClick={refresh} title="Refresh">
                         🔄
                     </button>
+                    <div className="header-actions">
+                        <Link to="/tasks" className="btn-new-task">
+                            ➕ New Task Request
+                        </Link>
+                    </div>
                 </div>
 
                 {stats && (

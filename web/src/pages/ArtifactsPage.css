@@ -44,6 +44,33 @@
     background: var(--bg-secondary, rgba(255, 255, 255, 0.1));
 }
 
+.btn-new-task {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: var(--accent-primary, #60a5fa);
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-new-task:hover {
+    background: var(--accent-primary-hover, #3b82f6);
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-left: auto;
+}
+
 /* Stats */
 .artifacts-stats {
     display: flex;
@@ -127,7 +154,14 @@
 }
 
 .filter-select option {
-    background: var(--bg-primary, #1f2937);
+    background: #1a1a2e;
+    color: #fff;
+    padding: 0.5rem;
+}
+
+.filter-select option:hover,
+.filter-select option:checked {
+    background: #2d2d44;
 }
 
 /* Main content */
