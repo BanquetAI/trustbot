@@ -7,6 +7,8 @@
 import 'dotenv/config';
 import { apiServer } from './server.js';
 import { startUnifiedWorkflowServer } from './UnifiedWorkflowAPI.js';
+import { trustIntegration } from '../core/TrustIntegration.js';
+import { agentWorkLoop } from '../core/AgentWorkLoop.js';
 
 // Check which mode to run
 const mode = process.argv[2] ?? 'unified';
@@ -95,5 +97,46 @@ async function main() {
 `);
     }
 }
+
+// Setup graceful shutdown handlers
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal: string) {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    console.log(`\n[Shutdown] Received ${signal}, starting graceful shutdown...`);
+
+    try {
+        // Stop work loop first (saves its state)
+        console.log('[Shutdown] Stopping work loop...');
+        await agentWorkLoop.stop();
+
+        // Flush trust data to persistence
+        console.log('[Shutdown] Flushing trust data...');
+        await trustIntegration.shutdown();
+
+        console.log('[Shutdown] Graceful shutdown complete');
+        process.exit(0);
+    } catch (error) {
+        console.error('[Shutdown] Error during shutdown:', error);
+        process.exit(1);
+    }
+}
+
+// Handle termination signals
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// Handle uncaught exceptions - try to save state
+process.on('uncaughtException', async (error) => {
+    console.error('[CRITICAL] Uncaught exception:', error);
+    try {
+        await trustIntegration.shutdown();
+    } catch {
+        // Ignore shutdown errors during crash
+    }
+    process.exit(1);
+});
 
 main().catch(console.error);

@@ -537,4 +537,56 @@ app.post('/trust/enable', async (c) => {
     });
 });
 
+// POST /work-loop/trust/reset - Reset all trust data and reinitialize agents
+app.post('/trust/reset', async (c) => {
+    ensureInitialized();
+
+    try {
+        // Reset all trust data
+        await trustIntegration.resetTrust();
+
+        // Define original tiers for core agents (these may have been demoted)
+        const coreAgentTiers: Record<string, number> = {
+            'exec-1': 5,
+            'plan-1': 5,
+            'valid-1': 5,
+            'evolve-1': 5,
+            'spawn-1': 5,
+        };
+
+        // Reinitialize all agents with fresh baselines
+        const agents = agentWorkLoop.getAllAgents();
+        const results = [];
+
+        for (const agent of agents) {
+            // Restore original tier for core agents before reinitializing
+            const originalTier = coreAgentTiers[agent.id];
+            if (originalTier !== undefined) {
+                agent.tier = originalTier;
+            }
+
+            const record = await trustIntegration.reinitializeAgent(agent);
+            // Update the agent's tier to match their trust level
+            agent.tier = record.level;
+            results.push({
+                agentId: agent.id,
+                name: agent.name,
+                tier: record.level,
+                score: record.score,
+            });
+        }
+
+        return c.json({
+            success: true,
+            message: `Reset trust data and reinitialized ${agents.length} agents`,
+            agents: results,
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to reset trust',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
 export default app;

@@ -16,9 +16,11 @@ import {
     type TrustTierChangedEvent,
     type TrustFailureDetectedEvent,
 } from '@vorionsys/atsf-core';
+import { createFileProvider, type FilePersistenceProvider } from '@vorionsys/atsf-core/persistence';
 import type { TrustLevel } from '@vorionsys/atsf-core/types';
 import { EventEmitter } from 'eventemitter3';
 import type { WorkLoopAgent, WorkTask, TaskExecutionResult } from './AgentWorkLoop.js';
+import { join } from 'path';
 
 // ============================================================================
 // Types
@@ -35,6 +37,10 @@ export interface TrustIntegrationConfig {
     failureThreshold?: number;
     /** Multiplier for decay when failures detected (default: 3.0) */
     acceleratedDecayMultiplier?: number;
+    /** Path to persist trust records (default: ./trust-data.json) */
+    persistencePath?: string;
+    /** Auto-save interval in ms (default: 30000 = 30 seconds) */
+    autoSaveIntervalMs?: number;
 }
 
 interface TrustIntegrationEvents {
@@ -99,13 +105,25 @@ export const WORK_LOOP_SIGNALS = {
 
 export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     private trustEngine: TrustEngine;
+    private persistence: FilePersistenceProvider;
     private enabled: boolean;
     private agentTierCache: Map<string, number> = new Map();
+    private initialized: boolean = false;
+    private initPromise: Promise<void> | null = null;
 
     constructor(config: TrustIntegrationConfig = {}) {
         super();
 
         this.enabled = config.enabled ?? true;
+
+        // Create file persistence provider (use DATA_DIR env var for Fly.io volume)
+        const dataDir = process.env.DATA_DIR || '.';
+        const persistencePath = config.persistencePath ?? join(dataDir, 'trust-data.json');
+        this.persistence = createFileProvider({
+            path: persistencePath,
+            autoSaveIntervalMs: config.autoSaveIntervalMs ?? 30000, // 30 second auto-save
+            prettyPrint: true,
+        });
 
         this.trustEngine = createTrustEngine({
             decayRate: config.decayRate ?? 0.01,
@@ -114,12 +132,61 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             acceleratedDecayMultiplier: config.acceleratedDecayMultiplier ?? 3.0,
             failureWindowMs: 3600000, // 1 hour
             minFailuresForAcceleration: 2,
+            persistence: this.persistence,
+            autoPersist: true,
         });
 
         // Listen to trust engine events
         this.setupEventListeners();
 
-        console.log('[TrustIntegration] Initialized with ATSF-Core TrustEngine');
+        // Start initialization (non-blocking)
+        this.initPromise = this.initialize();
+
+        console.log(`[TrustIntegration] Initialized with ATSF-Core TrustEngine (persistence: ${persistencePath})`);
+    }
+
+    /**
+     * Initialize persistence and load existing trust records
+     */
+    private async initialize(): Promise<void> {
+        if (this.initialized) return;
+
+        try {
+            // Initialize persistence provider
+            await this.persistence.initialize();
+
+            // Load existing records into trust engine
+            const loadedCount = await this.trustEngine.loadFromPersistence();
+
+            this.initialized = true;
+            console.log(`[TrustIntegration] Loaded ${loadedCount} trust records from persistence`);
+        } catch (err) {
+            console.error('[TrustIntegration] Failed to initialize persistence:', err);
+            this.initialized = true; // Mark as initialized anyway to allow operation
+        }
+    }
+
+    /**
+     * Ensure initialization is complete before operations
+     */
+    private async ensureInitialized(): Promise<void> {
+        if (this.initPromise) {
+            await this.initPromise;
+        }
+    }
+
+    /**
+     * Gracefully shutdown and save all trust records
+     */
+    async shutdown(): Promise<void> {
+        console.log('[TrustIntegration] Shutting down...');
+        try {
+            await this.trustEngine.saveToPersistence();
+            await this.persistence.close();
+            console.log('[TrustIntegration] Shutdown complete, all records saved');
+        } catch (err) {
+            console.error('[TrustIntegration] Error during shutdown:', err);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -159,16 +226,26 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     // -------------------------------------------------------------------------
 
     /**
-     * Initialize trust for a new agent
+     * Initialize trust for a new agent (or restore from persistence)
      */
     async initializeAgent(agent: WorkLoopAgent): Promise<TrustRecord> {
-        // Map work-loop tier to ATSF trust level
+        await this.ensureInitialized();
+
+        // Check if agent already has trust record from persistence
+        const existingRecord = await this.trustEngine.getScore(agent.id);
+        if (existingRecord) {
+            this.agentTierCache.set(agent.id, existingRecord.level);
+            console.log(`[TrustIntegration] Restored agent ${agent.name} from persistence: T${existingRecord.level} (score: ${existingRecord.score})`);
+            return existingRecord;
+        }
+
+        // Map work-loop tier to ATSF trust level for new agents
         const initialLevel = this.workLoopTierToTrustLevel(agent.tier);
 
         const record = await this.trustEngine.initializeEntity(agent.id, initialLevel);
         this.agentTierCache.set(agent.id, record.level);
 
-        console.log(`[TrustIntegration] Initialized agent ${agent.name} at T${record.level} (score: ${record.score})`);
+        console.log(`[TrustIntegration] Initialized new agent ${agent.name} at T${record.level} (score: ${record.score})`);
 
         return record;
     }
@@ -459,22 +536,30 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
         if (!this.enabled) return;
 
         // Calculate baseline value based on assigned tier (higher tier = higher baseline)
-        // T5 = 0.9, T4 = 0.85, T3 = 0.75, T2 = 0.65, T1 = 0.55
-        const baselineValue = 0.45 + (agent.tier * 0.09);
+        // T5 = 1.0, T4 = 0.93, T3 = 0.86, T2 = 0.79, T1 = 0.72
+        // Formula: 0.65 + (tier * 0.07)
+        const baselineValue = Math.min(1.0, 0.65 + (agent.tier * 0.07));
 
-        // Record baseline behavioral signal
+        // Record baseline signals for ALL FOUR dimensions
+        // Behavioral (40% weight)
         await this.recordSignal(agent.id, 'behavioral.baseline', baselineValue, {
             reason: 'Initial registration baseline',
             agentTier: agent.tier,
         });
 
-        // Record baseline compliance signal
+        // Compliance (25% weight)
         await this.recordSignal(agent.id, 'compliance.baseline', baselineValue, {
             reason: 'Initial registration baseline',
             agentTier: agent.tier,
         });
 
-        // Record baseline context signal
+        // Identity (20% weight)
+        await this.recordSignal(agent.id, 'identity.baseline', baselineValue, {
+            reason: 'Initial registration baseline',
+            agentTier: agent.tier,
+        });
+
+        // Context (15% weight)
         await this.recordSignal(agent.id, 'context.baseline', baselineValue, {
             reason: 'Initial registration baseline',
             agentTier: agent.tier,
@@ -765,6 +850,55 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
      */
     isEnabled(): boolean {
         return this.enabled;
+    }
+
+    /**
+     * Reset all trust data - clear persistence and memory
+     * Use this to start fresh after data corruption or major changes
+     */
+    async resetTrust(): Promise<void> {
+        await this.ensureInitialized();
+
+        console.log('[TrustIntegration] Resetting all trust data...');
+
+        // Clear in-memory cache
+        this.agentTierCache.clear();
+
+        // Clear trust engine records
+        for (const entityId of this.trustEngine.getEntityIds()) {
+            await this.trustEngine.removeEntity(entityId);
+        }
+
+        // Clear persistence
+        await this.persistence.clear();
+
+        console.log('[TrustIntegration] Trust data reset complete');
+    }
+
+    /**
+     * Re-initialize an agent with fresh baseline (use after reset)
+     */
+    async reinitializeAgent(agent: WorkLoopAgent): Promise<TrustRecord> {
+        // Remove any existing record
+        const existing = await this.trustEngine.getScore(agent.id);
+        if (existing) {
+            await this.trustEngine.removeEntity(agent.id);
+        }
+
+        // Initialize fresh
+        const initialLevel = this.workLoopTierToTrustLevel(agent.tier);
+        const record = await this.trustEngine.initializeEntity(agent.id, initialLevel);
+        this.agentTierCache.set(agent.id, record.level);
+
+        // Record baseline signals
+        await this.recordInitialBaseline(agent);
+
+        // Force persist
+        await this.trustEngine.saveToPersistence();
+
+        console.log(`[TrustIntegration] Reinitialized ${agent.name} at T${record.level}`);
+
+        return record;
     }
 }
 

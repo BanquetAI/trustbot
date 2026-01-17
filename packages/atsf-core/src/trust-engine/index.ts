@@ -339,8 +339,16 @@ export class TrustEngine extends EventEmitter {
     const record = this.records.get(entityId);
     const signals = record?.signals ?? [];
 
-    // Calculate component scores
-    const components = this.calculateComponents(signals);
+    // Use existing component values as defaults (preserves initial tier when no signals yet)
+    const currentComponents = record?.components ?? {
+      behavioral: 0.5,
+      compliance: 0.5,
+      identity: 0.5,
+      context: 0.5,
+    };
+
+    // Calculate component scores with current values as fallbacks
+    const components = this.calculateComponents(signals, currentComponents);
 
     // Calculate weighted total
     const score = Math.round(
@@ -589,15 +597,22 @@ export class TrustEngine extends EventEmitter {
    */
   async initializeEntity(entityId: ID, initialLevel: TrustLevel = 1): Promise<TrustRecord> {
     const score = TRUST_THRESHOLDS[initialLevel].min;
+
+    // Calculate initial component value to match the target level
+    // Score = behavioral*400 + compliance*250 + identity*200 + context*150
+    // If all components are equal: score = component * 1000
+    // So component = score / 1000
+    const initialComponentValue = score / 1000;
+
     const record: TrustRecord = {
       entityId,
       score,
       level: initialLevel,
       components: {
-        behavioral: 0.5,
-        compliance: 0.5,
-        identity: 0.5,
-        context: 0.5,
+        behavioral: initialComponentValue,
+        compliance: initialComponentValue,
+        identity: initialComponentValue,
+        context: initialComponentValue,
       },
       signals: [],
       lastCalculatedAt: new Date().toISOString(),
@@ -639,6 +654,20 @@ export class TrustEngine extends EventEmitter {
   }
 
   /**
+   * Remove an entity from trust tracking
+   */
+  async removeEntity(entityId: ID): Promise<boolean> {
+    const existed = this.records.delete(entityId);
+
+    if (existed && this._persistence) {
+      await this._persistence.delete(entityId);
+    }
+
+    logger.info({ entityId, removed: existed }, 'Entity removed from trust tracking');
+    return existed;
+  }
+
+  /**
    * Get trust level name
    */
   getLevelName(level: TrustLevel): string {
@@ -659,8 +688,12 @@ export class TrustEngine extends EventEmitter {
 
   /**
    * Calculate component scores from signals
+   * Uses current component values as defaults when no signals exist for a dimension
    */
-  private calculateComponents(signals: TrustSignal[]): TrustComponents {
+  private calculateComponents(
+    signals: TrustSignal[],
+    currentComponents: TrustComponents
+  ): TrustComponents {
     // Group signals by type
     const behavioral = signals.filter((s) => s.type.startsWith('behavioral.'));
     const compliance = signals.filter((s) => s.type.startsWith('compliance.'));
@@ -668,10 +701,10 @@ export class TrustEngine extends EventEmitter {
     const context = signals.filter((s) => s.type.startsWith('context.'));
 
     return {
-      behavioral: this.averageSignalValue(behavioral, 0.5),
-      compliance: this.averageSignalValue(compliance, 0.5),
-      identity: this.averageSignalValue(identity, 0.5),
-      context: this.averageSignalValue(context, 0.5),
+      behavioral: this.averageSignalValue(behavioral, currentComponents.behavioral),
+      compliance: this.averageSignalValue(compliance, currentComponents.compliance),
+      identity: this.averageSignalValue(identity, currentComponents.identity),
+      context: this.averageSignalValue(context, currentComponents.context),
     };
   }
 
