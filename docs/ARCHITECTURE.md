@@ -1,8 +1,18 @@
-# TrustBot Architecture
+# Aurais Architecture
+
+> **Version:** 2.0 | **Updated:** January 2026 | **Status:** Active Development
 
 ## System Overview
 
-TrustBot is a multi-agent AI orchestration platform designed for enterprise-grade governance, trust management, and human oversight.
+Aurais (formerly Aurais) is a multi-agent AI orchestration platform designed for enterprise-grade governance, trust management, and human oversight. It implements the **BASIS (Behavioral AI Safety and Integrity Standard)** specification and integrates with **Cognigate** for production governance.
+
+### Key Features
+
+- **6-Tier Trust System** - BASIS-compliant trust scoring (Sandbox → Autonomous)
+- **ATSF-Core Engine** - Published npm package `@vorionsys/atsf-core`
+- **Recovery Path** - Demoted agents can earn their way back up
+- **Complexity-Aware Decay** - Trust decay adjusted by task complexity
+- **Multi-Dimensional Signals** - Behavioral, compliance, identity, and context factors
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -19,58 +29,61 @@ TrustBot is a multi-agent AI orchestration platform designed for enterprise-grad
 ┌────────────────────────────────────┴────────────────────────────────────────┐
 │                               API LAYER                                      │
 │  ┌─────────────────────────────────────────────────────────────────────┐    │
-│  │                     TrustBot API (Express/Hono)                      │    │
-│  │                                                                       │    │
-│  │  ┌──────────────────────────────────────────────────────────────┐   │    │
-│  │  │                    DECISION PIPELINE                          │   │    │
-│  │  │  ┌──────────┐    ┌──────────────┐    ┌──────────────┐        │   │    │
-│  │  │  │TrustGate │ →  │ Bot Tribunal │ →  │ HITL Queue   │        │   │    │
-│  │  │  │(Auto-    │    │ (Peer Vote)  │    │ (Human       │        │   │    │
-│  │  │  │ approve) │    │              │    │  Review)     │        │   │    │
-│  │  │  └──────────┘    └──────────────┘    └──────────────┘        │   │    │
-│  │  └──────────────────────────────────────────────────────────────┘   │    │
+│  │                     Aurais Unified API (Hono)                        │    │
 │  │                                                                       │    │
 │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐        │    │
-│  │  │  Auth   │ │  Tasks  │ │ Agents  │ │  Trust  │ │ Audit   │        │    │
+│  │  │Work-Loop│ │  Trust  │ │Recovery │ │ Agents  │ │  Tasks  │        │    │
 │  │  │ Routes  │ │ Routes  │ │ Routes  │ │ Routes  │ │ Routes  │        │    │
 │  │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘        │    │
 │  └─────────────────────────────────────────────────────────────────────┘    │
 └────────────────────────────────────┬────────────────────────────────────────┘
                                      │
 ┌────────────────────────────────────┴────────────────────────────────────────┐
-│                              SERVICE LAYER                                   │
+│                          TRUST INTEGRATION LAYER                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                      TrustIntegration Service                        │    │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐   │    │
+│  │  │ Work Loop   │  │ Complexity  │  │  Recovery   │  │  Event    │   │    │
+│  │  │ Integration │  │   Tracker   │  │  Manager    │  │ Emitter   │   │    │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘   │    │
+│  └─────────────────────────────────────────────────────────────────────┘    │
+└────────────────────────────────────┬────────────────────────────────────────┘
+                                     │
+┌────────────────────────────────────┴────────────────────────────────────────┐
+│                       @vorionsys/atsf-core (npm)                             │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐                │
-│  │TrustScoreCalc   │ │TribunalManager  │ │TaskAssignment   │                │
-│  │ • Tier calc     │ │ • Peer voting   │ │ • Skill match   │                │
-│  │ • Score updates │ │ • Consensus     │ │ • Load balance  │                │
-│  │ • History       │ │ • Appeals       │ │ • Priority      │                │
+│  │  TrustEngine    │ │  RecoveryPath   │ │ComplexityDecay  │                │
+│  │ • 6-tier system │ │ • Point-based   │ │ • Decay adjust  │                │
+│  │ • Multi-signal  │ │ • Progressive   │ │ • Complexity    │                │
+│  │ • Event-driven  │ │ • Tier recovery │ │   bonuses       │                │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘                │
 │                                                                              │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐                │
-│  │AgentRegistry    │ │TrustAnomaly     │ │BlackboardTask   │                │
-│  │ • Agent pool    │ │ • Detection     │ │ • Sync          │                │
-│  │ • Capabilities  │ │ • Alerts        │ │ • Bridge        │                │
-│  │ • Status        │ │ • Thresholds    │ │ • Events        │                │
+│  │ TrustSignals    │ │  Persistence    │ │  LangChain      │                │
+│  │ • Behavioral    │ │ • JSON file     │ │ • ATSF Tool     │                │
+│  │ • Compliance    │ │ • Supabase      │ │ • Gate Tools    │                │
+│  │ • Identity      │ │ • Graceful save │ │                 │                │
+│  │ • Context       │ │                 │ │                 │                │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘                │
 └────────────────────────────────────┬────────────────────────────────────────┘
                                      │
 ┌────────────────────────────────────┴────────────────────────────────────────┐
-│                               CORE LAYER                                     │
+│                               CORE SERVICES                                  │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐                │
-│  │TrustEngine      │ │Blackboard       │ │SecurityLayer    │                │
-│  │ • Trust CRUD    │ │ • Stigmergic    │ │ • Auth tokens   │                │
-│  │ • Rewards       │ │ • Pub/Sub       │ │ • RBAC          │                │
-│  │ • Penalties     │ │ • Events        │ │ • Audit log     │                │
+│  │AgentWorkLoop    │ │Blackboard       │ │SecurityLayer    │                │
+│  │ • Task queue    │ │ • Stigmergic    │ │ • Auth tokens   │                │
+│  │ • Agent pool    │ │ • Pub/Sub       │ │ • RBAC          │                │
+│  │ • Execution     │ │ • Events        │ │ • Audit log     │                │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘                │
 └────────────────────────────────────┬────────────────────────────────────────┘
                                      │
 ┌────────────────────────────────────┴────────────────────────────────────────┐
 │                            DATA/PERSISTENCE                                  │
 │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐                │
-│  │    Supabase     │ │   In-Memory     │ │   Hash Chain    │                │
-│  │ • PostgreSQL    │ │ • Agent state   │ │ • Audit trail   │                │
-│  │ • RLS policies  │ │ • Task queue    │ │ • Integrity     │                │
-│  │ • Migrations    │ │ • WebSocket     │ │ • Verification  │                │
+│  │    Supabase     │ │  File-Based     │ │   Hash Chain    │                │
+│  │ • PostgreSQL    │ │ • Trust data    │ │ • Audit trail   │                │
+│  │ • RLS policies  │ │ • Agent state   │ │ • Integrity     │                │
+│  │ • Migrations    │ │ • Work loop     │ │ • Verification  │                │
 │  └─────────────────┘ └─────────────────┘ └─────────────────┘                │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -96,7 +109,7 @@ Key modules:
 
 ### 2. API Layer
 
-#### TrustBot API
+#### Aurais API
 - **Framework**: Express with Hono router
 - **Port**: 3002 (dev), 8080 (prod)
 - **Auth**: Token-based with RBAC middleware
@@ -151,14 +164,96 @@ interface TaskAssignmentService {
 }
 ```
 
-### 4. Core Layer
+### 4. Trust System (@vorionsys/atsf-core)
 
-#### TrustEngine
-Central trust management:
-- CRUD operations for trust records
-- Reward/penalty processing
-- Trust history tracking
-- Tier calculations
+The trust system is powered by the `@vorionsys/atsf-core` npm package, implementing the BASIS specification.
+
+#### Trust Tiers (BASIS-Compliant)
+
+| Tier | Score Range | Name | Capabilities |
+|------|-------------|------|--------------|
+| 0 | 0-99 | Sandbox | Isolated testing only |
+| 1 | 100-299 | Provisional | Limited, monitored actions |
+| 2 | 300-499 | Standard | Normal operations |
+| 3 | 500-699 | Trusted | Elevated privileges |
+| 4 | 700-899 | Certified | High-trust operations |
+| 5 | 900-1000 | Autonomous | Minimal oversight |
+
+#### Multi-Dimensional Trust Signals
+
+```typescript
+interface TrustComponents {
+  behavioral: number;  // 40% weight - Task success/failure patterns
+  compliance: number;  // 25% weight - Policy adherence
+  identity: number;    // 20% weight - Identity verification strength
+  context: number;     // 15% weight - Environmental appropriateness
+}
+```
+
+#### Complexity-Aware Decay
+
+Trust decay is adjusted based on task complexity:
+- **High complexity tasks**: Up to 50% decay reduction
+- **Decay calculation**: `basedecay * (1 - complexityBonus)`
+- **Accelerated decay**: 3x rate after repeated failures
+
+```typescript
+// Complexity tracking per agent
+interface ComplexityStats {
+  averageComplexity: number;      // 0.0 - 1.0
+  recentComplexity: number;       // Last N tasks
+  complexityBonus: number;        // Decay reduction factor
+  decayReduction: string;         // Human-readable percentage
+}
+```
+
+#### Recovery Path System
+
+Demoted agents can recover trust through sustained successful performance:
+
+```
+Recovery Requirements by Target Tier:
+┌────────┬────────┬───────────────────────┬─────────────┐
+│ Target │ Points │ Consecutive Successes │ Success Rate│
+├────────┼────────┼───────────────────────┼─────────────┤
+│ T2     │ 100    │ 5                     │ 70%+        │
+│ T3     │ 200    │ 8                     │ 70%+        │
+│ T4     │ 350    │ 12                    │ 70%+        │
+│ T5     │ 500    │ 15                    │ 70%+        │
+└────────┴────────┴───────────────────────┴─────────────┘
+
+Points = task_complexity × 10 (for successful tasks)
+```
+
+**Recovery Events:**
+- `trust:recovery_started` - Agent enters recovery mode
+- `trust:recovery_progress` - Progress update after each task
+- `trust:recovery_complete` - Agent promoted to target tier
+
+#### TrustEngine API
+
+```typescript
+interface TrustEngine {
+  // Core operations
+  initializeEntity(entityId: string, initialScore?: number): Promise<TrustRecord>;
+  getScore(entityId: string): Promise<TrustRecord | null>;
+  recordSignal(entityId: string, signal: TrustSignal): Promise<TrustRecord>;
+
+  // Decay management
+  applyDecay(entityId: string): Promise<TrustRecord>;
+  setComplexityForDecay(entityId: string, complexity: number): void;
+
+  // Recovery operations
+  startRecovery(entityId: string, originalTier: TrustLevel): Promise<RecoveryState>;
+  updateRecoveryProgress(entityId: string, complexity: number, success: boolean): Promise<void>;
+  evaluateRecovery(entityId: string): Promise<boolean>;
+  cancelRecovery(entityId: string, reason?: string): Promise<boolean>;
+  getRecoveryState(entityId: string): RecoveryState | null;
+  isInRecovery(entityId: string): boolean;
+}
+```
+
+### 5. Core Services
 
 #### Blackboard
 Stigmergic coordination:
@@ -286,12 +381,40 @@ Authentication and authorization:
         │                            │                            │
         ▼                            ▼                            ▼
 ┌───────────────┐           ┌───────────────┐           ┌───────────────┐
-│   Vercel      │           │   Fly.io      │           │   Supabase    │
+│   Vercel      │           │   Local/Fly   │           │   Supabase    │
 │   (Web)       │           │   (API)       │           │   (Database)  │
 │               │           │               │           │               │
-│ trustbot-web  │  ←─API──→ │ trustbot-api  │  ←─SQL──→ │  PostgreSQL   │
-│ .vercel.app   │           │ .fly.dev      │           │               │
+│ aurais.       │  ←─API──→ │ Aurais API    │  ←─SQL──→ │  PostgreSQL   │
+│ agentanchor   │           │ Port: 3003    │           │               │
+│ ai.com       │           │               │           │               │
 └───────────────┘           └───────────────┘           └───────────────┘
+```
+
+### API Endpoints (Port 3003)
+
+**Trust Management:**
+```
+GET  /trust/stats                    - Trust statistics overview
+GET  /trust/all                      - All agent trust records
+GET  /work-loop/trust/:agentId       - Single agent trust + recovery state
+POST /work-loop/trust/:agentId/adjust - Adjust agent trust score
+```
+
+**Recovery Path:**
+```
+GET  /work-loop/trust/recovery                  - Summary of agents in recovery
+POST /work-loop/trust/:agentId/recovery/start   - Start recovery for agent
+POST /work-loop/trust/:agentId/recovery/cancel  - Cancel agent recovery
+POST /work-loop/trust/:agentId/original-tier    - Set original tier for recovery
+```
+
+**Work Loop:**
+```
+GET  /work-loop/agents               - List all agents
+GET  /work-loop/agents/:agentId      - Single agent details
+POST /work-loop/agents/:agentId/task - Assign task to agent
+POST /work-loop/task/completed       - Mark task completed
+POST /work-loop/task/failed          - Mark task failed
 ```
 
 ### Environment Variables
@@ -349,9 +472,67 @@ Authentication and authorization:
 | Layer | Technology |
 |-------|------------|
 | Frontend | React 18, Vite, Zustand, Tailwind |
-| API | Node.js, Express, Hono |
-| Database | PostgreSQL (Supabase) |
+| API | Node.js, Hono |
+| Trust Engine | @vorionsys/atsf-core (npm) |
+| Governance | Cognigate (cognigate.dev) |
+| Database | PostgreSQL (Supabase), File-based persistence |
 | Auth | Custom token system |
-| Testing | Vitest (1,406 tests) |
-| Deployment | Fly.io (API), Vercel (Web) |
+| Testing | Vitest |
+| Deployment | Vercel (Web), Local/Fly.io (API) |
 | AI | Claude, Gemini, Grok |
+
+---
+
+## Cognigate Integration
+
+Aurais integrates with Cognigate for production governance:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                             Aurais (Frontend)                                │
+│                       aurais.agentanchorai.com                               │
+└─────────────────────────────┬───────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Aurais Backend API                                 │
+│                                                                              │
+│  ┌───────────────┐    ┌──────────────────┐    ┌───────────────────┐         │
+│  │ Chat Handler  │ →  │ Governance       │ →  │ LLM Provider      │         │
+│  │               │    │ Middleware       │    │ (Claude/GPT)      │         │
+│  └───────────────┘    └────────┬─────────┘    └───────────────────┘         │
+│                                │                                             │
+└────────────────────────────────┼─────────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Cognigate Engine                                    │
+│                         cognigate.dev                                        │
+│                                                                              │
+│  POST /v1/intent  → Parse request, classify risk                            │
+│  POST /v1/enforce → Check trust, return ALLOW/DENY/ESCALATE                 │
+│  POST /v1/proof   → Log to immutable audit trail                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Governance Decisions
+
+| Decision | Meaning | Action |
+|----------|---------|--------|
+| ALLOW | Trust sufficient | Execute action |
+| DENY | Trust insufficient | Block with explanation |
+| ESCALATE | Human review required | Queue for approval |
+| DEGRADE | Partial capability | Execute with limits |
+
+---
+
+## Related Documentation
+
+- **[PRODUCT_SPEC.md](./PRODUCT_SPEC.md)** - Product specification
+- **[AGENT_SDK.md](./AGENT_SDK.md)** - Agent SDK documentation
+- **[DEMO_FLOW.md](./DEMO_FLOW.md)** - Demo flow documentation
+- **[COGNIGATE-AURAIS-COMPLETE-PLAN.md](../COGNIGATE-AURAIS-COMPLETE-PLAN.md)** - Integration plan
+
+---
+
+*Last updated: January 2026*
