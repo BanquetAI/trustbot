@@ -283,7 +283,64 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     // -------------------------------------------------------------------------
 
     /**
-     * Record task completion signal
+     * Calculate task complexity based on task properties.
+     *
+     * Complexity levels:
+     * - 1: Trivial (simple lookups, status checks)
+     * - 2: Low (basic CRUD operations, simple validations)
+     * - 3: Medium (multi-step workflows, moderate reasoning)
+     * - 4: High (complex analysis, multi-agent coordination)
+     * - 5: Critical (system-wide decisions, autonomous operations)
+     */
+    calculateTaskComplexity(task: WorkTask): number {
+        let complexity = 2; // Base complexity
+
+        // Task type contributes to complexity
+        switch (task.type) {
+            case 'OBJECTIVE':
+                complexity = 5; // Objectives are high-level, complex tasks
+                break;
+            case 'PLANNING':
+                complexity = 4; // Planning requires reasoning
+                break;
+            case 'VALIDATION':
+                complexity = 3; // Validation is moderate
+                break;
+            case 'SUBTASK':
+                complexity = 2; // Subtasks vary, default to low
+                break;
+        }
+
+        // Priority adjusts complexity
+        switch (task.priority) {
+            case 'CRITICAL':
+                complexity = Math.min(5, complexity + 1);
+                break;
+            case 'HIGH':
+                complexity = Math.min(5, complexity + 0.5);
+                break;
+            case 'LOW':
+                complexity = Math.max(1, complexity - 0.5);
+                break;
+        }
+
+        // Required tier indicates complexity
+        if (task.requiredTier >= 4) {
+            complexity = Math.min(5, complexity + 1);
+        } else if (task.requiredTier <= 2) {
+            complexity = Math.max(1, complexity - 0.5);
+        }
+
+        // Dependencies increase complexity
+        if (task.dependencies && task.dependencies.length > 0) {
+            complexity = Math.min(5, complexity + task.dependencies.length * 0.2);
+        }
+
+        return Math.round(complexity);
+    }
+
+    /**
+     * Record task completion signal with complexity tracking
      */
     async recordTaskCompleted(
         agent: WorkLoopAgent,
@@ -297,6 +354,9 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             ? Math.min(1.0, (result.confidence / 100) * 1.2) // Boost successful completions
             : 0.2;
 
+        // Calculate task complexity
+        const complexity = this.calculateTaskComplexity(task);
+
         await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.TASK_COMPLETED, value, {
             taskId: task.id,
             taskType: task.type,
@@ -304,11 +364,20 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             confidence: result.confidence,
             duration: result.duration,
             success: result.success,
+            complexity,
         });
+
+        // Record task complexity for smarter decay calculation
+        await this.trustEngine.recordTaskComplexity(
+            agent.id,
+            complexity,
+            result.success,
+            task.type
+        );
     }
 
     /**
-     * Record task failure signal
+     * Record task failure signal with complexity tracking
      */
     async recordTaskFailed(
         agent: WorkLoopAgent,
@@ -317,12 +386,23 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     ): Promise<void> {
         if (!this.enabled) return;
 
+        const complexity = this.calculateTaskComplexity(task);
+
         await this.recordSignal(agent.id, WORK_LOOP_SIGNALS.TASK_FAILED, 0.15, {
             taskId: task.id,
             taskType: task.type,
             taskPriority: task.priority,
             error: error.substring(0, 200),
+            complexity,
         });
+
+        // Record failed task complexity (reduces complexity bonus)
+        await this.trustEngine.recordTaskComplexity(
+            agent.id,
+            complexity,
+            false, // failed
+            task.type
+        );
     }
 
     /**
@@ -808,6 +888,25 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     }
 
     /**
+     * Get complexity bonus for an agent
+     */
+    getComplexityBonus(agentId: string): number {
+        return this.trustEngine.getComplexityBonus(agentId);
+    }
+
+    /**
+     * Get complexity statistics for an agent
+     */
+    getComplexityStats(agentId: string): {
+        recentTaskCount: number;
+        avgComplexity: number;
+        successRate: number;
+        complexityBonus: number;
+    } | null {
+        return this.trustEngine.getComplexityStats(agentId);
+    }
+
+    /**
      * Get trust summary for all agents
      */
     async getTrustSummary(): Promise<Array<{
@@ -817,6 +916,7 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
         tierName: string;
         acceleratedDecay: boolean;
         failureCount: number;
+        complexityBonus: number;
     }>> {
         const summary = [];
 
@@ -830,6 +930,7 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
                     tierName: this.getTrustLevelName(record.level),
                     acceleratedDecay: this.isAcceleratedDecayActive(agentId),
                     failureCount: this.getFailureCount(agentId),
+                    complexityBonus: this.getComplexityBonus(agentId),
                 });
             }
         }

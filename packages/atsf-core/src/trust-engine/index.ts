@@ -150,6 +150,20 @@ export type AnyTrustEvent =
   | TrustFailureDetectedEvent;
 
 /**
+ * Task complexity entry for tracking agent performance on different task types
+ */
+export interface TaskComplexityEntry {
+  /** Task complexity level (1-5, where 5 is most complex) */
+  complexity: number;
+  /** Whether the task was completed successfully */
+  success: boolean;
+  /** Timestamp of completion */
+  timestamp: string;
+  /** Optional task type for analytics */
+  taskType?: string;
+}
+
+/**
  * Entity trust record
  */
 export interface TrustRecord {
@@ -162,6 +176,10 @@ export interface TrustRecord {
   history: TrustHistoryEntry[];
   /** Recent failure timestamps for accelerated decay */
   recentFailures: string[];
+  /** Recent task completions with complexity for smarter decay */
+  recentTasks: TaskComplexityEntry[];
+  /** Calculated complexity bonus factor (0.0 to 1.0, reduces decay) */
+  complexityBonus: number;
 }
 
 /**
@@ -414,11 +432,22 @@ export class TrustEngine extends EventEmitter {
         const previousScore = record.score;
         const previousLevel = record.level;
 
-        // Check if accelerated decay should apply
+        // Check if accelerated decay should apply (due to failures)
         const accelerated = this.hasAcceleratedDecay(record);
-        const effectiveDecayRate = accelerated
-          ? this._decayRate * this._acceleratedDecayMultiplier
-          : this._decayRate;
+
+        // Calculate effective decay rate with complexity bonus
+        // Complexity bonus reduces decay (agents handling complex tasks decay slower)
+        let effectiveDecayRate = this._decayRate;
+
+        if (accelerated) {
+          // Accelerated decay for recent failures
+          effectiveDecayRate *= this._acceleratedDecayMultiplier;
+        }
+
+        // Apply complexity bonus (reduces decay by up to 80%)
+        // Higher complexity bonus = slower decay
+        const complexityReduction = 1 - record.complexityBonus;
+        effectiveDecayRate *= complexityReduction;
 
         // Apply decay based on staleness
         const decayPeriods = Math.floor(staleness / this._decayIntervalMs);
@@ -625,6 +654,8 @@ export class TrustEngine extends EventEmitter {
         },
       ],
       recentFailures: [],
+      recentTasks: [],
+      complexityBonus: 0,
     };
 
     this.records.set(entityId, record);
@@ -769,6 +800,8 @@ export class TrustEngine extends EventEmitter {
       lastCalculatedAt: new Date().toISOString(),
       history: [],
       recentFailures: [],
+      recentTasks: [],
+      complexityBonus: 0,
     };
   }
 
@@ -789,6 +822,175 @@ export class TrustEngine extends EventEmitter {
     if (!record) return 0;
     this.cleanupFailures(record);
     return record.recentFailures.length;
+  }
+
+  // =========================================================================
+  // Complexity-Aware Decay System
+  // =========================================================================
+
+  /**
+   * Record a task completion with complexity for smarter decay calculation.
+   *
+   * Complexity levels:
+   * - 1: Trivial (simple lookups, status checks)
+   * - 2: Low (basic CRUD operations, simple validations)
+   * - 3: Medium (multi-step workflows, moderate reasoning)
+   * - 4: High (complex analysis, multi-agent coordination)
+   * - 5: Critical (system-wide decisions, autonomous operations)
+   */
+  async recordTaskComplexity(
+    entityId: ID,
+    complexity: number,
+    success: boolean,
+    taskType?: string
+  ): Promise<void> {
+    const record = this.records.get(entityId);
+    if (!record) {
+      logger.warn({ entityId }, 'Cannot record task complexity: entity not found');
+      return;
+    }
+
+    // Clamp complexity to valid range
+    const clampedComplexity = Math.max(1, Math.min(5, complexity));
+
+    // Add task entry
+    record.recentTasks.push({
+      complexity: clampedComplexity,
+      success,
+      timestamp: new Date().toISOString(),
+      taskType,
+    });
+
+    // Cleanup old task entries (keep last 50 or within 7 days)
+    this.cleanupRecentTasks(record);
+
+    // Recalculate complexity bonus
+    record.complexityBonus = this.calculateComplexityBonus(record);
+
+    // Auto-persist if enabled
+    await this.autoPersistRecord(record);
+
+    logger.debug(
+      {
+        entityId,
+        complexity: clampedComplexity,
+        success,
+        complexityBonus: record.complexityBonus,
+      },
+      'Task complexity recorded'
+    );
+  }
+
+  /**
+   * Cleanup old task entries outside the tracking window
+   */
+  private cleanupRecentTasks(record: TrustRecord): void {
+    const now = Date.now();
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000; // 7 days
+    const maxEntries = 50;
+
+    // Filter by age
+    record.recentTasks = record.recentTasks.filter(
+      (task) => now - new Date(task.timestamp).getTime() < maxAgeMs
+    );
+
+    // Keep only last N entries
+    if (record.recentTasks.length > maxEntries) {
+      record.recentTasks = record.recentTasks.slice(-maxEntries);
+    }
+  }
+
+  /**
+   * Calculate complexity bonus factor based on recent task history.
+   *
+   * The bonus reduces decay rate for agents who successfully handle complex tasks:
+   * - More complex tasks = higher potential bonus
+   * - Higher success rate on complex tasks = higher bonus
+   * - Bonus ranges from 0.0 (no reduction) to 0.8 (80% reduction)
+   *
+   * Formula:
+   * bonus = (avgComplexity / 5) * successRate * 0.8
+   *
+   * Examples:
+   * - Avg complexity 5, 100% success = 0.8 bonus (80% decay reduction)
+   * - Avg complexity 3, 80% success = 0.384 bonus (38.4% decay reduction)
+   * - Avg complexity 1, 50% success = 0.08 bonus (8% decay reduction)
+   */
+  private calculateComplexityBonus(record: TrustRecord): number {
+    if (record.recentTasks.length === 0) {
+      return 0;
+    }
+
+    // Calculate average complexity (weighted by recency)
+    const now = Date.now();
+    let weightedComplexity = 0;
+    let totalWeight = 0;
+    let successCount = 0;
+
+    for (const task of record.recentTasks) {
+      const age = now - new Date(task.timestamp).getTime();
+      const weight = Math.exp(-age / (3 * 24 * 60 * 60 * 1000)); // 3-day half-life
+
+      weightedComplexity += task.complexity * weight;
+      totalWeight += weight;
+
+      if (task.success) {
+        successCount++;
+      }
+    }
+
+    const avgComplexity = totalWeight > 0 ? weightedComplexity / totalWeight : 0;
+    const successRate = record.recentTasks.length > 0
+      ? successCount / record.recentTasks.length
+      : 0;
+
+    // Bonus formula: complexity factor * success rate * max bonus
+    // Max bonus is 0.8 (80% decay reduction) for perfect performance on critical tasks
+    const bonus = (avgComplexity / 5) * successRate * 0.8;
+
+    return Math.min(0.8, Math.max(0, bonus));
+  }
+
+  /**
+   * Get the current complexity bonus for an entity
+   */
+  getComplexityBonus(entityId: ID): number {
+    const record = this.records.get(entityId);
+    if (!record) return 0;
+    return record.complexityBonus;
+  }
+
+  /**
+   * Get complexity stats for an entity
+   */
+  getComplexityStats(entityId: ID): {
+    recentTaskCount: number;
+    avgComplexity: number;
+    successRate: number;
+    complexityBonus: number;
+  } | null {
+    const record = this.records.get(entityId);
+    if (!record) return null;
+
+    const taskCount = record.recentTasks.length;
+    if (taskCount === 0) {
+      return {
+        recentTaskCount: 0,
+        avgComplexity: 0,
+        successRate: 0,
+        complexityBonus: 0,
+      };
+    }
+
+    const totalComplexity = record.recentTasks.reduce((sum, t) => sum + t.complexity, 0);
+    const successCount = record.recentTasks.filter((t) => t.success).length;
+
+    return {
+      recentTaskCount: taskCount,
+      avgComplexity: totalComplexity / taskCount,
+      successRate: successCount / taskCount,
+      complexityBonus: record.complexityBonus,
+    };
   }
 }
 

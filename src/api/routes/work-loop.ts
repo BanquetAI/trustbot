@@ -452,6 +452,8 @@ app.get('/trust', async (c) => {
                 trustTierName: trust?.tierName ?? 'Unknown',
                 acceleratedDecay: trust?.acceleratedDecay ?? false,
                 failureCount: trust?.failureCount ?? 0,
+                complexityBonus: trust?.complexityBonus ?? 0,
+                decayReduction: trust ? `${Math.round(trust.complexityBonus * 100)}%` : '0%',
                 status: agent.status,
                 executionCount: agent.executionCount,
                 successCount: agent.successCount,
@@ -493,6 +495,9 @@ app.get('/trust/:agentId', async (c) => {
         const trust = await trustIntegration.getAgentTrust(agentId);
         const effectiveTier = await trustIntegration.getEffectiveTier(agentId);
 
+        // Get complexity stats for smarter decay info
+        const complexityStats = trustIntegration.getComplexityStats(agentId);
+
         return c.json({
             agent: {
                 id: agent.id,
@@ -508,6 +513,13 @@ app.get('/trust/:agentId', async (c) => {
                 effectiveTier,
                 acceleratedDecay: trustIntegration.isAcceleratedDecayActive(agentId),
                 failureCount: trustIntegration.getFailureCount(agentId),
+                complexity: complexityStats ? {
+                    recentTaskCount: complexityStats.recentTaskCount,
+                    avgComplexity: Math.round(complexityStats.avgComplexity * 10) / 10,
+                    successRate: Math.round(complexityStats.successRate * 100),
+                    complexityBonus: Math.round(complexityStats.complexityBonus * 100),
+                    decayReduction: `${Math.round(complexityStats.complexityBonus * 100)}%`,
+                } : null,
             } : null,
         });
     } catch (error) {
