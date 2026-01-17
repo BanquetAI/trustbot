@@ -1,6 +1,8 @@
-# TrustBot Agent SDK
+# Aurais Agent SDK
 
-This guide explains how to connect AI agents to TrustBot Mission Control.
+> **Aurais** - Governed Intelligence | Part of the Vorion AI Safety Ecosystem
+
+This guide explains how to connect AI agents to Aurais Mission Control with BASIS-compliant trust scoring.
 
 ## Quick Start
 
@@ -243,7 +245,7 @@ class MyAgent extends BaseAIAgent {
 ### Direct API Calls
 
 ```typescript
-const API_URL = 'https://trustbot-api.fly.dev';
+const API_URL = 'http://localhost:3003';  // or production URL
 const MASTER_KEY = 'your-master-key';
 
 // 1. Authenticate
@@ -396,15 +398,34 @@ async callLLM(prompt: string): Promise<LLMResponse> {
 
 ## Trust and Capabilities
 
-### Trust Tiers
+### Trust Tiers (BASIS-Compliant)
 
-| Tier | Score | Autonomy |
-|------|-------|----------|
-| 1 | 0-20 | Fully supervised |
-| 2 | 21-40 | Low autonomy |
-| 3 | 41-60 | Standard autonomy |
-| 4 | 61-80 | High autonomy |
-| 5 | 81-100 | Full autonomy |
+| Tier | Name | Score Range | Capabilities |
+|------|------|-------------|--------------|
+| T0 | Sandbox | 0-99 | Isolated testing only |
+| T1 | Provisional | 100-299 | Limited, monitored actions |
+| T2 | Standard | 300-499 | Normal operations |
+| T3 | Trusted | 500-699 | Elevated privileges |
+| T4 | Certified | 700-899 | High-trust operations |
+| T5 | Autonomous | 900-1000 | Minimal oversight |
+
+### Multi-Dimensional Trust Signals
+
+Trust is calculated from four weighted components:
+
+| Signal | Weight | Description |
+|--------|--------|-------------|
+| Behavioral | 40% | Task success/failure patterns |
+| Compliance | 25% | Policy adherence |
+| Identity | 20% | Identity verification strength |
+| Context | 15% | Environmental appropriateness |
+
+### Trust Recovery
+
+Demoted agents can recover through sustained performance:
+- **Points**: `task_complexity × 10` per successful task
+- **Consecutive successes**: 5-15 required depending on target tier
+- **Success rate**: 70% minimum during recovery
 
 ### Capabilities
 
@@ -455,6 +476,57 @@ try {
 
 ---
 
+## ATSF-Core Integration
+
+Aurais is powered by `@vorionsys/atsf-core`, the official trust engine npm package.
+
+### Installation
+
+```bash
+npm install @vorionsys/atsf-core
+```
+
+### Using the Trust Engine
+
+```typescript
+import { createTrustEngine, TRUST_LEVEL_NAMES } from '@vorionsys/atsf-core';
+
+// Create engine
+const engine = createTrustEngine();
+
+// Initialize an agent
+await engine.initializeEntity('agent-001', 300);
+
+// Record a successful task
+await engine.recordSignal('agent-001', {
+  type: 'behavioral',
+  value: 0.8,  // 80% success
+  weight: 1.0,
+  context: { taskId: 'task-123', complexity: 0.7 }
+});
+
+// Get current score
+const record = await engine.getScore('agent-001');
+console.log(`Trust: ${record.score} (${TRUST_LEVEL_NAMES[record.level]})`);
+
+// Start recovery after demotion
+await engine.startRecovery('agent-001', 4);  // Target: Certified tier
+```
+
+### LangChain Integration
+
+```typescript
+import { ATSFTrustTool, ATSFGateTool } from '@vorionsys/atsf-core/langchain';
+
+// Add to your LangChain agent
+const tools = [
+  new ATSFTrustTool({ engine }),
+  new ATSFGateTool({ engine }),
+];
+```
+
+---
+
 ## Best Practices
 
 1. **Initialize once**: Call `initialize()` once per agent lifecycle
@@ -464,6 +536,8 @@ try {
 5. **Skill matching**: Define accurate skills for collaboration
 6. **Load management**: Monitor `currentLoad` for capacity
 7. **Cleanup**: Call `leaveCoordinator()` when done
+8. **Trust signals**: Record behavioral signals for accurate trust scoring
+9. **Recovery awareness**: Monitor recovery state for demoted agents
 
 ---
 
@@ -479,3 +553,15 @@ npx tsx scripts/agents/multi-agent-fleet.ts
 # Agent communication demo
 npx tsx scripts/agents/collaborative-agents-demo.ts
 ```
+
+---
+
+## Related Documentation
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - System architecture
+- **[PRODUCT_SPEC.md](./PRODUCT_SPEC.md)** - Product specification
+- **[@vorionsys/atsf-core](https://www.npmjs.com/package/@vorionsys/atsf-core)** - Trust engine package
+
+---
+
+*Last updated: January 2026*
