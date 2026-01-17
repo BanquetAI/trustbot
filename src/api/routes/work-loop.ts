@@ -497,6 +497,7 @@ app.get('/trust/:agentId', async (c) => {
 
         // Get complexity stats for smarter decay info
         const complexityStats = trustIntegration.getComplexityStats(agentId);
+        const recoveryState = trustIntegration.getAgentRecoveryState(agentId);
 
         return c.json({
             agent: {
@@ -519,6 +520,21 @@ app.get('/trust/:agentId', async (c) => {
                     successRate: Math.round(complexityStats.successRate * 100),
                     complexityBonus: Math.round(complexityStats.complexityBonus * 100),
                     decayReduction: `${Math.round(complexityStats.complexityBonus * 100)}%`,
+                } : null,
+                recovery: recoveryState ? {
+                    active: recoveryState.active,
+                    originalTier: recoveryState.originalTier,
+                    currentTier: trust.level,
+                    targetTier: recoveryState.targetTier,
+                    progressPercent: Math.round((recoveryState.recoveryPoints / recoveryState.pointsRequired) * 100),
+                    recoveryPoints: recoveryState.recoveryPoints,
+                    pointsRequired: recoveryState.pointsRequired,
+                    consecutiveSuccesses: recoveryState.consecutiveSuccesses,
+                    requiredSuccesses: recoveryState.requiredConsecutiveSuccesses,
+                    successRate: Math.round(recoveryState.recoverySuccessRate * 100),
+                    tasksCompleted: recoveryState.recoveryTaskCount,
+                    demotedAt: recoveryState.demotedAt,
+                    recoveryStartedAt: recoveryState.recoveryStartedAt,
                 } : null,
             } : null,
         });
@@ -599,6 +615,148 @@ app.post('/trust/reset', async (c) => {
             message: error instanceof Error ? error.message : 'Unknown error',
         }, 500);
     }
+});
+
+// ============================================================================
+// Recovery Path Endpoints
+// ============================================================================
+
+// GET /work-loop/trust/recovery - Get recovery summary for all agents in recovery
+app.get('/trust/recovery', async (c) => {
+    ensureInitialized();
+
+    try {
+        const recoverySummary = await trustIntegration.getRecoverySummary();
+        const agents = agentWorkLoop.getAllAgents();
+
+        // Merge with agent info
+        const recoveryInfo = recoverySummary.map(recovery => {
+            const agent = agents.find(a => a.id === recovery.agentId);
+            return {
+                ...recovery,
+                agentName: agent?.name ?? 'Unknown',
+                agentRole: agent?.role ?? 'Unknown',
+                originalTierName: trustIntegration.getTrustLevelName(recovery.originalTier),
+                targetTierName: trustIntegration.getTrustLevelName(recovery.targetTier),
+                currentTierName: trustIntegration.getTrustLevelName(recovery.currentTier),
+            };
+        });
+
+        return c.json({
+            agentsInRecovery: recoveryInfo.length,
+            recoveries: recoveryInfo,
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to get recovery summary',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
+// POST /work-loop/trust/:agentId/recovery/start - Start recovery for an agent
+app.post('/trust/:agentId/recovery/start', async (c) => {
+    ensureInitialized();
+
+    const agentId = c.req.param('agentId');
+    const agent = agentWorkLoop.getAgent(agentId);
+
+    if (!agent) {
+        return c.json({ error: 'Agent not found' }, 404);
+    }
+
+    const body = await c.req.json().catch(() => ({})) as { originalTier?: number };
+
+    try {
+        const recovery = await trustIntegration.startAgentRecovery(agentId, body.originalTier);
+
+        if (!recovery) {
+            return c.json({
+                error: 'Cannot start recovery',
+                message: 'Agent may already be at or above original tier, or no original tier is known',
+            }, 400);
+        }
+
+        return c.json({
+            success: true,
+            message: `Recovery started for ${agent.name}`,
+            recovery: {
+                active: recovery.active,
+                originalTier: recovery.originalTier,
+                targetTier: recovery.targetTier,
+                pointsRequired: recovery.pointsRequired,
+                requiredConsecutiveSuccesses: recovery.requiredConsecutiveSuccesses,
+            },
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to start recovery',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
+// POST /work-loop/trust/:agentId/recovery/cancel - Cancel recovery for an agent
+app.post('/trust/:agentId/recovery/cancel', async (c) => {
+    ensureInitialized();
+
+    const agentId = c.req.param('agentId');
+    const agent = agentWorkLoop.getAgent(agentId);
+
+    if (!agent) {
+        return c.json({ error: 'Agent not found' }, 404);
+    }
+
+    const body = await c.req.json().catch(() => ({})) as { reason?: string };
+
+    try {
+        const cancelled = await trustIntegration.cancelAgentRecovery(agentId, body.reason);
+
+        if (!cancelled) {
+            return c.json({
+                error: 'Cannot cancel recovery',
+                message: 'Agent is not in recovery mode',
+            }, 400);
+        }
+
+        return c.json({
+            success: true,
+            message: `Recovery cancelled for ${agent.name}`,
+            reason: body.reason ?? 'manual',
+        });
+    } catch (error) {
+        return c.json({
+            error: 'Failed to cancel recovery',
+            message: error instanceof Error ? error.message : 'Unknown error',
+        }, 500);
+    }
+});
+
+// POST /work-loop/trust/:agentId/original-tier - Set original tier for an agent
+app.post('/trust/:agentId/original-tier', async (c) => {
+    ensureInitialized();
+
+    const agentId = c.req.param('agentId');
+    const agent = agentWorkLoop.getAgent(agentId);
+
+    if (!agent) {
+        return c.json({ error: 'Agent not found' }, 404);
+    }
+
+    const body = await c.req.json() as { tier: number };
+
+    if (typeof body.tier !== 'number' || body.tier < 0 || body.tier > 5) {
+        return c.json({ error: 'tier (0-5) required' }, 400);
+    }
+
+    trustIntegration.setOriginalTier(agentId, body.tier);
+
+    return c.json({
+        success: true,
+        message: `Original tier set to T${body.tier} for ${agent.name}`,
+        agentId,
+        originalTier: body.tier,
+    });
 });
 
 export default app;

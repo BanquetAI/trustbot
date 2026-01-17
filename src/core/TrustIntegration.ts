@@ -15,6 +15,10 @@ import {
     type TrustSignal,
     type TrustTierChangedEvent,
     type TrustFailureDetectedEvent,
+    type RecoveryState,
+    type TrustRecoveryStartedEvent,
+    type TrustRecoveryProgressEvent,
+    type TrustRecoveryCompleteEvent,
 } from '@vorionsys/atsf-core';
 import { createFileProvider, type FilePersistenceProvider } from '@vorionsys/atsf-core/persistence';
 import type { TrustLevel } from '@vorionsys/atsf-core/types';
@@ -48,6 +52,9 @@ interface TrustIntegrationEvents {
     'trust:agent_demoted': (agentId: string, newTier: number, previousTier: number) => void;
     'trust:failure_detected': (agentId: string, failureCount: number) => void;
     'trust:score_updated': (agentId: string, score: number, tier: number) => void;
+    'trust:recovery_started': (agentId: string, originalTier: number, targetTier: number) => void;
+    'trust:recovery_progress': (agentId: string, progressPercent: number, consecutiveSuccesses: number) => void;
+    'trust:recovery_complete': (agentId: string, newTier: number, tasksCompleted: number) => void;
 }
 
 // ============================================================================
@@ -108,6 +115,8 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     private persistence: FilePersistenceProvider;
     private enabled: boolean;
     private agentTierCache: Map<string, number> = new Map();
+    /** Tracks the original (pre-demotion) tier for each agent */
+    private originalTierCache: Map<string, number> = new Map();
     private initialized: boolean = false;
     private initPromise: Promise<void> | null = null;
 
@@ -205,6 +214,11 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
                 this.emit('trust:agent_promoted', entityId, newLevel, previousLevel);
                 console.log(`[TrustIntegration] Agent ${entityId} PROMOTED: T${previousLevel} -> T${newLevel}`);
             } else {
+                // Track original tier on demotion (only if not already tracked)
+                if (!this.originalTierCache.has(entityId)) {
+                    this.originalTierCache.set(entityId, previousLevel);
+                    console.log(`[TrustIntegration] Tracking original tier for ${entityId}: T${previousLevel}`);
+                }
                 this.emit('trust:agent_demoted', entityId, newLevel, previousLevel);
                 console.log(`[TrustIntegration] Agent ${entityId} DEMOTED: T${previousLevel} -> T${newLevel}`);
             }
@@ -218,6 +232,27 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             if (acceleratedDecayActive) {
                 console.log(`[TrustIntegration] Agent ${entityId} accelerated decay ACTIVE (${failureCount} failures)`);
             }
+        });
+
+        // Recovery events
+        this.trustEngine.on('trust:recovery_started', (event: TrustRecoveryStartedEvent) => {
+            const { entityId, originalTier, targetTier, pointsRequired } = event;
+            this.emit('trust:recovery_started', entityId, originalTier, targetTier);
+            console.log(`[TrustIntegration] Agent ${entityId} RECOVERY STARTED: targeting T${targetTier} (${pointsRequired} points required)`);
+        });
+
+        this.trustEngine.on('trust:recovery_progress', (event: TrustRecoveryProgressEvent) => {
+            const { entityId, progressPercent, consecutiveSuccesses, recoveryPoints, pointsRequired } = event;
+            this.emit('trust:recovery_progress', entityId, progressPercent, consecutiveSuccesses);
+            console.log(`[TrustIntegration] Agent ${entityId} RECOVERY PROGRESS: ${progressPercent}% (${recoveryPoints}/${pointsRequired} pts, ${consecutiveSuccesses} consecutive)`);
+        });
+
+        this.trustEngine.on('trust:recovery_complete', (event: TrustRecoveryCompleteEvent) => {
+            const { entityId, newTier, tasksCompleted, recoveryDurationMs } = event;
+            // Clear original tier cache on recovery completion
+            this.originalTierCache.delete(entityId);
+            this.emit('trust:recovery_complete', entityId, newTier, tasksCompleted);
+            console.log(`[TrustIntegration] Agent ${entityId} RECOVERY COMPLETE: T${newTier} achieved (${tasksCompleted} tasks, ${Math.round(recoveryDurationMs / 1000)}s)`);
         });
     }
 
@@ -340,7 +375,7 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
     }
 
     /**
-     * Record task completion signal with complexity tracking
+     * Record task completion signal with complexity tracking and recovery progress
      */
     async recordTaskCompleted(
         agent: WorkLoopAgent,
@@ -374,6 +409,16 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             result.success,
             task.type
         );
+
+        // Update recovery progress if agent is in recovery mode
+        if (this.trustEngine.isInRecovery(agent.id)) {
+            await this.trustEngine.updateRecoveryProgress(agent.id, complexity, result.success);
+
+            // Evaluate if agent should be promoted (only on success)
+            if (result.success) {
+                await this.trustEngine.evaluateRecovery(agent.id);
+            }
+        }
     }
 
     /**
@@ -403,6 +448,11 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
             false, // failed
             task.type
         );
+
+        // Update recovery progress if agent is in recovery (failure resets consecutive successes)
+        if (this.trustEngine.isInRecovery(agent.id)) {
+            await this.trustEngine.updateRecoveryProgress(agent.id, complexity, false);
+        }
     }
 
     /**
@@ -953,6 +1003,112 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
         return this.enabled;
     }
 
+    // -------------------------------------------------------------------------
+    // Recovery Path Methods
+    // -------------------------------------------------------------------------
+
+    /**
+     * Start recovery mode for an agent.
+     *
+     * Recovery allows a demoted agent to gradually regain trust through
+     * successful task completion. Call this after an agent is demoted
+     * to give them a path back to their original tier.
+     *
+     * @param agentId - The agent to start recovery for
+     * @param originalTier - Optional override for original tier (uses cached value if not provided)
+     */
+    async startAgentRecovery(agentId: string, originalTier?: number): Promise<RecoveryState | null> {
+        // Use provided tier or fall back to cached original tier
+        const targetOriginalTier = originalTier ?? this.originalTierCache.get(agentId);
+
+        if (targetOriginalTier === undefined) {
+            console.log(`[TrustIntegration] Cannot start recovery for ${agentId}: no original tier known`);
+            return null;
+        }
+
+        return await this.trustEngine.startRecovery(agentId, targetOriginalTier as TrustLevel);
+    }
+
+    /**
+     * Get the current recovery state for an agent
+     */
+    getAgentRecoveryState(agentId: string): RecoveryState | null {
+        return this.trustEngine.getRecoveryState(agentId);
+    }
+
+    /**
+     * Cancel recovery for an agent
+     */
+    async cancelAgentRecovery(agentId: string, reason?: string): Promise<boolean> {
+        return await this.trustEngine.cancelRecovery(agentId, reason);
+    }
+
+    /**
+     * Check if an agent is in recovery mode
+     */
+    isAgentInRecovery(agentId: string): boolean {
+        return this.trustEngine.isInRecovery(agentId);
+    }
+
+    /**
+     * Get the original (pre-demotion) tier for an agent
+     */
+    getOriginalTier(agentId: string): number | undefined {
+        return this.originalTierCache.get(agentId);
+    }
+
+    /**
+     * Set the original tier for an agent (useful for agents that should start recovery)
+     */
+    setOriginalTier(agentId: string, tier: number): void {
+        this.originalTierCache.set(agentId, tier);
+    }
+
+    /**
+     * Get recovery summary for all agents in recovery
+     */
+    async getRecoverySummary(): Promise<Array<{
+        agentId: string;
+        currentTier: number;
+        targetTier: number;
+        originalTier: number;
+        progressPercent: number;
+        consecutiveSuccesses: number;
+        requiredSuccesses: number;
+        recoveryPoints: number;
+        pointsRequired: number;
+        successRate: number;
+        tasksCompleted: number;
+    }>> {
+        const summary = [];
+
+        for (const agentId of this.trustEngine.getEntityIds()) {
+            const recovery = this.trustEngine.getRecoveryState(agentId);
+            if (recovery?.active) {
+                const record = await this.trustEngine.getScore(agentId);
+                const progressPercent = Math.min(100, Math.round(
+                    (recovery.recoveryPoints / recovery.pointsRequired) * 100
+                ));
+
+                summary.push({
+                    agentId,
+                    currentTier: record?.level ?? 0,
+                    targetTier: recovery.targetTier,
+                    originalTier: recovery.originalTier,
+                    progressPercent,
+                    consecutiveSuccesses: recovery.consecutiveSuccesses,
+                    requiredSuccesses: recovery.requiredConsecutiveSuccesses,
+                    recoveryPoints: recovery.recoveryPoints,
+                    pointsRequired: recovery.pointsRequired,
+                    successRate: Math.round(recovery.recoverySuccessRate * 100),
+                    tasksCompleted: recovery.recoveryTaskCount,
+                });
+            }
+        }
+
+        return summary;
+    }
+
     /**
      * Reset all trust data - clear persistence and memory
      * Use this to start fresh after data corruption or major changes
@@ -962,8 +1118,9 @@ export class TrustIntegration extends EventEmitter<TrustIntegrationEvents> {
 
         console.log('[TrustIntegration] Resetting all trust data...');
 
-        // Clear in-memory cache
+        // Clear in-memory caches
         this.agentTierCache.clear();
+        this.originalTierCache.clear();
 
         // Clear trust engine records
         for (const entityId of this.trustEngine.getEntityIds()) {

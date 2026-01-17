@@ -63,7 +63,10 @@ export type TrustEventType =
   | 'trust:score_changed'
   | 'trust:tier_changed'
   | 'trust:decay_applied'
-  | 'trust:failure_detected';
+  | 'trust:failure_detected'
+  | 'trust:recovery_started'
+  | 'trust:recovery_progress'
+  | 'trust:recovery_complete';
 
 /**
  * Base trust event
@@ -139,6 +142,39 @@ export interface TrustFailureDetectedEvent extends TrustEvent {
 }
 
 /**
+ * Recovery started event - agent begins recovery path after demotion
+ */
+export interface TrustRecoveryStartedEvent extends TrustEvent {
+  type: 'trust:recovery_started';
+  originalTier: TrustLevel;
+  currentTier: TrustLevel;
+  targetTier: TrustLevel;
+  pointsRequired: number;
+}
+
+/**
+ * Recovery progress event - agent makes progress on recovery path
+ */
+export interface TrustRecoveryProgressEvent extends TrustEvent {
+  type: 'trust:recovery_progress';
+  recoveryPoints: number;
+  pointsRequired: number;
+  progressPercent: number;
+  consecutiveSuccesses: number;
+}
+
+/**
+ * Recovery complete event - agent successfully recovered trust tier
+ */
+export interface TrustRecoveryCompleteEvent extends TrustEvent {
+  type: 'trust:recovery_complete';
+  previousTier: TrustLevel;
+  newTier: TrustLevel;
+  recoveryDurationMs: number;
+  tasksCompleted: number;
+}
+
+/**
  * Union of all trust events
  */
 export type AnyTrustEvent =
@@ -147,7 +183,10 @@ export type AnyTrustEvent =
   | TrustScoreChangedEvent
   | TrustTierChangedEvent
   | TrustDecayAppliedEvent
-  | TrustFailureDetectedEvent;
+  | TrustFailureDetectedEvent
+  | TrustRecoveryStartedEvent
+  | TrustRecoveryProgressEvent
+  | TrustRecoveryCompleteEvent;
 
 /**
  * Task complexity entry for tracking agent performance on different task types
@@ -161,6 +200,36 @@ export interface TaskComplexityEntry {
   timestamp: string;
   /** Optional task type for analytics */
   taskType?: string;
+}
+
+/**
+ * Recovery state for agents on a trust recovery path
+ */
+export interface RecoveryState {
+  /** Whether agent is actively in recovery mode */
+  active: boolean;
+  /** The tier the agent had before demotion */
+  originalTier: TrustLevel;
+  /** The tier agent was demoted to */
+  demotedTier: TrustLevel;
+  /** Current target tier for recovery (may be incremental) */
+  targetTier: TrustLevel;
+  /** Timestamp when demotion occurred */
+  demotedAt: string;
+  /** Timestamp when recovery period started (after cooldown) */
+  recoveryStartedAt: string | null;
+  /** Recovery points earned (successful task completions weighted by complexity) */
+  recoveryPoints: number;
+  /** Points required for next tier promotion */
+  pointsRequired: number;
+  /** Number of consecutive successes in recovery */
+  consecutiveSuccesses: number;
+  /** Minimum consecutive successes required */
+  requiredConsecutiveSuccesses: number;
+  /** Success rate during recovery period */
+  recoverySuccessRate: number;
+  /** Tasks completed during recovery */
+  recoveryTaskCount: number;
 }
 
 /**
@@ -180,6 +249,8 @@ export interface TrustRecord {
   recentTasks: TaskComplexityEntry[];
   /** Calculated complexity bonus factor (0.0 to 1.0, reduces decay) */
   complexityBonus: number;
+  /** Recovery state for demoted agents seeking to regain trust */
+  recovery: RecoveryState | null;
 }
 
 /**
@@ -656,6 +727,7 @@ export class TrustEngine extends EventEmitter {
       recentFailures: [],
       recentTasks: [],
       complexityBonus: 0,
+      recovery: null,
     };
 
     this.records.set(entityId, record);
@@ -802,6 +874,7 @@ export class TrustEngine extends EventEmitter {
       recentFailures: [],
       recentTasks: [],
       complexityBonus: 0,
+      recovery: null,
     };
   }
 
@@ -991,6 +1064,359 @@ export class TrustEngine extends EventEmitter {
       successRate: successCount / taskCount,
       complexityBonus: record.complexityBonus,
     };
+  }
+
+  // =========================================================================
+  // Trust Recovery Path System
+  // =========================================================================
+
+  /**
+   * Recovery points required per tier promotion.
+   * Higher tiers require more points to recover to.
+   */
+  private readonly RECOVERY_POINTS_PER_TIER: Record<TrustLevel, number> = {
+    0: 0,     // Can't recover to Sandbox
+    1: 50,    // Recover to Provisional
+    2: 100,   // Recover to Standard
+    3: 200,   // Recover to Trusted
+    4: 350,   // Recover to Certified
+    5: 500,   // Recover to Autonomous
+  };
+
+  /**
+   * Consecutive successes required per tier promotion.
+   */
+  private readonly CONSECUTIVE_SUCCESSES_PER_TIER: Record<TrustLevel, number> = {
+    0: 0,
+    1: 3,
+    2: 5,
+    3: 8,
+    4: 12,
+    5: 15,
+  };
+
+  /**
+   * Start recovery mode for a demoted agent.
+   *
+   * Recovery allows agents to gradually regain trust through demonstrated
+   * good behavior. The agent must complete tasks successfully to earn
+   * recovery points, with task complexity influencing point value.
+   *
+   * @param entityId - The agent to start recovery for
+   * @param originalTier - The tier the agent had before demotion (recovery target)
+   */
+  async startRecovery(entityId: ID, originalTier: TrustLevel): Promise<RecoveryState | null> {
+    const record = this.records.get(entityId);
+    if (!record) {
+      logger.warn({ entityId }, 'Cannot start recovery: entity not found');
+      return null;
+    }
+
+    // Can't start recovery if already in recovery
+    if (record.recovery?.active) {
+      logger.info({ entityId }, 'Recovery already active');
+      return record.recovery;
+    }
+
+    // Can't start recovery if at or above original tier
+    if (record.level >= originalTier) {
+      logger.info({ entityId, currentTier: record.level, originalTier },
+        'Cannot start recovery: already at or above original tier');
+      return null;
+    }
+
+    // Calculate target tier (one step above current)
+    const targetTier = Math.min(originalTier, record.level + 1) as TrustLevel;
+
+    const recovery: RecoveryState = {
+      active: true,
+      originalTier,
+      demotedTier: record.level,
+      targetTier,
+      demotedAt: new Date().toISOString(),
+      recoveryStartedAt: new Date().toISOString(),
+      recoveryPoints: 0,
+      pointsRequired: this.RECOVERY_POINTS_PER_TIER[targetTier],
+      consecutiveSuccesses: 0,
+      requiredConsecutiveSuccesses: this.CONSECUTIVE_SUCCESSES_PER_TIER[targetTier],
+      recoverySuccessRate: 0,
+      recoveryTaskCount: 0,
+    };
+
+    record.recovery = recovery;
+
+    // Emit recovery started event
+    this.emitTrustEvent({
+      type: 'trust:recovery_started',
+      entityId,
+      timestamp: new Date().toISOString(),
+      originalTier,
+      currentTier: record.level,
+      targetTier,
+      pointsRequired: recovery.pointsRequired,
+    });
+
+    // Auto-persist
+    await this.autoPersistRecord(record);
+
+    logger.info(
+      { entityId, originalTier, currentTier: record.level, targetTier, pointsRequired: recovery.pointsRequired },
+      'Recovery started'
+    );
+
+    return recovery;
+  }
+
+  /**
+   * Update recovery progress based on task completion.
+   *
+   * Points earned = complexity * (success ? 10 : 0)
+   * Successful complex tasks earn more points.
+   * Failures reset consecutive success counter but don't remove points.
+   *
+   * @param entityId - The agent completing the task
+   * @param complexity - Task complexity (1-5)
+   * @param success - Whether the task was completed successfully
+   * @returns Updated recovery state, or null if not in recovery
+   */
+  async updateRecoveryProgress(
+    entityId: ID,
+    complexity: number,
+    success: boolean
+  ): Promise<RecoveryState | null> {
+    const record = this.records.get(entityId);
+    if (!record?.recovery?.active) {
+      return null;
+    }
+
+    const recovery = record.recovery;
+    const clampedComplexity = Math.max(1, Math.min(5, complexity));
+
+    // Update task count
+    recovery.recoveryTaskCount++;
+
+    if (success) {
+      // Earn points based on complexity
+      const pointsEarned = clampedComplexity * 10;
+      recovery.recoveryPoints += pointsEarned;
+      recovery.consecutiveSuccesses++;
+
+      // Update success rate
+      const prevSuccesses = Math.round(recovery.recoverySuccessRate * (recovery.recoveryTaskCount - 1));
+      recovery.recoverySuccessRate = (prevSuccesses + 1) / recovery.recoveryTaskCount;
+
+      logger.debug(
+        { entityId, pointsEarned, totalPoints: recovery.recoveryPoints, consecutiveSuccesses: recovery.consecutiveSuccesses },
+        'Recovery progress: task succeeded'
+      );
+    } else {
+      // Failure resets consecutive successes (but keeps points)
+      recovery.consecutiveSuccesses = 0;
+
+      // Update success rate
+      const prevSuccesses = Math.round(recovery.recoverySuccessRate * (recovery.recoveryTaskCount - 1));
+      recovery.recoverySuccessRate = prevSuccesses / recovery.recoveryTaskCount;
+
+      logger.debug(
+        { entityId, totalPoints: recovery.recoveryPoints, consecutiveSuccessesReset: true },
+        'Recovery progress: task failed, consecutive successes reset'
+      );
+    }
+
+    // Calculate progress percentage
+    const progressPercent = Math.min(100, Math.round(
+      (recovery.recoveryPoints / recovery.pointsRequired) * 100
+    ));
+
+    // Emit progress event
+    this.emitTrustEvent({
+      type: 'trust:recovery_progress',
+      entityId,
+      timestamp: new Date().toISOString(),
+      recoveryPoints: recovery.recoveryPoints,
+      pointsRequired: recovery.pointsRequired,
+      progressPercent,
+      consecutiveSuccesses: recovery.consecutiveSuccesses,
+    });
+
+    // Auto-persist
+    await this.autoPersistRecord(record);
+
+    return recovery;
+  }
+
+  /**
+   * Evaluate if an agent should be promoted during recovery.
+   *
+   * Promotion requires:
+   * 1. Sufficient recovery points
+   * 2. Minimum consecutive successes
+   * 3. Minimum success rate (70%)
+   *
+   * @returns true if agent was promoted, false otherwise
+   */
+  async evaluateRecovery(entityId: ID): Promise<boolean> {
+    const record = this.records.get(entityId);
+    if (!record?.recovery?.active) {
+      return false;
+    }
+
+    const recovery = record.recovery;
+    const minSuccessRate = 0.7;
+
+    // Check all promotion requirements
+    const hasEnoughPoints = recovery.recoveryPoints >= recovery.pointsRequired;
+    const hasEnoughConsecutive = recovery.consecutiveSuccesses >= recovery.requiredConsecutiveSuccesses;
+    const hasGoodSuccessRate = recovery.recoverySuccessRate >= minSuccessRate;
+
+    if (!hasEnoughPoints || !hasEnoughConsecutive || !hasGoodSuccessRate) {
+      logger.debug(
+        {
+          entityId,
+          hasEnoughPoints,
+          hasEnoughConsecutive,
+          hasGoodSuccessRate,
+          points: `${recovery.recoveryPoints}/${recovery.pointsRequired}`,
+          consecutive: `${recovery.consecutiveSuccesses}/${recovery.requiredConsecutiveSuccesses}`,
+          successRate: `${Math.round(recovery.recoverySuccessRate * 100)}%`,
+        },
+        'Recovery evaluation: not ready for promotion'
+      );
+      return false;
+    }
+
+    // Promote one tier
+    const previousTier = record.level;
+    const newTier = recovery.targetTier;
+    const recoveryStartTime = recovery.recoveryStartedAt
+      ? new Date(recovery.recoveryStartedAt).getTime()
+      : Date.now();
+
+    // Update score to match new tier
+    record.level = newTier;
+    record.score = TRUST_THRESHOLDS[newTier].min;
+
+    // Update components to match new tier
+    const componentValue = record.score / 1000;
+    record.components = {
+      behavioral: componentValue,
+      compliance: componentValue,
+      identity: componentValue,
+      context: componentValue,
+    };
+
+    // Add history entry
+    record.history.push({
+      score: record.score,
+      level: record.level,
+      reason: `Recovery promotion: T${previousTier} → T${newTier}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Emit tier changed event
+    this.emitTrustEvent({
+      type: 'trust:tier_changed',
+      entityId,
+      timestamp: new Date().toISOString(),
+      previousLevel: previousTier,
+      newLevel: newTier,
+      previousLevelName: TRUST_LEVEL_NAMES[previousTier],
+      newLevelName: TRUST_LEVEL_NAMES[newTier],
+      direction: 'promoted',
+    });
+
+    // Check if recovery is complete (reached original tier)
+    if (newTier >= recovery.originalTier) {
+      // Recovery complete!
+      this.emitTrustEvent({
+        type: 'trust:recovery_complete',
+        entityId,
+        timestamp: new Date().toISOString(),
+        previousTier,
+        newTier,
+        recoveryDurationMs: Date.now() - recoveryStartTime,
+        tasksCompleted: recovery.recoveryTaskCount,
+      });
+
+      // Clear recovery state
+      record.recovery = null;
+
+      logger.info(
+        { entityId, originalTier: recovery.originalTier, finalTier: newTier, tasksCompleted: recovery.recoveryTaskCount },
+        'Recovery complete!'
+      );
+    } else {
+      // Continue recovery to next tier
+      const nextTargetTier = Math.min(recovery.originalTier, newTier + 1) as TrustLevel;
+
+      recovery.targetTier = nextTargetTier;
+      recovery.pointsRequired = this.RECOVERY_POINTS_PER_TIER[nextTargetTier];
+      recovery.requiredConsecutiveSuccesses = this.CONSECUTIVE_SUCCESSES_PER_TIER[nextTargetTier];
+      recovery.recoveryPoints = 0; // Reset points for next tier
+      recovery.consecutiveSuccesses = 0; // Reset consecutive for next tier
+
+      logger.info(
+        { entityId, promotedTo: newTier, nextTarget: nextTargetTier, pointsRequired: recovery.pointsRequired },
+        'Recovery tier promoted, continuing to next tier'
+      );
+    }
+
+    // Auto-persist
+    await this.autoPersistRecord(record);
+
+    return true;
+  }
+
+  /**
+   * Get the current recovery state for an entity
+   */
+  getRecoveryState(entityId: ID): RecoveryState | null {
+    const record = this.records.get(entityId);
+    return record?.recovery ?? null;
+  }
+
+  /**
+   * Cancel recovery mode for an entity.
+   *
+   * Use this when an agent has a critical failure during recovery
+   * or when recovery should be aborted for any reason.
+   */
+  async cancelRecovery(entityId: ID, reason?: string): Promise<boolean> {
+    const record = this.records.get(entityId);
+    if (!record?.recovery?.active) {
+      return false;
+    }
+
+    const recovery = record.recovery;
+
+    logger.info(
+      { entityId, reason, tasksCompleted: recovery.recoveryTaskCount, pointsEarned: recovery.recoveryPoints },
+      'Recovery cancelled'
+    );
+
+    // Clear recovery state
+    record.recovery = null;
+
+    // Add history entry
+    record.history.push({
+      score: record.score,
+      level: record.level,
+      reason: `Recovery cancelled: ${reason ?? 'manual'}`,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Auto-persist
+    await this.autoPersistRecord(record);
+
+    return true;
+  }
+
+  /**
+   * Check if an entity is in recovery mode
+   */
+  isInRecovery(entityId: ID): boolean {
+    const record = this.records.get(entityId);
+    return record?.recovery?.active ?? false;
   }
 }
 
