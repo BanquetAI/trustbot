@@ -23,11 +23,25 @@ import {
     resetTrustHistoryStore,
 } from './TrustHistoryStore.js';
 
+// Type for Supabase/Postgrest errors
+interface PostgrestError {
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+}
+
+// Type for mock query results
+interface MockQueryResult {
+    data: StoredTrustEvent | StoredTrustEvent[] | null;
+    error: PostgrestError | null;
+}
+
 describe('TrustHistoryStore', () => {
     let store: TrustHistoryStore;
 
     // Helper to create mock query builder
-    const createMockQuery = (result: { data: any; error: any }) => ({
+    const createMockQuery = (result: MockQueryResult) => ({
         insert: vi.fn().mockReturnThis(),
         select: vi.fn().mockReturnThis(),
         single: vi.fn().mockResolvedValue(result),
@@ -48,14 +62,14 @@ describe('TrustHistoryStore', () => {
 
         // Set environment variables for tests
         process.env.SUPABASE_URL = 'http://localhost:54321';
-        process.env.SUPABASE_ANON_KEY = 'test-key';
+        process.env.SUPABASE_SERVICE_KEY = 'test-service-key';
 
         store = new TrustHistoryStore();
     });
 
     afterEach(() => {
         delete process.env.SUPABASE_URL;
-        delete process.env.SUPABASE_ANON_KEY;
+        delete process.env.SUPABASE_SERVICE_KEY;
     });
 
     // =========================================================================
@@ -610,10 +624,10 @@ describe('TrustHistoryStore', () => {
     describe('Configuration', () => {
         it('should throw if Supabase credentials missing', () => {
             delete process.env.SUPABASE_URL;
-            delete process.env.SUPABASE_ANON_KEY;
+            delete process.env.SUPABASE_SERVICE_KEY;
             resetTrustHistoryStore();
 
-            expect(() => new TrustHistoryStore()).toThrow('Supabase URL and key are required');
+            expect(() => new TrustHistoryStore()).toThrow('Supabase URL and service key are required');
         });
     });
 });

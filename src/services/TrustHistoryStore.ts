@@ -10,7 +10,54 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { EventEmitter } from 'eventemitter3';
+import { z } from 'zod';
 import type { TrustEventType } from './TrustScoreCalculator.js';
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** PostgrestError code for "not found" on single() queries */
+const POSTGREST_NOT_FOUND = 'PGRST116';
+
+// ============================================================================
+// Zod Validation Schemas
+// ============================================================================
+
+const TrustEventTypeSchema = z.enum([
+    'task_completed',
+    'task_reviewed_positive',
+    'task_reviewed_negative',
+    'task_failed',
+    'task_timeout',
+    'invalid_delegation',
+    'security_violation',
+    'manual_adjustment',
+]);
+
+const UuidSchema = z.string().uuid('Invalid UUID format');
+
+const TrustEventInputSchema = z.object({
+    agentId: UuidSchema,
+    orgId: UuidSchema,
+    eventType: TrustEventTypeSchema,
+    points: z.number().int('Points must be an integer'),
+    decayDays: z.number().int().positive('Decay days must be a positive integer'),
+    reason: z.string().max(1000).optional(),
+    oldScore: z.number().int(),
+    newScore: z.number().int(),
+    metadata: z.record(z.unknown()).optional(),
+});
+
+const TrustEventQuerySchema = z.object({
+    agentId: UuidSchema.optional(),
+    orgId: UuidSchema.optional(),
+    eventType: z.union([TrustEventTypeSchema, z.array(TrustEventTypeSchema)]).optional(),
+    startDate: z.date().optional(),
+    endDate: z.date().optional(),
+    limit: z.number().int().positive().max(1000).optional(),
+    offset: z.number().int().nonnegative().optional(),
+});
 
 // ============================================================================
 // Types
@@ -83,10 +130,14 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
         super();
 
         const url = supabaseUrl || process.env.SUPABASE_URL;
-        const key = supabaseKey || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
+        const key = supabaseKey || process.env.SUPABASE_SERVICE_KEY;
 
         if (!url || !key) {
-            throw new Error('Supabase URL and key are required');
+            throw new Error(
+                'Supabase URL and service key are required. ' +
+                'Set SUPABASE_URL and SUPABASE_SERVICE_KEY environment variables. ' +
+                'Note: ANON_KEY is not supported for server-side operations.'
+            );
         }
 
         this.supabase = createClient(url, key);
@@ -101,18 +152,21 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
      * Events are immutable once stored (append-only)
      */
     async store(input: TrustEventInput): Promise<StoredTrustEvent> {
+        // Validate input with Zod
+        const validated = TrustEventInputSchema.parse(input);
+
         const { data, error } = await this.supabase
             .from(this.tableName)
             .insert({
-                agent_id: input.agentId,
-                org_id: input.orgId,
-                event_type: input.eventType,
-                points: input.points,
-                decay_days: input.decayDays,
-                reason: input.reason || null,
-                old_score: input.oldScore,
-                new_score: input.newScore,
-                metadata: input.metadata || null,
+                agent_id: validated.agentId,
+                org_id: validated.orgId,
+                event_type: validated.eventType,
+                points: validated.points,
+                decay_days: validated.decayDays,
+                reason: validated.reason || null,
+                old_score: validated.oldScore,
+                new_score: validated.newScore,
+                metadata: validated.metadata || null,
             })
             .select()
             .single();
@@ -131,16 +185,19 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
      * Store multiple events in a batch
      */
     async storeBatch(inputs: TrustEventInput[]): Promise<StoredTrustEvent[]> {
-        const records = inputs.map(input => ({
-            agent_id: input.agentId,
-            org_id: input.orgId,
-            event_type: input.eventType,
-            points: input.points,
-            decay_days: input.decayDays,
-            reason: input.reason || null,
-            old_score: input.oldScore,
-            new_score: input.newScore,
-            metadata: input.metadata || null,
+        // Validate all inputs with Zod
+        const validatedInputs = inputs.map(input => TrustEventInputSchema.parse(input));
+
+        const records = validatedInputs.map(validated => ({
+            agent_id: validated.agentId,
+            org_id: validated.orgId,
+            event_type: validated.eventType,
+            points: validated.points,
+            decay_days: validated.decayDays,
+            reason: validated.reason || null,
+            old_score: validated.oldScore,
+            new_score: validated.newScore,
+            metadata: validated.metadata || null,
         }));
 
         const { data, error } = await this.supabase
@@ -176,7 +233,7 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
             .single();
 
         if (error) {
-            if (error.code === 'PGRST116') return null; // Not found
+            if (error.code === POSTGREST_NOT_FOUND) return null;
             throw new Error(`Failed to get trust event: ${error.message}`);
         }
 
@@ -207,12 +264,11 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
         if (options?.endDate) {
             query = query.lte('created_at', options.endDate.toISOString());
         }
-        if (options?.limit) {
-            query = query.limit(options.limit);
-        }
-        if (options?.offset) {
-            query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
-        }
+
+        // Apply pagination using range() for consistent behavior
+        const limit = options?.limit || 50;
+        const offset = options?.offset || 0;
+        query = query.range(offset, offset + limit - 1);
 
         const { data, error } = await query;
 
@@ -255,12 +311,11 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
                 query = query.eq('event_type', options.eventType);
             }
         }
-        if (options?.limit) {
-            query = query.limit(options.limit);
-        }
-        if (options?.offset) {
-            query = query.range(options.offset, options.offset + (options.limit || 50) - 1);
-        }
+
+        // Apply pagination using range() for consistent behavior
+        const limit = options?.limit || 50;
+        const offset = options?.offset || 0;
+        query = query.range(offset, offset + limit - 1);
 
         const { data, error } = await query;
 
@@ -299,12 +354,11 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
         if (filters.endDate) {
             query = query.lte('created_at', filters.endDate.toISOString());
         }
-        if (filters.limit) {
-            query = query.limit(filters.limit);
-        }
-        if (filters.offset) {
-            query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
-        }
+
+        // Apply pagination using range() for consistent behavior
+        const limit = filters.limit || 50;
+        const offset = filters.offset || 0;
+        query = query.range(offset, offset + limit - 1);
 
         const { data, error } = await query;
 
@@ -446,8 +500,11 @@ export class TrustHistoryStore extends EventEmitter<StoreEvents> {
 
         if (events.length === 0) return trend;
 
-        let currentScore = events[0].old_score;
-        let currentDay = new Date(events[0].created_at);
+        const firstEvent = events[0];
+        if (!firstEvent) return trend; // Safe guard for noUncheckedIndexedAccess
+
+        let currentScore = firstEvent.old_score;
+        let currentDay = new Date(firstEvent.created_at);
         currentDay.setHours(0, 0, 0, 0);
 
         for (const event of events) {

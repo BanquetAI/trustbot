@@ -1,7 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "noUncheckedIndexedAccess": false
+    // Inherits noUncheckedIndexedAccess: true from tsconfig.json
+    // Do NOT override - production builds must match dev strictness
   },
   "exclude": [
     "node_modules",
