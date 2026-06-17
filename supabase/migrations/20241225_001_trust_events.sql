@@ -6,10 +6,13 @@
 
 -- Trust events table
 -- Stores all trust score change events for audit and calculation
+-- NOTE: agent_id and org_id do not have FK constraints because agents/organizations
+-- tables don't exist yet. This is technical debt - when those tables are created,
+-- add: REFERENCES agents(id) ON DELETE CASCADE and REFERENCES organizations(id) ON DELETE CASCADE
 CREATE TABLE IF NOT EXISTS trust_events (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    agent_id UUID NOT NULL,
-    org_id UUID NOT NULL,
+    agent_id UUID NOT NULL,  -- TODO: Add FK when agents table exists
+    org_id UUID NOT NULL,    -- TODO: Add FK when organizations table exists
     event_type VARCHAR(50) NOT NULL,
     points INTEGER NOT NULL,
     decay_days INTEGER NOT NULL DEFAULT 30,
